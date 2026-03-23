@@ -1,20 +1,21 @@
 import Navbar from "@/components/landing/Navbar";
 import HeroSection from "@/components/landing/HeroSection";
 import SocialProof from "@/components/landing/SocialProof";
+import StatsCounter from "@/components/landing/StatsCounter";
 import TargetAudience from "@/components/landing/TargetAudience";
 import Gallery from "@/components/landing/Gallery";
 import Features from "@/components/landing/Features";
+import CTABanner from "@/components/landing/CTABanner";
 import Pricing from "@/components/landing/Pricing";
 import Footer from "@/components/landing/Footer";
+import FloatingWhatsApp from "@/components/landing/FloatingWhatsApp";
 import { useSiteContent } from "@/context/SiteContext";
 import { useEffect } from "react";
 
 const Index = () => {
   const { content } = useSiteContent();
 
-  // Inject Meta Pixel & GA
   useEffect(() => {
-    // Meta Pixel
     if (content.metaPixelId) {
       const existing = document.getElementById("meta-pixel");
       if (!existing) {
@@ -24,8 +25,6 @@ const Index = () => {
         document.head.appendChild(script);
       }
     }
-
-    // Google Analytics
     if (content.googleAnalyticsId) {
       const existing = document.getElementById("ga-script");
       if (!existing) {
@@ -34,7 +33,6 @@ const Index = () => {
         script.async = true;
         script.src = `https://www.googletagmanager.com/gtag/js?id=${content.googleAnalyticsId}`;
         document.head.appendChild(script);
-
         const script2 = document.createElement("script");
         script2.innerHTML = `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${content.googleAnalyticsId}');`;
         document.head.appendChild(script2);
@@ -47,15 +45,18 @@ const Index = () => {
       <Navbar />
       <HeroSection />
       <SocialProof />
+      <StatsCounter />
       <TargetAudience />
       <div id="espaco">
         <Gallery />
       </div>
       <Features />
+      <CTABanner />
       <Pricing />
       <div id="contato">
         <Footer />
       </div>
+      <FloatingWhatsApp />
     </div>
   );
 };
