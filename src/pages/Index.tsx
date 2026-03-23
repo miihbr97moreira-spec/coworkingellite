@@ -1,16 +1,63 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import Navbar from "@/components/landing/Navbar";
+import HeroSection from "@/components/landing/HeroSection";
+import SocialProof from "@/components/landing/SocialProof";
+import TargetAudience from "@/components/landing/TargetAudience";
+import Gallery from "@/components/landing/Gallery";
+import Features from "@/components/landing/Features";
+import Pricing from "@/components/landing/Pricing";
+import Footer from "@/components/landing/Footer";
+import { useSiteContent } from "@/context/SiteContext";
+import { useEffect } from "react";
 
-// IMPORTANT: Fully REPLACE this with your own code
-const PlaceholderIndex = () => {
-  // PLACEHOLDER: Replace this entire return statement with the user's app.
-  // The inline background color is intentionally not part of the design system.
+const Index = () => {
+  const { content } = useSiteContent();
+
+  // Inject Meta Pixel & GA
+  useEffect(() => {
+    // Meta Pixel
+    if (content.metaPixelId) {
+      const existing = document.getElementById("meta-pixel");
+      if (!existing) {
+        const script = document.createElement("script");
+        script.id = "meta-pixel";
+        script.innerHTML = `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${content.metaPixelId}');fbq('track','PageView');`;
+        document.head.appendChild(script);
+      }
+    }
+
+    // Google Analytics
+    if (content.googleAnalyticsId) {
+      const existing = document.getElementById("ga-script");
+      if (!existing) {
+        const script = document.createElement("script");
+        script.id = "ga-script";
+        script.async = true;
+        script.src = `https://www.googletagmanager.com/gtag/js?id=${content.googleAnalyticsId}`;
+        document.head.appendChild(script);
+
+        const script2 = document.createElement("script");
+        script2.innerHTML = `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${content.googleAnalyticsId}');`;
+        document.head.appendChild(script2);
+      }
+    }
+  }, [content.metaPixelId, content.googleAnalyticsId]);
+
   return (
-    <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: '#fcfbf8' }}>
-      <img data-lovable-blank-page-placeholder="REMOVE_THIS" src="/placeholder.svg" alt="Your app will live here!" />
+    <div className="min-h-screen bg-background">
+      <Navbar />
+      <HeroSection />
+      <SocialProof />
+      <TargetAudience />
+      <div id="espaco">
+        <Gallery />
+      </div>
+      <Features />
+      <Pricing />
+      <div id="contato">
+        <Footer />
+      </div>
     </div>
   );
 };
-
-const Index = PlaceholderIndex;
 
 export default Index;
