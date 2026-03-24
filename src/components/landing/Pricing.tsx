@@ -3,6 +3,7 @@ import { Check, MessageCircle } from "lucide-react";
 import SpotlightCard from "./SpotlightCard";
 import MagneticButton from "./MagneticButton";
 import { useLPConfig, trackEvent } from "@/hooks/useSupabaseQuery";
+import { useCTASync } from "@/hooks/useCTASync";
 
 interface Plan {
   id: string;
@@ -16,6 +17,7 @@ interface Plan {
 
 const Pricing = () => {
   const { data: config } = useLPConfig();
+  const { syncCTAClick } = useCTASync();
   const plansConfig = config?.plans as { plans?: Plan[] } | undefined;
   const whatsappConfig = config?.whatsapp as { number?: string } | undefined;
 
@@ -28,8 +30,7 @@ const Pricing = () => {
 
   const openWhatsApp = (plan: Plan) => {
     trackEvent("plan_click", { plan: plan.id });
-    const url = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(plan.whatsappMessage)}`;
-    window.open(url, "_blank");
+    syncCTAClick(`plan-${plan.id}`, `Plano ${plan.name}`, "whatsapp");
   };
 
   return (
