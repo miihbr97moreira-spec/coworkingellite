@@ -37,14 +37,24 @@ const HeroSection = () => {
             Coworking Premium em Moema — São Paulo
           </motion.span>
 
-          <h1 className="font-display text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold leading-tight mb-6">
+          <h1 
+            className="font-display text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold leading-tight mb-6 editable-element cursor-pointer hover:ring-2 hover:ring-primary/50 rounded-lg transition-all"
+            data-type="text"
+            data-path="hero.headline"
+          >
             <span className="text-gradient-gold">{headline}</span>
           </h1>
 
-          <ScrollRevealText
-            text={subheadline}
-            className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 justify-center"
-          />
+          <div
+            className="editable-element cursor-pointer hover:ring-2 hover:ring-primary/50 rounded-lg transition-all mb-10"
+            data-type="text"
+            data-path="hero.subheadline"
+          >
+            <ScrollRevealText
+              text={subheadline}
+              className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto justify-center"
+            />
+          </div>
 
           <MagneticButton
             onClick={scrollToPlans}

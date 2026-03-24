@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   BarChart3, Type, Megaphone, MessageCircle, Monitor, LogOut,
@@ -29,11 +29,18 @@ const Admin = () => {
   const { user, role, signOut, loading } = useAuth();
   const navigate = useNavigate();
 
-  if (loading) return <div className="min-h-screen bg-background flex items-center justify-center"><div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full" /></div>;
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/admin/login");
+    }
+  }, [user, loading, navigate]);
 
-  if (!user) {
-    navigate("/admin/login");
-    return null;
+  if (loading || !user) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
   }
 
   const logout = async () => {

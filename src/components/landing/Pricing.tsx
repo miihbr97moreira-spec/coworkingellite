@@ -53,7 +53,13 @@ const Pricing = () => {
                   Mais Popular
                 </span>
               )}
-              <h3 className="font-display text-2xl font-bold mb-2">{plan.name}</h3>
+              <h3 
+                className="font-display text-2xl font-bold mb-2 editable-element cursor-pointer hover:ring-2 hover:ring-primary/50 rounded-lg transition-all"
+                data-type="text"
+                data-path={`plans.plans.${i}.name`}
+              >
+                {plan.name}
+              </h3>
               <div className="mb-6">
                 <span className="text-4xl font-bold text-gradient-gold">{plan.price}</span>
                 {plan.priceNote && <span className="text-sm text-muted-foreground">{plan.priceNote}</span>}

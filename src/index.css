@@ -1,8 +1,8 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
 @layer base {
   :root {
@@ -18,91 +18,134 @@
     --primary: 45 100% 56%;
     --primary-foreground: 220 15% 6%;
 
-    --secondary: 220 15% 14%;
+    --secondary: 220 15% 12%;
     --secondary-foreground: 45 10% 90%;
 
-    --muted: 220 10% 16%;
-    --muted-foreground: 220 10% 55%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 45 10% 90%;
+
+    --muted: 220 15% 25%;
+    --muted-foreground: 45 10% 60%;
 
     --accent: 45 100% 56%;
     --accent-foreground: 220 15% 6%;
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 220 10% 18%;
-    --input: 220 10% 18%;
+    --border: 220 15% 20%;
+    --input: 220 15% 12%;
     --ring: 45 100% 56%;
 
-    --radius: 0.75rem;
-
-    --gold: 45 100% 56%;
-    --gold-dim: 45 80% 40%;
-    --gold-glow: 45 100% 65%;
-    --charcoal: 220 15% 10%;
-    --charcoal-deep: 220 15% 6%;
-    --silver: 220 10% 70%;
-
-    --glass-bg: 220 15% 12%;
-    --glass-border: 220 10% 20%;
-
-    --sidebar-background: 220 15% 8%;
-    --sidebar-foreground: 45 10% 90%;
-    --sidebar-primary: 45 100% 56%;
-    --sidebar-primary-foreground: 220 15% 6%;
-    --sidebar-accent: 220 15% 14%;
-    --sidebar-accent-foreground: 45 10% 90%;
-    --sidebar-border: 220 10% 18%;
-    --sidebar-ring: 45 100% 56%;
+    --radius: 0.5rem;
   }
-}
 
-@layer base {
+  .dark {
+    --background: 220 15% 6%;
+    --foreground: 45 10% 90%;
+
+    --card: 220 15% 10%;
+    --card-foreground: 45 10% 90%;
+
+    --popover: 220 15% 8%;
+    --popover-foreground: 45 10% 90%;
+
+    --primary: 45 100% 56%;
+    --primary-foreground: 220 15% 6%;
+
+    --secondary: 220 15% 12%;
+    --secondary-foreground: 45 10% 90%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 45 10% 90%;
+
+    --muted: 220 15% 25%;
+    --muted-foreground: 45 10% 60%;
+
+    --accent: 45 100% 56%;
+    --accent-foreground: 220 15% 6%;
+
+    --border: 220 15% 20%;
+    --input: 220 15% 12%;
+    --ring: 45 100% 56%;
+  }
+
   * {
     @apply border-border;
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-background text-foreground;
+    font-feature-settings: "rounding" 1;
   }
 }
 
 @layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
   .glass {
-    @apply bg-glass/60 backdrop-blur-xl border border-glass-border/30 rounded-xl;
+    @apply bg-background/30 backdrop-blur-md border border-white/10 rounded-2xl;
   }
 
   .glass-strong {
-    @apply bg-glass/80 backdrop-blur-2xl border border-glass-border/40 rounded-xl;
-  }
-
-  .text-gradient-gold {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-gold via-gold-glow to-gold;
-  }
-
-  .text-gradient-silver {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-silver via-foreground to-silver;
-  }
-
-  .glow-gold {
-    box-shadow: 0 0 30px hsl(45 100% 56% / 0.3), 0 0 60px hsl(45 100% 56% / 0.1);
-  }
-
-  .glow-gold-strong {
-    box-shadow: 0 0 40px hsl(45 100% 56% / 0.5), 0 0 80px hsl(45 100% 56% / 0.2);
-  }
-
-  .grid-bg {
-    background-image: 
-      linear-gradient(hsl(220 10% 18% / 0.3) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(220 10% 18% / 0.3) 1px, transparent 1px);
-    background-size: 60px 60px;
+    @apply bg-background/50 backdrop-blur-xl border border-white/20 rounded-2xl;
   }
 
   .grid-bg-subtle {
-    background-image: 
-      linear-gradient(hsl(220 10% 18% / 0.15) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(220 10% 18% / 0.15) 1px, transparent 1px);
-    background-size: 40px 40px;
+    background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 50px 50px;
+  }
+
+  .text-gradient-gold {
+    @apply bg-gradient-to-r from-amber-300 via-yellow-300 to-amber-300 bg-clip-text text-transparent;
+  }
+
+  .glow-gold {
+    @apply shadow-lg shadow-amber-500/20;
+  }
+
+  .font-display {
+    @apply font-bold tracking-tight;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes pulse-glow {
+    0%,
+    100% {
+      opacity: 1;
+      box-shadow: 0 0 20px rgba(37, 211, 102, 0.4), 0 0 40px rgba(37, 211, 102, 0.15);
+    }
+    50% {
+      opacity: 0.8;
+      box-shadow: 0 0 10px rgba(37, 211, 102, 0.2), 0 0 20px rgba(37, 211, 102, 0.08);
+    }
+  }
+
+  .delay-100 {
+    animation-delay: 100ms;
+  }
+
+  .delay-200 {
+    animation-delay: 200ms;
   }
 }

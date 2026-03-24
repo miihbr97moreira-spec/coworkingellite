@@ -48,9 +48,16 @@ const AdminDashboardExpanded = () => {
     // Métricas de Landing Page
     const uniqueVisits = new Set(filteredEvents.filter(e => e.event_type === 'page_view').map(e => e.session_id)).size;
     const totalPageViews = filteredEvents.filter(e => e.event_type === 'page_view').length;
-    const totalClicks = filteredEvents.filter(e => e.event_type === 'button_click').length;
-    const whatsappClicks = filteredEvents.filter(e => e.event_type === 'button_click' && e.cta_type === 'whatsapp').length;
-    const linkClicks = filteredEvents.filter(e => e.event_type === 'button_click' && e.cta_type === 'url').length;
+    const totalClicks = filteredEvents.filter(e => ['button_click', 'plan_click', 'cta_click', 'whatsapp_click'].includes(e.event_type)).length;
+    const whatsappClicks = filteredEvents.filter(e => 
+      (e.event_type === 'button_click' && e.cta_type === 'whatsapp') || 
+      e.event_type === 'whatsapp_click' || 
+      e.event_type === 'plan_click'
+    ).length;
+    const linkClicks = filteredEvents.filter(e => 
+      (e.event_type === 'button_click' && e.cta_type === 'url') || 
+      e.event_type === 'cta_click'
+    ).length;
 
     // Métricas de CRM
     const totalLeads = filteredLeads.length;

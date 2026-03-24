@@ -420,8 +420,8 @@ const AdminBuilderOmni = () => {
               <div
                 onClick={(e) => {
                   if (!isEditMode) return;
-                  const target = e.target as HTMLElement;
-                  if (target.classList.contains("editable-element")) {
+                  const target = (e.target as HTMLElement).closest(".editable-element") as HTMLElement;
+                  if (target) {
                     setSelectedElement({
                       type: target.dataset.type || "text",
                       path: target.dataset.path || "",

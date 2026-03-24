@@ -20,7 +20,13 @@ const Footer = () => (
 
         {/* Info */}
         <div className="flex flex-col justify-center space-y-6">
-          <h3 className="font-display text-3xl font-bold text-gradient-gold">Ellite Coworking</h3>
+          <h3 
+            className="font-display text-3xl font-bold text-gradient-gold editable-element cursor-pointer hover:ring-2 hover:ring-primary/50 rounded-lg transition-all"
+            data-type="text"
+            data-path="footer.title"
+          >
+            Ellite Coworking
+          </h3>
 
           <div className="space-y-4">
             <div className="flex items-start gap-3">
