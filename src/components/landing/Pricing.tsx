@@ -30,7 +30,7 @@ const Pricing = () => {
 
   const openWhatsApp = (plan: Plan) => {
     trackEvent("plan_click", { plan: plan.id });
-    syncCTAClick(`plan-${plan.id}`, `Plano ${plan.name}`, "whatsapp");
+    syncCTAClick(`plan-${plan.id}`, `Plano ${plan.name}`, "whatsapp", whatsappNumber, plan.whatsappMessage);
   };
 
   return (

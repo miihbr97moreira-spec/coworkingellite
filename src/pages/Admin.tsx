@@ -92,22 +92,25 @@ const Admin = () => {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-auto">
-        <motion.div
-          key={activeTab}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2 }}
-          className="p-8"
-        >
-          {activeTab === "dashboard" && <AdminDashboardExpanded />}
-          {activeTab === "content" && <AdminBuilderOmni />}
+      <main className="flex-1 overflow-auto relative">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+            className={activeTab === "content" ? "" : "p-8"}
+          >
+            {activeTab === "dashboard" && <AdminDashboardExpanded />}
+            {activeTab === "content" && <AdminBuilderOmni />}
 
-          {activeTab === "reviews" && <AdminReviews />}
-          {activeTab === "pixels" && <AdminPixelManager />}
-          {activeTab === "cta" && <AdminLinkRedirecionamento />}
-          {activeTab === "crm" && <AdminCRM />}
-        </motion.div>
+            {activeTab === "reviews" && <AdminReviews />}
+            {activeTab === "pixels" && <AdminPixelManager />}
+            {activeTab === "cta" && <AdminLinkRedirecionamento />}
+            {activeTab === "crm" && <AdminCRM />}
+          </motion.div>
+        </AnimatePresence>
       </main>
     </div>
   );
