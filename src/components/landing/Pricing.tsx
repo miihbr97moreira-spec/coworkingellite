@@ -68,6 +68,9 @@ const Pricing = () => {
               </ul>
               <MagneticButton
                 onClick={() => openWhatsApp(plan)}
+                data-cta-id={`plan-${plan.id}`}
+                data-cta-label={`Plano ${plan.name}`}
+                data-cta-type="whatsapp"
                 className={`w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${
                   plan.highlight
                     ? "bg-primary text-primary-foreground glow-gold"

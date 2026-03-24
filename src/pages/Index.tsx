@@ -14,13 +14,19 @@ import Footer from "@/components/landing/Footer";
 import FloatingWhatsApp from "@/components/landing/FloatingWhatsApp";
 import NoiseOverlay from "@/components/landing/NoiseOverlay";
 import { useLPConfig, trackEvent } from "@/hooks/useSupabaseQuery";
+import { useAnalyticsTracking } from "@/hooks/useAnalyticsTracking";
 
 const Index = () => {
   const { data: config } = useLPConfig();
+  const { trackEvent: trackAnalytics } = useAnalyticsTracking();
 
   useEffect(() => {
     trackEvent("page_view", { path: "/" });
-  }, []);
+    trackAnalytics({
+      event_type: "page_view",
+      path: "/",
+    });
+  }, [trackAnalytics]);
 
   useEffect(() => {
     const pixels = config?.pixels as { metaPixelId?: string; googleAnalyticsId?: string } | undefined;

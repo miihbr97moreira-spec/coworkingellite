@@ -15,6 +15,9 @@ const FloatingWhatsApp = () => {
   return (
     <motion.button
       onClick={handleClick}
+      data-cta-id="floating-whatsapp"
+      data-cta-label="WhatsApp Flutuante"
+      data-cta-type="whatsapp"
       initial={{ scale: 0, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
       transition={{ delay: 2, type: "spring", stiffness: 200 }}

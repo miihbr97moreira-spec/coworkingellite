@@ -4,10 +4,11 @@ import {
   Save, Loader2, Monitor, Tablet, Smartphone, Type, Layout, Palette,
   MousePointer2, ChevronRight, ChevronLeft, Undo2, Redo2, Eye, Send,
   Trash2, Plus, Upload, Copy, RotateCcw, Zap, Settings, Image as ImageIcon,
-  MessageCircle, Code, Layers, Lock, Unlock
+  MessageCircle, Code, Layers, Lock, Unlock, Sparkles
 } from "lucide-react";
 import { toast } from "sonner";
 import { useLPConfig, useUpdateLPConfig } from "@/hooks/useSupabaseQuery";
+import { useAIBuilder } from "@/hooks/useAIBuilder";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -30,6 +31,7 @@ interface SelectedElement {
 const AdminBuilderOmni = () => {
   const { data: config, isLoading } = useLPConfig();
   const updateConfig = useUpdateLPConfig();
+  const { processPrompt, isLoading: aiLoading } = useAIBuilder();
 
   const [viewport, setViewport] = useState<"desktop" | "tablet" | "mobile">("desktop");
   const [selectedElement, setSelectedElement] = useState<SelectedElement | null>(null);
@@ -37,10 +39,10 @@ const AdminBuilderOmni = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [chatMessages, setChatMessages] = useState<Message[]>([]);
   const [chatInput, setChatInput] = useState("");
-  const [chatLoading, setChatLoading] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const [isEditMode, setIsEditMode] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -61,8 +63,7 @@ const AdminBuilderOmni = () => {
       [key]: value,
     };
     setLocalConfig(newConfig);
-    
-    // Adicionar ao histórico
+
     const newHistory = history.slice(0, historyIndex + 1);
     newHistory.push(newConfig);
     setHistory(newHistory);
@@ -118,39 +119,27 @@ const AdminBuilderOmni = () => {
 
     setChatMessages((prev) => [...prev, userMessage]);
     setChatInput("");
-    setChatLoading(true);
 
     try {
-      // Simular resposta da IA (em produção, chamar API real)
-      const response = await fetch("/api/ai-builder", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: chatInput,
-          currentConfig: localConfig,
-        }),
-      });
+      const aiResponse = await processPrompt(chatInput, localConfig);
 
-      if (response.ok) {
-        const data = await response.json();
+      if (aiResponse) {
         const assistantMessage: Message = {
           id: (Date.now() + 1).toString(),
           role: "assistant",
-          content: data.message,
+          content: aiResponse.message,
           timestamp: new Date(),
         };
         setChatMessages((prev) => [...prev, assistantMessage]);
 
-        // Aplicar mudanças sugeridas pela IA se houver
-        if (data.updatedConfig) {
-          handleUpdate("_full", data.updatedConfig);
+        if (aiResponse.updatedConfig) {
+          handleUpdate("_full", aiResponse.updatedConfig);
+          toast.success("Alterações aplicadas pela IA!");
         }
       }
     } catch (error) {
       console.error("Erro ao comunicar com IA:", error);
       toast.error("Erro ao processar solicitação da IA");
-    } finally {
-      setChatLoading(false);
     }
   };
 
@@ -171,10 +160,9 @@ const AdminBuilderOmni = () => {
           .from("gallery")
           .getPublicUrl(fileName);
 
-        // Adicionar imagem à galeria
         const currentGallery = localConfig.gallery || [];
         handleUpdate("gallery", [...currentGallery, { url: publicUrl.publicUrl, alt: file.name }]);
-        
+
         toast.success("Imagem adicionada com sucesso!");
       } catch (error) {
         toast.error("Erro ao fazer upload da imagem");
@@ -245,6 +233,16 @@ const AdminBuilderOmni = () => {
               <Redo2 className="w-4 h-4" />
             </Button>
           </div>
+          <div className="h-6 w-px bg-border mx-2" />
+          <Button
+            variant={isEditMode ? "default" : "outline"}
+            size="sm"
+            onClick={() => setIsEditMode(!isEditMode)}
+            className="gap-2 rounded-xl"
+          >
+            {isEditMode ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+            {isEditMode ? "Edição Ativa" : "Edição"}
+          </Button>
         </div>
 
         <div className="flex items-center gap-3">
@@ -253,7 +251,7 @@ const AdminBuilderOmni = () => {
             className="gap-2 rounded-xl"
             onClick={() => setShowChat(!showChat)}
           >
-            <MessageCircle className="w-4 h-4" /> IA Builder
+            <Sparkles className="w-4 h-4" /> IA Builder
           </Button>
           <Button
             variant="outline"
@@ -287,7 +285,9 @@ const AdminBuilderOmni = () => {
             <div className="text-center py-12 px-4 border-2 border-dashed border-border/40 rounded-2xl">
               <MousePointer2 className="w-8 h-8 text-muted-foreground/40 mx-auto mb-4" />
               <p className="text-xs text-muted-foreground font-medium">
-                Clique em qualquer elemento no preview para editar suas propriedades.
+                {isEditMode
+                  ? "Clique em qualquer elemento no preview para editar suas propriedades."
+                  : "Ative o modo de edição para começar."}
               </p>
             </div>
           ) : (
@@ -306,6 +306,11 @@ const AdminBuilderOmni = () => {
                         data: { ...selectedElement.data, content: e.target.value },
                       })
                     }
+                    onBlur={() => {
+                      if (selectedElement.data?.content) {
+                        handleUpdate(selectedElement.path, selectedElement.data.content);
+                      }
+                    }}
                     className="w-full p-3 rounded-xl bg-secondary/50 border border-border/40 text-sm focus:ring-2 focus:ring-primary/30 outline-none min-h-[100px]"
                   />
                 </section>
@@ -320,12 +325,13 @@ const AdminBuilderOmni = () => {
                   <input
                     type="color"
                     value={selectedElement.data?.color || "#000000"}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setSelectedElement({
                         ...selectedElement,
                         data: { ...selectedElement.data, color: e.target.value },
-                      })
-                    }
+                      });
+                      handleUpdate(selectedElement.path, e.target.value);
+                    }}
                     className="w-full h-10 rounded-lg cursor-pointer"
                   />
                 </section>
@@ -413,6 +419,7 @@ const AdminBuilderOmni = () => {
             >
               <div
                 onClick={(e) => {
+                  if (!isEditMode) return;
                   const target = e.target as HTMLElement;
                   if (target.classList.contains("editable-element")) {
                     setSelectedElement({
@@ -439,7 +446,9 @@ const AdminBuilderOmni = () => {
               className="w-96 border-l border-border bg-background flex flex-col shrink-0"
             >
               <div className="h-16 border-b border-border flex items-center justify-between px-6">
-                <h3 className="font-bold text-sm uppercase tracking-wider">IA Builder</h3>
+                <h3 className="font-bold text-sm uppercase tracking-wider flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-primary" /> IA Builder
+                </h3>
                 <button
                   onClick={() => setShowChat(false)}
                   className="text-muted-foreground hover:text-foreground"
@@ -449,6 +458,12 @@ const AdminBuilderOmni = () => {
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+                {chatMessages.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-xs">Descreva as mudanças que deseja fazer na Landing Page</p>
+                  </div>
+                )}
                 {chatMessages.map((msg) => (
                   <div
                     key={msg.id}
@@ -468,7 +483,7 @@ const AdminBuilderOmni = () => {
                     </div>
                   </div>
                 ))}
-                {chatLoading && (
+                {aiLoading && (
                   <div className="flex justify-start">
                     <div className="bg-secondary px-4 py-2 rounded-lg">
                       <div className="flex gap-1">
@@ -493,7 +508,7 @@ const AdminBuilderOmni = () => {
                 />
                 <button
                   onClick={handleChatSubmit}
-                  disabled={chatLoading || !chatInput.trim()}
+                  disabled={aiLoading || !chatInput.trim()}
                   className="p-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                 >
                   <Send className="w-4 h-4" />

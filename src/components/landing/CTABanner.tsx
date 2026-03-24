@@ -30,7 +30,13 @@ const CTABanner = () => {
           <p className="text-muted-foreground mb-8 max-w-lg mx-auto">
             Profissionais de alto nível escolhem ambientes de alto nível. Agende uma visita gratuita.
           </p>
-          <MagneticButton onClick={scrollToPlans} className="inline-flex items-center gap-2 px-8 py-4 text-lg font-bold rounded-xl bg-primary text-primary-foreground glow-gold transition-all">
+          <MagneticButton
+            onClick={scrollToPlans}
+            data-cta-id="cta-banner-plans"
+            data-cta-label="Ver Planos (Banner)"
+            data-cta-type="anchor"
+            className="inline-flex items-center gap-2 px-8 py-4 text-lg font-bold rounded-xl bg-primary text-primary-foreground glow-gold transition-all"
+          >
             Ver Planos <ArrowRight className="w-5 h-5" />
           </MagneticButton>
         </motion.div>
