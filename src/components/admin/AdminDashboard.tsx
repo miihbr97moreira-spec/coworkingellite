@@ -1,71 +1,106 @@
+import { useMemo } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
-import { Eye, MousePointerClick, TrendingUp, Users } from "lucide-react";
+import { Eye, MousePointerClick, TrendingUp, Users, Download } from "lucide-react";
+import { useLPEvents } from "@/hooks/useSupabaseQuery";
+import jsPDF from "jspdf";
 
-const visitData = [
-  { day: "Seg", visitas: 45 }, { day: "Ter", visitas: 62 }, { day: "Qua", visitas: 58 },
-  { day: "Qui", visitas: 73 }, { day: "Sex", visitas: 89 }, { day: "Sáb", visitas: 34 }, { day: "Dom", visitas: 21 },
-];
+const AdminDashboard = () => {
+  const { data: events } = useLPEvents();
 
-const clickData = [
-  { day: "Seg", cliques: 12 }, { day: "Ter", cliques: 18 }, { day: "Qua", cliques: 15 },
-  { day: "Qui", cliques: 22 }, { day: "Sex", cliques: 31 }, { day: "Sáb", cliques: 9 }, { day: "Dom", cliques: 5 },
-];
+  const stats = useMemo(() => {
+    if (!events) return { views: 0, clicks: 0, rate: "0%", leads: 0, dailyViews: [], dailyClicks: [] };
 
-const stats = [
-  { icon: Eye, label: "Visitas (7d)", value: "382", color: "text-primary" },
-  { icon: MousePointerClick, label: "Cliques CTA", value: "112", color: "text-primary" },
-  { icon: TrendingUp, label: "Taxa Conversão", value: "29.3%", color: "text-primary" },
-  { icon: Users, label: "Leads WhatsApp", value: "87", color: "text-primary" },
-];
+    const views = events.filter((e) => e.event_type === "page_view").length;
+    const clicks = events.filter((e) => ["cta_click", "plan_click", "whatsapp_click"].includes(e.event_type)).length;
+    const rate = views > 0 ? ((clicks / views) * 100).toFixed(1) + "%" : "0%";
+    const leads = events.filter((e) => e.event_type === "whatsapp_click").length;
 
-const AdminDashboard = () => (
-  <div>
-    <h2 className="font-display text-2xl font-bold mb-6">Dashboard</h2>
+    const days = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+    const viewsByDay: Record<string, number> = {};
+    const clicksByDay: Record<string, number> = {};
+    days.forEach((d) => { viewsByDay[d] = 0; clicksByDay[d] = 0; });
 
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-      {stats.map((s) => (
-        <div key={s.label} className="glass p-5">
-          <s.icon className={`w-5 h-5 ${s.color} mb-2`} />
-          <p className="text-2xl font-bold">{s.value}</p>
-          <p className="text-xs text-muted-foreground">{s.label}</p>
+    events.forEach((e) => {
+      const d = days[new Date(e.created_at).getDay()];
+      if (e.event_type === "page_view") viewsByDay[d]++;
+      if (["cta_click", "plan_click"].includes(e.event_type)) clicksByDay[d]++;
+    });
+
+    return {
+      views,
+      clicks,
+      rate,
+      leads,
+      dailyViews: days.map((d) => ({ day: d, visitas: viewsByDay[d] })),
+      dailyClicks: days.map((d) => ({ day: d, cliques: clicksByDay[d] })),
+    };
+  }, [events]);
+
+  const exportPDF = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(20);
+    doc.text("Ellite Coworking — Relatório", 20, 20);
+    doc.setFontSize(12);
+    doc.text(`Data: ${new Date().toLocaleDateString("pt-BR")}`, 20, 30);
+    doc.text(`Visitas: ${stats.views}`, 20, 45);
+    doc.text(`Cliques CTA: ${stats.clicks}`, 20, 55);
+    doc.text(`Taxa de Conversão: ${stats.rate}`, 20, 65);
+    doc.text(`Leads WhatsApp: ${stats.leads}`, 20, 75);
+    doc.save("ellite-relatorio.pdf");
+  };
+
+  const statCards = [
+    { icon: Eye, label: "Visitas", value: stats.views.toString() },
+    { icon: MousePointerClick, label: "Cliques CTA", value: stats.clicks.toString() },
+    { icon: TrendingUp, label: "Taxa Conversão", value: stats.rate },
+    { icon: Users, label: "Leads WhatsApp", value: stats.leads.toString() },
+  ];
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="font-display text-2xl font-bold">Dashboard</h2>
+        <button onClick={exportPDF} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm">
+          <Download className="w-4 h-4" /> Exportar PDF
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {statCards.map((s) => (
+          <div key={s.label} className="glass p-5">
+            <s.icon className="w-5 h-5 text-primary mb-2" />
+            <p className="text-2xl font-bold">{s.value}</p>
+            <p className="text-xs text-muted-foreground">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-6">
+        <div className="glass p-6">
+          <h3 className="font-semibold mb-4">Visitas por dia</h3>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={stats.dailyViews}>
+              <XAxis dataKey="day" stroke="hsl(220 10% 55%)" fontSize={12} />
+              <YAxis stroke="hsl(220 10% 55%)" fontSize={12} />
+              <Tooltip contentStyle={{ background: "hsl(220 15% 10%)", border: "1px solid hsl(220 10% 18%)", borderRadius: 8 }} />
+              <Bar dataKey="visitas" fill="hsl(45 100% 56%)" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
-      ))}
-    </div>
-
-    <div className="grid lg:grid-cols-2 gap-6">
-      <div className="glass p-6">
-        <h3 className="font-semibold mb-4">Visitas por dia</h3>
-        <ResponsiveContainer width="100%" height={240}>
-          <BarChart data={visitData}>
-            <XAxis dataKey="day" stroke="hsl(220 10% 55%)" fontSize={12} />
-            <YAxis stroke="hsl(220 10% 55%)" fontSize={12} />
-            <Tooltip
-              contentStyle={{ background: "hsl(220 15% 10%)", border: "1px solid hsl(220 10% 18%)", borderRadius: 8 }}
-              labelStyle={{ color: "hsl(45 10% 90%)" }}
-            />
-            <Bar dataKey="visitas" fill="hsl(45 100% 56%)" radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-
-      <div className="glass p-6">
-        <h3 className="font-semibold mb-4">Cliques nos CTAs</h3>
-        <ResponsiveContainer width="100%" height={240}>
-          <LineChart data={clickData}>
-            <XAxis dataKey="day" stroke="hsl(220 10% 55%)" fontSize={12} />
-            <YAxis stroke="hsl(220 10% 55%)" fontSize={12} />
-            <Tooltip
-              contentStyle={{ background: "hsl(220 15% 10%)", border: "1px solid hsl(220 10% 18%)", borderRadius: 8 }}
-              labelStyle={{ color: "hsl(45 10% 90%)" }}
-            />
-            <Line type="monotone" dataKey="cliques" stroke="hsl(45 100% 56%)" strokeWidth={2} dot={{ fill: "hsl(45 100% 56%)" }} />
-          </LineChart>
-        </ResponsiveContainer>
+        <div className="glass p-6">
+          <h3 className="font-semibold mb-4">Cliques nos CTAs</h3>
+          <ResponsiveContainer width="100%" height={240}>
+            <LineChart data={stats.dailyClicks}>
+              <XAxis dataKey="day" stroke="hsl(220 10% 55%)" fontSize={12} />
+              <YAxis stroke="hsl(220 10% 55%)" fontSize={12} />
+              <Tooltip contentStyle={{ background: "hsl(220 15% 10%)", border: "1px solid hsl(220 10% 18%)", borderRadius: 8 }} />
+              <Line type="monotone" dataKey="cliques" stroke="hsl(45 100% 56%)" strokeWidth={2} dot={{ fill: "hsl(45 100% 56%)" }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
       </div>
     </div>
-
-    <p className="text-xs text-muted-foreground mt-4">* Dados simulados para demonstração</p>
-  </div>
-);
+  );
+};
 
 export default AdminDashboard;

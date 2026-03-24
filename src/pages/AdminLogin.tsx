@@ -1,23 +1,27 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Lock } from "lucide-react";
-import { useSiteContent } from "@/context/SiteContext";
+import { Lock, Loader2 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 const AdminLogin = () => {
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const { setIsAdmin } = useSiteContent();
+  const [loading, setLoading] = useState(false);
+  const { signIn } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulated auth - in production use Supabase
-    if (password === "ellite2024") {
-      setIsAdmin(true);
-      navigate("/admin");
+    setError("");
+    setLoading(true);
+    const { error } = await signIn(email, password);
+    setLoading(false);
+    if (error) {
+      setError("E-mail ou senha incorretos");
     } else {
-      setError("Senha incorreta");
+      navigate("/admin");
     }
   };
 
@@ -38,13 +42,25 @@ const AdminLogin = () => {
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
+            <label className="text-sm text-muted-foreground mb-1 block">E-mail</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl bg-secondary border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              placeholder="seu@email.com"
+              required
+            />
+          </div>
+          <div>
             <label className="text-sm text-muted-foreground mb-1 block">Senha</label>
             <input
               type="password"
               value={password}
-              onChange={e => setPassword(e.target.value)}
+              onChange={(e) => setPassword(e.target.value)}
               className="w-full px-4 py-3 rounded-xl bg-secondary border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-              placeholder="Digite a senha de acesso"
+              placeholder="Digite sua senha"
+              required
             />
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
@@ -52,14 +68,16 @@ const AdminLogin = () => {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             type="submit"
-            className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold"
+            disabled={loading}
+            className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold flex items-center justify-center gap-2"
           >
+            {loading && <Loader2 className="w-4 h-4 animate-spin" />}
             Entrar
           </motion.button>
         </form>
 
         <p className="text-xs text-muted-foreground text-center mt-6">
-          Senha padrão: ellite2024
+          Primeiro acesso? Crie sua conta com: ellitecoworking@gmail.com
         </p>
       </motion.div>
     </div>
