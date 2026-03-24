@@ -14,16 +14,307 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      funnels: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      landing_page_config: {
+        Row: {
+          id: string
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          id?: string
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Update: {
+          id?: string
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
+      lead_notes: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string | null
+          id: string
+          lead_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lead_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lead_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_notes_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leads: {
+        Row: {
+          company: string | null
+          created_at: string
+          deal_value: number | null
+          email: string | null
+          funnel_id: string
+          id: string
+          name: string
+          notes: string | null
+          phone: string | null
+          sort_order: number
+          source: string | null
+          stage_id: string
+          tags: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          company?: string | null
+          created_at?: string
+          deal_value?: number | null
+          email?: string | null
+          funnel_id: string
+          id?: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          sort_order?: number
+          source?: string | null
+          stage_id: string
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          company?: string | null
+          created_at?: string
+          deal_value?: number | null
+          email?: string | null
+          funnel_id?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          sort_order?: number
+          source?: string | null
+          stage_id?: string
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_funnel_id_fkey"
+            columns: ["funnel_id"]
+            isOneToOne: false
+            referencedRelation: "funnels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      logos: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          image_url: string
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          image_url: string
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          image_url?: string
+          name?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      lp_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          metadata: Json | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          metadata?: Json | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+        }
+        Relationships: []
+      }
+      reviews: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+          role: string
+          sort_order: number
+          stars: number
+          text: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          role: string
+          sort_order?: number
+          stars?: number
+          text: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+          role?: string
+          sort_order?: number
+          stars?: number
+          text?: string
+        }
+        Relationships: []
+      }
+      stages: {
+        Row: {
+          color: string
+          created_at: string
+          funnel_id: string
+          id: string
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          funnel_id: string
+          id?: string
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          funnel_id?: string
+          id?: string
+          name?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stages_funnel_id_fkey"
+            columns: ["funnel_id"]
+            isOneToOne: false
+            referencedRelation: "funnels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "super_admin" | "editor"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +441,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["super_admin", "editor"],
+    },
   },
 } as const
