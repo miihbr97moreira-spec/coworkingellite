@@ -55,29 +55,37 @@ export const useFunnels = () =>
   });
 
 // Stages for a funnel
-export const useStages = (funnelId?: string | null) =>
+export const useStages = (funnelId: string | null) =>
   useQuery({
     queryKey: ["stages", funnelId],
     queryFn: async () => {
-      let query = supabase.from("stages").select("*").order("position");
-      if (funnelId) query = query.eq("funnel_id", funnelId);
-      const { data, error } = await query;
+      if (!funnelId) return [];
+      const { data, error } = await supabase
+        .from("stages")
+        .select("*")
+        .eq("funnel_id", funnelId)
+        .order("sort_order");
       if (error) throw error;
       return data;
     },
+    enabled: !!funnelId,
   });
 
 // Leads for a funnel
-export const useLeads = (funnelId?: string | null) =>
+export const useLeads = (funnelId: string | null) =>
   useQuery({
     queryKey: ["leads", funnelId],
     queryFn: async () => {
-      let query = supabase.from("leads").select("*").order("position");
-      if (funnelId) query = query.eq("funnel_id", funnelId);
-      const { data, error } = await query;
+      if (!funnelId) return [];
+      const { data, error } = await supabase
+        .from("leads")
+        .select("*")
+        .eq("funnel_id", funnelId)
+        .order("sort_order");
       if (error) throw error;
       return data;
     },
+    enabled: !!funnelId,
   });
 
 // Lead notes
@@ -116,17 +124,3 @@ export const useLPEvents = () =>
 export const trackEvent = async (eventType: string, metadata?: Record<string, any>) => {
   await supabase.from("lp_events").insert({ event_type: eventType, metadata: metadata ?? {} });
 };
-
-// CTA Buttons
-export const useCTAs = () =>
-  useQuery({
-    queryKey: ["cta-buttons"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("cta_buttons")
-        .select("*")
-        .order("position");
-      if (error) throw error;
-      return data;
-    },
-  });

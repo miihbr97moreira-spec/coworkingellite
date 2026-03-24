@@ -1,47 +1,25 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, ZoomIn, Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { X, ZoomIn } from "lucide-react";
+
+import img01 from "@/assets/gallery/01_cw.jpeg";
+import img02 from "@/assets/gallery/02_cw.jpeg";
+import img03 from "@/assets/gallery/03_cw.jpeg";
+import img04 from "@/assets/gallery/04_cw.jpeg";
+import img05 from "@/assets/gallery/05_cw.jpeg";
+import img06 from "@/assets/gallery/06_cw.jpeg";
+
+const galleryImages = [
+  { src: img01, label: "Estações de Trabalho" },
+  { src: img02, label: "Ambiente Ellite Flats" },
+  { src: img03, label: "Sala Compartilhada" },
+  { src: img04, label: "Área de Descompressão" },
+  { src: img05, label: "Sala Premium" },
+  { src: img06, label: "Escritório Privativo" },
+];
 
 const Gallery = () => {
   const [selected, setSelected] = useState<number | null>(null);
-
-  const { data: files, isLoading } = useQuery({
-    queryKey: ["gallery-files"],
-    queryFn: async () => {
-      const { data, error } = await supabase.storage.from("gallery").list("", { 
-        limit: 50, 
-        sortBy: { column: "created_at", order: "desc" } 
-      });
-      if (error) throw error;
-      return data?.filter((f) => f.name !== ".emptyFolderPlaceholder") ?? [];
-    },
-  });
-
-  const galleryImages = useMemo(() => {
-    if (!files || files.length === 0) return [];
-    return files.map(f => {
-      const { data } = supabase.storage.from("gallery").getPublicUrl(f.name);
-      return {
-        src: data.publicUrl,
-        label: "Espaço Ellite Coworking"
-      };
-    });
-  }, [files]);
-
-  if (isLoading) {
-    return (
-      <section className="py-20 flex items-center justify-center min-h-[400px]">
-        <div className="flex flex-col items-center gap-4 text-muted-foreground">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          <p className="text-sm font-medium uppercase tracking-widest">Carregando Galeria...</p>
-        </div>
-      </section>
-    );
-  }
-
-  if (galleryImages.length === 0) return null;
 
   return (
     <section className="py-20">
