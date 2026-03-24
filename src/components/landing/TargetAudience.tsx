@@ -1,5 +1,5 @@
-import { motion } from "framer-motion";
 import { Briefcase, Users, Award } from "lucide-react";
+import SpotlightCard from "./SpotlightCard";
 
 const targets = [
   {
@@ -33,12 +33,8 @@ const TargetAudience = () => (
 
       <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
         {targets.map((t, i) => (
-          <motion.div
+          <SpotlightCard
             key={t.title}
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: i * 0.15 }}
             className="glass p-8 text-center group hover:border-primary/40 transition-colors"
           >
             <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-5 group-hover:bg-primary/20 transition-colors">
@@ -46,7 +42,7 @@ const TargetAudience = () => (
             </div>
             <h3 className="font-display text-xl font-bold mb-3">{t.title}</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">{t.desc}</p>
-          </motion.div>
+          </SpotlightCard>
         ))}
       </div>
     </div>

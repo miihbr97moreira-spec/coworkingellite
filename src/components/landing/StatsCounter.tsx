@@ -1,4 +1,4 @@
-import { motion, useMotionValue, useTransform, animate } from "framer-motion";
+import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { Users, Building2, Award, TrendingUp } from "lucide-react";
 
@@ -15,33 +15,26 @@ const AnimatedNumber = ({ value, suffix }: { value: number; suffix: string }) =>
   const hasAnimated = useRef(false);
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !hasAnimated.current) {
-          hasAnimated.current = true;
-          const duration = 2000;
-          const start = Date.now();
-          const tick = () => {
-            const elapsed = Date.now() - start;
-            const progress = Math.min(elapsed / duration, 1);
-            const eased = 1 - Math.pow(1 - progress, 3);
-            setDisplay(Math.round(eased * value));
-            if (progress < 1) requestAnimationFrame(tick);
-          };
-          tick();
-        }
-      },
-      { threshold: 0.5 }
-    );
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && !hasAnimated.current) {
+        hasAnimated.current = true;
+        const duration = 2000;
+        const start = Date.now();
+        const tick = () => {
+          const elapsed = Date.now() - start;
+          const progress = Math.min(elapsed / duration, 1);
+          const eased = 1 - Math.pow(1 - progress, 3);
+          setDisplay(Math.round(eased * value));
+          if (progress < 1) requestAnimationFrame(tick);
+        };
+        tick();
+      }
+    }, { threshold: 0.5 });
     if (ref.current) observer.observe(ref.current);
     return () => observer.disconnect();
   }, [value]);
 
-  return (
-    <span ref={ref} className="text-4xl md:text-5xl font-bold text-gradient-gold">
-      {display}{suffix}
-    </span>
-  );
+  return <span ref={ref} className="text-4xl md:text-5xl font-bold text-gradient-gold">{display}{suffix}</span>;
 };
 
 const StatsCounter = () => (
@@ -50,14 +43,7 @@ const StatsCounter = () => (
     <div className="container px-4 relative z-10">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-5xl mx-auto">
         {stats.map((s, i) => (
-          <motion.div
-            key={s.label}
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: i * 0.15 }}
-            className="text-center"
-          >
+          <motion.div key={s.label} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.15 }} className="text-center">
             <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
               <s.icon className="w-6 h-6 text-primary" />
             </div>

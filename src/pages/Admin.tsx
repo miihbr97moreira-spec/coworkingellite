@@ -1,57 +1,64 @@
 import { useState } from "react";
-import { useSiteContent } from "@/context/SiteContext";
 import { motion } from "framer-motion";
 import {
-  BarChart3,
-  Type,
-  Megaphone,
-  MessageCircle,
-  Monitor,
-  LogOut,
-  Settings,
+  BarChart3, Type, Megaphone, MessageCircle, Monitor, LogOut,
+  Settings, Users, Kanban, Image,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 import AdminDashboard from "@/components/admin/AdminDashboard";
 import AdminContentEditor from "@/components/admin/AdminContentEditor";
 import AdminPixelManager from "@/components/admin/AdminPixelManager";
 import AdminCTAManager from "@/components/admin/AdminCTAManager";
 import AdminPreview from "@/components/admin/AdminPreview";
+import AdminCRM from "@/components/admin/AdminCRM";
+import AdminGallery from "@/components/admin/AdminGallery";
+import AdminReviews from "@/components/admin/AdminReviews";
 
 const tabs = [
   { id: "dashboard", label: "Dashboard", icon: BarChart3 },
   { id: "content", label: "Conteúdo", icon: Type },
+  { id: "gallery", label: "Galeria", icon: Image },
+  { id: "reviews", label: "Avaliações", icon: Users },
   { id: "pixels", label: "Pixels", icon: Megaphone },
   { id: "cta", label: "CTAs WhatsApp", icon: MessageCircle },
+  { id: "crm", label: "CRM / Funis", icon: Kanban },
   { id: "preview", label: "Preview", icon: Monitor },
 ];
 
 const Admin = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
-  const { isAdmin, setIsAdmin } = useSiteContent();
+  const { user, role, signOut, loading } = useAuth();
   const navigate = useNavigate();
 
-  if (!isAdmin) {
+  if (loading) return <div className="min-h-screen bg-background flex items-center justify-center"><div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full" /></div>;
+
+  if (!user) {
     navigate("/admin/login");
     return null;
   }
 
-  const logout = () => {
-    setIsAdmin(false);
+  const logout = async () => {
+    await signOut();
     navigate("/");
   };
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Sidebar */}
       <aside className="w-64 border-r border-border bg-secondary/30 flex flex-col shrink-0">
         <div className="p-6 border-b border-border">
           <span className="font-display text-xl font-bold text-gradient-gold">ELLITE</span>
           <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
             <Settings className="w-3 h-3" /> Painel Admin
           </p>
+          {role && (
+            <span className="inline-block mt-2 px-2 py-0.5 text-[10px] font-semibold uppercase rounded-full bg-primary/10 text-primary">
+              {role.replace("_", " ")}
+            </span>
+          )}
         </div>
 
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {tabs.map((t) => (
             <button
               key={t.id}
@@ -69,6 +76,7 @@ const Admin = () => {
         </nav>
 
         <div className="p-4 border-t border-border">
+          <p className="text-xs text-muted-foreground mb-2 truncate">{user.email}</p>
           <button
             onClick={logout}
             className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-destructive transition-colors"
@@ -79,7 +87,6 @@ const Admin = () => {
         </div>
       </aside>
 
-      {/* Main content */}
       <main className="flex-1 overflow-auto">
         <motion.div
           key={activeTab}
@@ -90,8 +97,11 @@ const Admin = () => {
         >
           {activeTab === "dashboard" && <AdminDashboard />}
           {activeTab === "content" && <AdminContentEditor />}
+          {activeTab === "gallery" && <AdminGallery />}
+          {activeTab === "reviews" && <AdminReviews />}
           {activeTab === "pixels" && <AdminPixelManager />}
           {activeTab === "cta" && <AdminCTAManager />}
+          {activeTab === "crm" && <AdminCRM />}
           {activeTab === "preview" && <AdminPreview />}
         </motion.div>
       </main>
