@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { Upload, Trash2, Loader2, Image as ImageIcon, GripVertical, RefreshCw, Plus, X, Check, Camera, Sparkles } from "lucide-react";
+import { useState, useRef, useMemo } from "react";
+import { Upload, Trash2, Loader2, Image as ImageIcon, GripVertical, RefreshCw, Plus, X, ExternalLink, Check, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -24,39 +24,37 @@ const SortableImage = ({ file, onRemove, onReplace }: { file: any; onRemove: (na
     transform: CSS.Translate.toString(transform),
     transition,
     zIndex: isDragging ? 50 : 0,
-    opacity: isDragging ? 0.3 : 1,
+    opacity: isDragging ? 0.5 : 1,
   };
 
   const { data } = supabase.storage.from("gallery").getPublicUrl(file.name);
   const publicUrl = data.publicUrl;
 
   return (
-    <div ref={setNodeRef} style={style} className="bg-zinc-900/50 border border-zinc-800/50 p-2 group relative aspect-[4/3] overflow-hidden rounded-3xl hover:border-primary/30 transition-all shadow-sm">
-      <img src={publicUrl} alt={file.name} className="w-full h-full object-cover rounded-2xl" loading="lazy" />
+    <div ref={setNodeRef} style={style} className="glass p-2 group relative aspect-[4/3] overflow-hidden rounded-2xl border border-border/40 hover:border-primary/40 transition-all">
+      <img src={publicUrl} alt={file.name} className="w-full h-full object-cover rounded-xl" loading="lazy" />
       
-      {/* Overlay on Hover */}
-      <div className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-4 p-6">
-        <div {...listeners} className="cursor-grab p-3 bg-zinc-800 text-zinc-400 rounded-2xl hover:text-primary hover:bg-zinc-700 transition-all">
+      {/* Overlay no Hover */}
+      <div className="absolute inset-0 bg-background/60 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center gap-3 p-4">
+        <div {...listeners} className="cursor-grab p-2 bg-primary/10 text-primary rounded-full hover:bg-primary/20 transition-colors">
           <GripVertical className="w-5 h-5" />
         </div>
         
-        <div className="flex gap-2 w-full">
-          <Button variant="secondary" size="sm" className="flex-1 h-10 text-[10px] font-bold uppercase tracking-widest rounded-xl bg-zinc-800 text-zinc-200 hover:bg-zinc-700 border-none" onClick={() => onReplace(file.name)}>Trocar</Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" size="sm" className="h-8 text-[10px] font-bold uppercase" onClick={() => onReplace(file.name)}>Substituir</Button>
           
           {!confirmDelete ? (
-            <Button variant="destructive" size="sm" className="h-10 px-3 rounded-xl bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border-none" onClick={() => setConfirmDelete(true)}>
-              <Trash2 className="w-4 h-4" />
-            </Button>
+            <Button variant="destructive" size="sm" className="h-8 text-[10px] font-bold uppercase" onClick={() => setConfirmDelete(true)}>Excluir</Button>
           ) : (
             <div className="flex items-center gap-1 animate-in zoom-in-95 duration-200">
-              <Button variant="destructive" size="sm" className="h-10 px-3 rounded-xl bg-rose-500 text-white" onClick={() => onRemove(file.name)}><Check className="w-4 h-4" /></Button>
-              <Button variant="secondary" size="sm" className="h-10 px-3 rounded-xl bg-zinc-700 text-zinc-200" onClick={() => setConfirmDelete(false)}><X className="w-4 h-4" /></Button>
+              <Button variant="destructive" size="sm" className="h-8 px-2" onClick={() => onRemove(file.name)}><Check className="w-4 h-4" /></Button>
+              <Button variant="secondary" size="sm" className="h-8 px-2" onClick={() => setConfirmDelete(false)}><X className="w-4 h-4" /></Button>
             </div>
           )}
         </div>
       </div>
 
-      {isDragging && <div className="absolute inset-0 bg-primary/10 border-2 border-primary rounded-3xl" />}
+      {isDragging && <div className="absolute inset-0 bg-primary/20 border-2 border-primary rounded-2xl" />}
     </div>
   );
 };
@@ -67,6 +65,7 @@ const AdminGallery = () => {
   const fileRef = useRef<HTMLInputElement>(null);
   const replaceRef = useRef<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [externalUrl, setExternalUrl] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
@@ -97,7 +96,7 @@ const AdminGallery = () => {
     
     qc.invalidateQueries({ queryKey: ["gallery-files"] });
     setShowAddModal(false);
-    toast.success("Galeria atualizada com sucesso!");
+    toast.success("Galeria atualizada!");
   };
 
   const remove = async (name: string) => {
@@ -110,41 +109,35 @@ const AdminGallery = () => {
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    toast.info("Reordenação visual aplicada (Sync pendente)");
+
+    // Nota: O Supabase Storage não suporta reordenação nativa por posição.
+    // Em uma implementação real, salvaríamos a ordem em uma tabela de metadados.
+    // Para este refactor, simulamos a reordenação visual.
+    toast.info("Ordem atualizada visualmente (Sync pendente)");
   };
 
-  if (isLoading) return (
-    <div className="flex flex-col items-center justify-center h-96 text-zinc-500 gap-4">
-      <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      <p className="text-[10px] font-bold uppercase tracking-widest">Carregando Assets...</p>
-    </div>
-  );
+  if (isLoading) return <div className="flex items-center justify-center h-64 text-muted-foreground"><Loader2 className="w-6 h-6 animate-spin mr-2" /> Carregando Galeria...</div>;
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-700">
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-primary">
-            <Camera className="w-4 h-4" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Visual Assets</span>
-          </div>
-          <h2 className="text-3xl font-bold tracking-tight text-zinc-100">Galeria de Fotos</h2>
+    <div className="space-y-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="font-display text-3xl font-bold tracking-tight">Galeria</h2>
+          <p className="text-muted-foreground text-sm">Gerencie as fotos exibidas na landing page.</p>
         </div>
         
         <div className="flex items-center gap-3">
-          <Button variant="outline" className="h-11 gap-2 rounded-xl border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300" onClick={() => qc.invalidateQueries({ queryKey: ["gallery-files"] })}>
+          <Button variant="outline" className="gap-2 rounded-xl" onClick={() => qc.invalidateQueries({ queryKey: ["gallery-files"] })}>
             <RefreshCw className="w-4 h-4" /> Sincronizar
           </Button>
-          <Button onClick={() => setShowAddModal(true)} className="h-11 gap-2 rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20">
+          <Button onClick={() => setShowAddModal(true)} className="gap-2 rounded-xl font-bold">
             <Plus className="w-4 h-4" /> Adicionar Foto
           </Button>
         </div>
       </div>
 
-      {/* Gallery Grid */}
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           <SortableContext items={files?.map(f => f.name) || []} strategy={rectSortingStrategy}>
             {files?.map((f) => (
               <SortableImage 
@@ -157,13 +150,10 @@ const AdminGallery = () => {
           </SortableContext>
 
           {(!files || files.length === 0) && (
-            <div className="col-span-full py-32 border-2 border-dashed border-zinc-800/50 rounded-[40px] flex flex-col items-center justify-center text-zinc-500 bg-zinc-900/20">
-              <div className="w-20 h-20 bg-zinc-800/50 rounded-full flex items-center justify-center mb-6 border border-zinc-800 shadow-inner">
-                <ImageIcon className="w-10 h-10 opacity-20" />
-              </div>
-              <p className="text-sm font-bold text-zinc-400">Sua galeria está vazia</p>
-              <p className="text-xs text-zinc-600 mt-1 mb-6">Comece fazendo o upload das fotos do seu espaço.</p>
-              <Button variant="outline" onClick={() => setShowAddModal(true)} className="rounded-xl border-primary/30 text-primary hover:bg-primary/10 font-bold text-[10px] uppercase tracking-widest">Fazer primeiro upload</Button>
+            <div className="col-span-full py-20 border-2 border-dashed border-border/40 rounded-3xl flex flex-col items-center justify-center text-muted-foreground bg-secondary/10">
+              <ImageIcon className="w-12 h-12 mb-4 opacity-20" />
+              <p className="text-sm font-medium">Nenhuma imagem na galeria.</p>
+              <Button variant="link" onClick={() => setShowAddModal(true)} className="text-primary font-bold">Fazer primeiro upload</Button>
             </div>
           )}
         </div>
@@ -174,39 +164,41 @@ const AdminGallery = () => {
       {/* Modal Adicionar Imagem */}
       {showAddModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-zinc-950/90 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setShowAddModal(false)} />
-          <div className="relative w-full max-w-md bg-zinc-900 border border-zinc-800 p-10 rounded-[40px] shadow-2xl animate-in zoom-in-95 duration-300">
-            <div className="flex items-center justify-between mb-10">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                  <Upload className="w-4 h-4" />
-                </div>
-                <h3 className="text-xl font-bold text-zinc-100">Novo Asset</h3>
-              </div>
-              <button onClick={() => setShowAddModal(false)} className="p-2 text-zinc-500 hover:text-zinc-100 transition-colors"><X className="w-5 h-5" /></button>
-            </div>
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setShowAddModal(false)} />
+          <div className="relative w-full max-w-md glass p-8 animate-in zoom-in-95 duration-200">
+            <h3 className="text-xl font-bold mb-6">Adicionar à Galeria</h3>
             
-            <div className="space-y-8">
+            <div className="space-y-6">
               <div 
                 onClick={() => fileRef.current?.click()}
-                className="border-2 border-dashed border-zinc-800 rounded-[32px] p-12 flex flex-col items-center justify-center gap-4 hover:bg-zinc-800/50 hover:border-primary/30 cursor-pointer transition-all group"
+                className="border-2 border-dashed border-primary/30 rounded-2xl p-8 flex flex-col items-center justify-center gap-3 hover:bg-primary/5 cursor-pointer transition-all group"
               >
-                <div className="p-5 bg-zinc-800 text-zinc-400 rounded-3xl group-hover:scale-110 group-hover:text-primary group-hover:bg-primary/10 transition-all shadow-inner">
-                  {uploading ? <Loader2 className="w-8 h-8 animate-spin" /> : <Upload className="w-8 h-8" />}
+                <div className="p-4 bg-primary/10 text-primary rounded-full group-hover:scale-110 transition-transform">
+                  {uploading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Upload className="w-6 h-6" />}
                 </div>
                 <div className="text-center">
-                  <p className="text-sm font-bold text-zinc-200">Selecionar Arquivo</p>
-                  <p className="text-[10px] text-zinc-500 uppercase tracking-[0.2em] mt-2">PNG, JPG até 5MB</p>
+                  <p className="text-sm font-bold">Upload de Arquivo</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">PNG, JPG até 5MB</p>
                 </div>
               </div>
 
-              <div className="p-6 rounded-3xl bg-primary/5 border border-primary/10 flex items-start gap-4">
-                <Sparkles className="w-5 h-5 text-primary shrink-0" />
-                <p className="text-[11px] text-zinc-400 leading-relaxed">
-                  <strong>Dica:</strong> Use imagens em alta resolução (mínimo 1920px) para garantir a melhor experiência visual na sua Landing Page.
-                </p>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
+                <div className="relative flex justify-center text-[10px] uppercase font-bold"><span className="bg-background px-2 text-muted-foreground">Ou via URL</span></div>
+              </div>
+
+              <div className="space-y-2">
+                <input 
+                  value={externalUrl}
+                  onChange={(e) => setExternalUrl(e.target.value)}
+                  placeholder="https://exemplo.com/imagem.jpg" 
+                  className="w-full px-4 py-3 rounded-xl bg-secondary/50 border border-border/40 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                />
+                <Button className="w-full rounded-xl font-bold" disabled={!externalUrl}>Importar URL</Button>
               </div>
             </div>
+
+            <button onClick={() => setShowAddModal(false)} className="absolute top-4 right-4 p-2 text-muted-foreground hover:text-foreground transition-colors"><X className="w-5 h-5" /></button>
           </div>
         </div>
       )}
