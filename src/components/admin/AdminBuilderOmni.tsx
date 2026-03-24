@@ -182,9 +182,9 @@ const AdminBuilderOmni = () => {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background overflow-hidden">
+    <div className="h-[calc(100vh-120px)] flex flex-col -m-6 bg-background">
       {/* Barra de Ferramentas Superior */}
-      <div className="h-16 border-b border-border bg-background flex items-center justify-between px-6 shrink-0 z-20 shadow-sm">
+      <div className="h-16 border-b border-border bg-background flex items-center justify-between px-6 shrink-0 z-10">
         <div className="flex items-center gap-4">
           <div className="flex bg-secondary/50 p-1 rounded-xl border border-border/40">
             <button
@@ -271,9 +271,9 @@ const AdminBuilderOmni = () => {
         </div>
       </div>
 
-      <div className="flex-1 flex overflow-hidden relative">
+      <div className="flex-1 flex overflow-hidden">
         {/* Painel de Propriedades (Esquerda) */}
-        <div className="w-80 border-r border-border bg-background overflow-y-auto p-6 custom-scrollbar shrink-0 z-10 shadow-lg">
+        <div className="w-80 border-r border-border bg-background overflow-y-auto p-6 custom-scrollbar shrink-0">
           <div className="flex items-center gap-2 mb-8">
             <div className="p-2 bg-primary/10 rounded-lg text-primary">
               <Layout className="w-4 h-4" />
@@ -406,41 +406,31 @@ const AdminBuilderOmni = () => {
         </div>
 
         {/* Canvas/Preview (Centro) */}
-        <div className="flex-1 flex flex-col overflow-hidden bg-secondary/30 relative">
-          <div className="flex-1 overflow-auto flex items-center justify-center p-4 md:p-8">
+        <div className="flex-1 flex flex-col overflow-hidden bg-secondary/30">
+          <div className="flex-1 overflow-auto flex items-center justify-center p-8">
             <div
-              className={`bg-background rounded-2xl shadow-2xl overflow-hidden transition-all duration-500 ${
+              className={`bg-background rounded-2xl shadow-2xl overflow-hidden ${
                 viewport === "desktop"
                   ? "w-full max-w-6xl"
                   : viewport === "tablet"
                   ? "w-full max-w-2xl"
                   : "w-full max-w-sm"
               }`}
-              style={{ height: viewport === "desktop" ? "auto" : "80vh" }}
             >
               <div
-                className={`relative ${isEditMode ? "cursor-crosshair" : ""}`}
                 onClick={(e) => {
                   if (!isEditMode) return;
                   const target = (e.target as HTMLElement).closest(".editable-element") as HTMLElement;
                   if (target) {
-                    e.preventDefault();
-                    e.stopPropagation();
                     setSelectedElement({
                       type: target.dataset.type || "text",
                       path: target.dataset.path || "",
                       data: { content: target.textContent },
                     });
-                    toast.info(`Editando: ${target.dataset.path}`);
                   }
                 }}
               >
-                <div className="pointer-events-auto">
-                  <Index />
-                </div>
-                {isEditMode && (
-                  <div className="absolute inset-0 pointer-events-none border-4 border-primary/20 animate-pulse" />
-                )}
+                <Index />
               </div>
             </div>
           </div>

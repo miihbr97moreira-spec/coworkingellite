@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -30,19 +30,20 @@ export const useCTASync = () => {
 
   // Sincronizar cliques de botões com os CTAs configurados
   const syncCTAClick = useCallback(
-    async (ctaId: string, ctaLabel: string, ctaType: string, fallbackDestination?: string, fallbackMessage?: string) => {
+    async (ctaId: string, ctaLabel: string, ctaType: string) => {
       try {
         // Encontrar o CTA correspondente
         const matchingCTA = ctas?.find((c) => c.id === ctaId || c.label === ctaLabel);
 
-        if (matchingCTA && matchingCTA.active) {
+        if (matchingCTA) {
           // Se for WhatsApp, usar a mensagem configurada
           if (matchingCTA.type === "whatsapp") {
-            let message = matchingCTA.whatsapp_message || fallbackMessage || "Olá! Gostaria de saber mais sobre o Ellite Coworking.";
+            let message = matchingCTA.whatsapp_message || "Olá! Gostaria de saber mais sobre o Ellite Coworking.";
             
             // Se for específico por plano e tiver metadados de plano
             if (matchingCTA.plan_specific && matchingCTA.plan_messages && ctaId.startsWith('plan-')) {
               const planId = ctaId.replace('plan-', '');
+              // Mapear IDs de plano para nomes amigáveis se necessário
               const planNameMap: Record<string, string> = {
                 'hora': 'Estação',
                 'diaria': 'Sala Reunião',
@@ -54,40 +55,27 @@ export const useCTASync = () => {
               }
             }
             
-            const whatsappNumber = matchingCTA.destination || fallbackDestination;
-            if (whatsappNumber) {
-              window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, "_blank");
-            }
+            const whatsappNumber = matchingCTA.destination;
+            window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, "_blank");
           }
           // Se for URL
           else if (matchingCTA.type === "url") {
-            window.open(matchingCTA.destination || fallbackDestination || "#", "_blank");
+            window.open(matchingCTA.destination, "_blank");
           }
           // Se for Email
           else if (matchingCTA.type === "email") {
-            window.location.href = `mailto:${matchingCTA.destination || fallbackDestination}`;
+            window.location.href = `mailto:${matchingCTA.destination}`;
           }
           // Se for Telefone
           else if (matchingCTA.type === "phone") {
-            window.location.href = `tel:${matchingCTA.destination || fallbackDestination}`;
+            window.location.href = `tel:${matchingCTA.destination}`;
           }
           // Se for Âncora
           else if (matchingCTA.type === "anchor") {
-            const targetId = (matchingCTA.destination || fallbackDestination || "").replace('#', '');
-            const element = document.getElementById(targetId);
+            const element = document.getElementById(matchingCTA.destination);
             if (element) {
               element.scrollIntoView({ behavior: "smooth" });
             }
-          }
-        } else {
-          // Fallback se não encontrar no banco ou estiver inativo
-          if (ctaType === "whatsapp" && fallbackDestination) {
-            window.open(`https://wa.me/${fallbackDestination}?text=${encodeURIComponent(fallbackMessage || "Olá!")}`, "_blank");
-          } else if (ctaType === "anchor" && fallbackDestination) {
-            const element = document.getElementById(fallbackDestination.replace('#', ''));
-            if (element) element.scrollIntoView({ behavior: "smooth" });
-          } else if (ctaType === "url" && fallbackDestination) {
-            window.open(fallbackDestination, "_blank");
           }
         }
       } catch (error) {
