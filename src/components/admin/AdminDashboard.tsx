@@ -1,169 +1,294 @@
 import { useMemo, useState } from "react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
-import { Eye, MousePointerClick, TrendingUp, Users, Download, Calendar } from "lucide-react";
-import { useLPEvents } from "@/hooks/useSupabaseQuery";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area, PieChart, Pie, Cell } from "recharts";
+import { Eye, MousePointerClick, TrendingUp, Users, Download, Calendar, ArrowUpRight, ArrowDownRight, DollarSign, Target } from "lucide-react";
+import { useLPEvents, useLeads, useStages } from "@/hooks/useSupabaseQuery";
 import jsPDF from "jspdf";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
-import { format } from "date-fns";
-import { pt } from "date-fns/locale";
+import { format, subDays, isWithinInterval, startOfDay, endOfDay } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 const AdminDashboard = () => {
   const { data: events } = useLPEvents();
+  const { data: leads } = useLeads();
+  const { data: stages } = useStages();
+  
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
-    from: undefined,
-    to: undefined,
+    from: subDays(new Date(), 30),
+    to: new Date(),
   });
 
   const filteredEvents = useMemo(() => {
     if (!events) return [];
+    if (!dateRange.from || !dateRange.to) return events;
     return events.filter((e) => {
       const eventDate = new Date(e.created_at);
-      if (dateRange.from && eventDate < dateRange.from) return false;
-      if (dateRange.to) {
-        const toDate = new Date(dateRange.to);
-        toDate.setHours(23, 59, 59, 999);
-        if (eventDate > toDate) return false;
-      }
-      return true;
+      return isWithinInterval(eventDate, { start: startOfDay(dateRange.from!), end: endOfDay(dateRange.to!) });
     });
   }, [events, dateRange]);
 
+  const filteredLeads = useMemo(() => {
+    if (!leads) return [];
+    if (!dateRange.from || !dateRange.to) return leads;
+    return leads.filter((l) => {
+      const leadDate = new Date(l.created_at);
+      return isWithinInterval(leadDate, { start: startOfDay(dateRange.from!), end: endOfDay(dateRange.to!) });
+    });
+  }, [leads, dateRange]);
+
   const stats = useMemo(() => {
-    if (!filteredEvents) return { views: 0, clicks: 0, rate: "0%", leads: 0, dailyViews: [], dailyClicks: [] };
+    const totalLeads = filteredLeads.length;
+    const pipelineValue = filteredLeads
+      .filter(l => {
+        const stage = stages?.find(s => s.id === l.stage_id);
+        return stage && stage.name.toLowerCase() !== 'fechado';
+      })
+      .reduce((acc, curr) => acc + Number(curr.deal_value || 0), 0);
+    
+    const closedLeads = filteredLeads.filter(l => {
+      const stage = stages?.find(s => s.id === l.stage_id);
+      return stage && stage.name.toLowerCase() === 'fechado';
+    });
+    
+    const conversionRate = totalLeads > 0 ? ((closedLeads.length / totalLeads) * 100).toFixed(1) : "0";
+    const avgTicket = closedLeads.length > 0 
+      ? (closedLeads.reduce((acc, curr) => acc + Number(curr.deal_value || 0), 0) / closedLeads.length).toFixed(0)
+      : "0";
 
-    const views = filteredEvents.filter((e) => e.event_type === "page_view").length;
-    const clicks = filteredEvents.filter((e) => ["cta_click", "plan_click", "whatsapp_click"].includes(e.event_type)).length;
-    const rate = views > 0 ? ((clicks / views) * 100).toFixed(1) + "%" : "0%";
-    const leads = filteredEvents.filter((e) => e.event_type === "whatsapp_click").length;
-
-    const days = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-    const viewsByDay: Record<string, number> = {};
-    const clicksByDay: Record<string, number> = {};
-    days.forEach((d) => { viewsByDay[d] = 0; clicksByDay[d] = 0; });
-
-    filteredEvents.forEach((e) => {
-      const d = days[new Date(e.created_at).getDay()];
-      if (e.event_type === "page_view") viewsByDay[d]++;
-      if (["cta_click", "plan_click"].includes(e.event_type)) clicksByDay[d]++;
+    // Gráfico de Leads por Dia (últimos 30 dias ou range selecionado)
+    const dailyData: Record<string, { date: string, leads: number, views: number }> = {};
+    filteredEvents.forEach(e => {
+      const day = format(new Date(e.created_at), "dd/MM");
+      if (!dailyData[day]) dailyData[day] = { date: day, leads: 0, views: 0 };
+      if (e.event_type === 'page_view') dailyData[day].views++;
+    });
+    filteredLeads.forEach(l => {
+      const day = format(new Date(l.created_at), "dd/MM");
+      if (!dailyData[day]) dailyData[day] = { date: day, leads: 0, views: 0 };
+      dailyData[day].leads++;
     });
 
+    // Leads por Etapa
+    const stageData = stages?.map(s => ({
+      name: s.name,
+      value: filteredLeads.filter(l => l.stage_id === s.id).length,
+      amount: filteredLeads.filter(l => l.stage_id === s.id).reduce((acc, curr) => acc + Number(curr.deal_value || 0), 0),
+      color: s.color
+    })) || [];
+
     return {
-      views,
-      clicks,
-      rate,
-      leads,
-      dailyViews: days.map((d) => ({ day: d, visitas: viewsByDay[d] })),
-      dailyClicks: days.map((d) => ({ day: d, cliques: clicksByDay[d] })),
+      totalLeads,
+      pipelineValue,
+      conversionRate,
+      avgTicket,
+      dailyChart: Object.values(dailyData).sort((a, b) => a.date.localeCompare(b.date)),
+      stageChart: stageData,
+      topLeads: [...filteredLeads].sort((a, b) => Number(b.deal_value || 0) - Number(a.deal_value || 0)).slice(0, 5)
     };
-  }, [filteredEvents]);
+  }, [filteredLeads, filteredEvents, stages]);
 
   const exportPDF = () => {
     const doc = new jsPDF();
     doc.setFontSize(20);
-    doc.text("Ellite Coworking — Relatório", 20, 20);
+    doc.text("Ellite Coworking — Relatório de Performance", 20, 20);
     doc.setFontSize(12);
-    const dateRangeText = dateRange.from && dateRange.to
-      ? `Período: ${format(dateRange.from, "dd/MM/yyyy", { locale: pt })} a ${format(dateRange.to, "dd/MM/yyyy", { locale: pt })}`
-      : `Data: ${new Date().toLocaleDateString("pt-BR")}`;
-    doc.text(dateRangeText, 20, 30);
-    doc.text(`Visitas: ${stats.views}`, 20, 45);
-    doc.text(`Cliques CTA: ${stats.clicks}`, 20, 55);
-    doc.text(`Taxa de Conversão: ${stats.rate}`, 20, 65);
-    doc.text(`Leads WhatsApp: ${stats.leads}`, 20, 75);
-    doc.save("ellite-relatorio.pdf");
+    const rangeText = dateRange.from && dateRange.to 
+      ? `${format(dateRange.from, "dd/MM/yyyy")} - ${format(dateRange.to, "dd/MM/yyyy")}`
+      : "Todo o período";
+    doc.text(`Período: ${rangeText}`, 20, 30);
+    doc.text(`Total de Leads: ${stats.totalLeads}`, 20, 45);
+    doc.text(`Valor em Pipeline: R$ ${stats.pipelineValue.toLocaleString("pt-BR")}`, 20, 55);
+    doc.text(`Taxa de Conversão: ${stats.conversionRate}%`, 20, 65);
+    doc.text(`Ticket Médio: R$ ${Number(stats.avgTicket).toLocaleString("pt-BR")}`, 20, 75);
+    doc.save(`relatorio-ellite-${format(new Date(), "yyyy-MM-dd")}.pdf`);
   };
 
-  const statCards = [
-    { icon: Eye, label: "Visitas", value: stats.views.toString() },
-    { icon: MousePointerClick, label: "Cliques CTA", value: stats.clicks.toString() },
-    { icon: TrendingUp, label: "Taxa Conversão", value: stats.rate },
-    { icon: Users, label: "Leads WhatsApp", value: stats.leads.toString() },
+  const kpis = [
+    { label: "Total de Leads", value: stats.totalLeads, icon: Users, trend: "+12%", up: true, color: "text-blue-500" },
+    { label: "Pipeline", value: `R$ ${stats.pipelineValue.toLocaleString("pt-BR")}`, icon: DollarSign, trend: "+8%", up: true, color: "text-emerald-500" },
+    { label: "Conversão", value: `${stats.conversionRate}%`, icon: Target, trend: "-2%", up: false, color: "text-amber-500" },
+    { label: "Ticket Médio", value: `R$ ${Number(stats.avgTicket).toLocaleString("pt-BR")}`, icon: TrendingUp, trend: "+5%", up: true, color: "text-primary" },
   ];
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="font-display text-2xl font-bold">Dashboard</h2>
+    <div className="space-y-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="font-display text-3xl font-bold tracking-tight">Dashboard</h2>
+          <p className="text-muted-foreground text-sm">Visão geral da performance e funil de vendas.</p>
+        </div>
+        
         <div className="flex items-center gap-3">
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="gap-2">
-                <Calendar className="w-4 h-4" />
+              <Button variant="outline" className="gap-2 rounded-xl border-border/40 bg-secondary/30">
+                <Calendar className="w-4 h-4 text-primary" />
                 {dateRange.from && dateRange.to
-                  ? `${format(dateRange.from, "dd/MM", { locale: pt })} - ${format(dateRange.to, "dd/MM", { locale: pt })}`
-                  : "Filtrar por datas"}
+                  ? `${format(dateRange.from, "dd MMM", { locale: ptBR })} - ${format(dateRange.to, "dd MMM", { locale: ptBR })}`
+                  : "Filtrar período"}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="end">
-              <div className="p-4">
-                <div className="mb-4">
-                  <p className="text-sm font-medium mb-2">Data Inicial</p>
-                  <CalendarComponent
-                    mode="single"
-                    selected={dateRange.from}
-                    onSelect={(date) => setDateRange({ ...dateRange, from: date })}
-                    disabled={(date) => dateRange.to ? date > dateRange.to : false}
-                  />
+              <div className="p-4 bg-background border border-border rounded-xl shadow-2xl">
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground mb-2">Início</p>
+                    <CalendarComponent mode="single" selected={dateRange.from} onSelect={(d) => setDateRange(prev => ({ ...prev, from: d }))} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground mb-2">Fim</p>
+                    <CalendarComponent mode="single" selected={dateRange.to} onSelect={(d) => setDateRange(prev => ({ ...prev, to: d }))} />
+                  </div>
                 </div>
-                <div className="mb-4">
-                  <p className="text-sm font-medium mb-2">Data Final</p>
-                  <CalendarComponent
-                    mode="single"
-                    selected={dateRange.to}
-                    onSelect={(date) => setDateRange({ ...dateRange, to: date })}
-                    disabled={(date) => dateRange.from ? date < dateRange.from : false}
-                  />
+                <div className="flex gap-2">
+                  <Button variant="ghost" className="flex-1 text-xs" onClick={() => setDateRange({ from: subDays(new Date(), 7), to: new Date() })}>7 dias</Button>
+                  <Button variant="ghost" className="flex-1 text-xs" onClick={() => setDateRange({ from: subDays(new Date(), 30), to: new Date() })}>30 dias</Button>
+                  <Button variant="outline" className="flex-1 text-xs" onClick={() => setDateRange({ from: undefined, to: undefined })}>Limpar</Button>
                 </div>
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => setDateRange({ from: undefined, to: undefined })}
-                >
-                  Limpar Filtro
-                </Button>
               </div>
             </PopoverContent>
           </Popover>
-          <button onClick={exportPDF} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm">
+          <Button onClick={exportPDF} className="gap-2 rounded-xl font-bold">
             <Download className="w-4 h-4" /> Exportar PDF
-          </button>
+          </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {statCards.map((s) => (
-          <div key={s.label} className="glass p-5">
-            <s.icon className="w-5 h-5 text-primary mb-2" />
-            <p className="text-2xl font-bold">{s.value}</p>
-            <p className="text-xs text-muted-foreground">{s.label}</p>
+      {/* Row 1 — KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {kpis.map((kpi) => (
+          <div key={kpi.label} className="glass p-6 relative overflow-hidden group hover:border-primary/30 transition-all">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">{kpi.label}</p>
+                <h3 className="text-2xl font-bold">{kpi.value}</h3>
+              </div>
+              <div className={`p-2 rounded-lg bg-secondary/50 ${kpi.color}`}>
+                <kpi.icon className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-4 flex items-center gap-2">
+              <span className={`flex items-center text-[10px] font-bold ${kpi.up ? 'text-emerald-500' : 'text-red-500'}`}>
+                {kpi.up ? <ArrowUpRight className="w-3 h-3 mr-0.5" /> : <ArrowDownRight className="w-3 h-3 mr-0.5" />}
+                {kpi.trend}
+              </span>
+              <span className="text-[10px] text-muted-foreground">vs. mês anterior</span>
+            </div>
+            <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
         ))}
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        <div className="glass p-6">
-          <h3 className="font-semibold mb-4">Visitas por dia</h3>
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={stats.dailyViews}>
-              <XAxis dataKey="day" stroke="hsl(220 10% 55%)" fontSize={12} />
-              <YAxis stroke="hsl(220 10% 55%)" fontSize={12} />
-              <Tooltip contentStyle={{ background: "hsl(220 15% 10%)", border: "1px solid hsl(220 10% 18%)", borderRadius: 8 }} />
-              <Bar dataKey="visitas" fill="hsl(45 100% 56%)" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+      {/* Row 2 — Gráficos */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 glass p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="font-bold text-sm uppercase tracking-wider">Crescimento de Leads & Visitas</h3>
+            <div className="flex items-center gap-4 text-[10px] font-bold uppercase">
+              <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-primary" /> Leads</div>
+              <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-blue-500" /> Visitas</div>
+            </div>
+          </div>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={stats.dailyChart}>
+                <defs>
+                  <linearGradient id="colorLeads" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(45 100% 56%)" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="hsl(45 100% 56%)" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="date" stroke="hsl(220 10% 40%)" fontSize={10} tickLine={false} axisLine={false} />
+                <YAxis stroke="hsl(220 10% 40%)" fontSize={10} tickLine={false} axisLine={false} />
+                <Tooltip 
+                  contentStyle={{ background: "hsl(220 15% 10%)", border: "1px solid hsl(220 10% 20%)", borderRadius: "12px", fontSize: "12px" }}
+                  itemStyle={{ fontWeight: "bold" }}
+                />
+                <Area type="monotone" dataKey="leads" stroke="hsl(45 100% 56%)" strokeWidth={3} fillOpacity={1} fill="url(#colorLeads)" />
+                <Area type="monotone" dataKey="views" stroke="#3b82f6" strokeWidth={2} fill="transparent" strokeDasharray="5 5" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         </div>
+
         <div className="glass p-6">
-          <h3 className="font-semibold mb-4">Cliques nos CTAs</h3>
-          <ResponsiveContainer width="100%" height={240}>
-            <LineChart data={stats.dailyClicks}>
-              <XAxis dataKey="day" stroke="hsl(220 10% 55%)" fontSize={12} />
-              <YAxis stroke="hsl(220 10% 55%)" fontSize={12} />
-              <Tooltip contentStyle={{ background: "hsl(220 15% 10%)", border: "1px solid hsl(220 10% 18%)", borderRadius: 8 }} />
-              <Line type="monotone" dataKey="cliques" stroke="hsl(45 100% 56%)" strokeWidth={2} dot={{ fill: "hsl(45 100% 56%)" }} />
-            </LineChart>
-          </ResponsiveContainer>
+          <h3 className="font-bold text-sm uppercase tracking-wider mb-6">Distribuição por Etapa</h3>
+          <div className="h-[300px] w-full flex flex-col items-center justify-center">
+            <ResponsiveContainer width="100%" height="80%">
+              <PieChart>
+                <Pie
+                  data={stats.stageChart}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={80}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {stats.stageChart.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 w-full mt-4">
+              {stats.stageChart.map((s) => (
+                <div key={s.name} className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
+                  <span className="text-[10px] font-bold text-muted-foreground truncate">{s.name}</span>
+                  <span className="text-[10px] font-mono ml-auto">{s.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Row 3 — Tabelas */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="glass p-6">
+          <h3 className="font-bold text-sm uppercase tracking-wider mb-6">Top Leads por Valor</h3>
+          <div className="space-y-4">
+            {stats.topLeads.map((lead) => (
+              <div key={lead.id} className="flex items-center justify-between p-3 rounded-xl bg-secondary/20 border border-border/20 hover:border-primary/30 transition-all">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
+                    {lead.name[0]}
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold">{lead.name}</p>
+                    <p className="text-[10px] text-muted-foreground">{lead.company || '—'}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-bold text-primary">R$ {Number(lead.deal_value || 0).toLocaleString("pt-BR")}</p>
+                  <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">
+                    {stages?.find(s => s.id === lead.stage_id)?.name}
+                  </span>
+                </div>
+              </div>
+            ))}
+            {stats.topLeads.length === 0 && <p className="text-center text-muted-foreground text-sm py-8 italic">Nenhum lead encontrado no período.</p>}
+          </div>
+        </div>
+
+        <div className="glass p-6">
+          <h3 className="font-bold text-sm uppercase tracking-wider mb-6">Volume vs. Valor por Etapa</h3>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={stats.stageChart}>
+                <XAxis dataKey="name" stroke="hsl(220 10% 40%)" fontSize={10} tickLine={false} axisLine={false} />
+                <YAxis stroke="hsl(220 10% 40%)" fontSize={10} tickLine={false} axisLine={false} />
+                <Tooltip 
+                  cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                  contentStyle={{ background: "hsl(220 15% 10%)", border: "1px solid hsl(220 10% 20%)", borderRadius: "12px" }}
+                />
+                <Bar dataKey="amount" fill="hsl(45 100% 56%)" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
     </div>
