@@ -1,26 +1,49 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
-import { Eye, MousePointerClick, TrendingUp, Users, Download } from "lucide-react";
+import { Eye, MousePointerClick, TrendingUp, Users, Download, Calendar } from "lucide-react";
 import { useLPEvents } from "@/hooks/useSupabaseQuery";
 import jsPDF from "jspdf";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Button } from "@/components/ui/button";
+import { format } from "date-fns";
+import { pt } from "date-fns/locale";
 
 const AdminDashboard = () => {
   const { data: events } = useLPEvents();
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+    from: undefined,
+    to: undefined,
+  });
+
+  const filteredEvents = useMemo(() => {
+    if (!events) return [];
+    return events.filter((e) => {
+      const eventDate = new Date(e.created_at);
+      if (dateRange.from && eventDate < dateRange.from) return false;
+      if (dateRange.to) {
+        const toDate = new Date(dateRange.to);
+        toDate.setHours(23, 59, 59, 999);
+        if (eventDate > toDate) return false;
+      }
+      return true;
+    });
+  }, [events, dateRange]);
 
   const stats = useMemo(() => {
-    if (!events) return { views: 0, clicks: 0, rate: "0%", leads: 0, dailyViews: [], dailyClicks: [] };
+    if (!filteredEvents) return { views: 0, clicks: 0, rate: "0%", leads: 0, dailyViews: [], dailyClicks: [] };
 
-    const views = events.filter((e) => e.event_type === "page_view").length;
-    const clicks = events.filter((e) => ["cta_click", "plan_click", "whatsapp_click"].includes(e.event_type)).length;
+    const views = filteredEvents.filter((e) => e.event_type === "page_view").length;
+    const clicks = filteredEvents.filter((e) => ["cta_click", "plan_click", "whatsapp_click"].includes(e.event_type)).length;
     const rate = views > 0 ? ((clicks / views) * 100).toFixed(1) + "%" : "0%";
-    const leads = events.filter((e) => e.event_type === "whatsapp_click").length;
+    const leads = filteredEvents.filter((e) => e.event_type === "whatsapp_click").length;
 
     const days = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
     const viewsByDay: Record<string, number> = {};
     const clicksByDay: Record<string, number> = {};
     days.forEach((d) => { viewsByDay[d] = 0; clicksByDay[d] = 0; });
 
-    events.forEach((e) => {
+    filteredEvents.forEach((e) => {
       const d = days[new Date(e.created_at).getDay()];
       if (e.event_type === "page_view") viewsByDay[d]++;
       if (["cta_click", "plan_click"].includes(e.event_type)) clicksByDay[d]++;
@@ -34,14 +57,17 @@ const AdminDashboard = () => {
       dailyViews: days.map((d) => ({ day: d, visitas: viewsByDay[d] })),
       dailyClicks: days.map((d) => ({ day: d, cliques: clicksByDay[d] })),
     };
-  }, [events]);
+  }, [filteredEvents]);
 
   const exportPDF = () => {
     const doc = new jsPDF();
     doc.setFontSize(20);
     doc.text("Ellite Coworking — Relatório", 20, 20);
     doc.setFontSize(12);
-    doc.text(`Data: ${new Date().toLocaleDateString("pt-BR")}`, 20, 30);
+    const dateRangeText = dateRange.from && dateRange.to
+      ? `Período: ${format(dateRange.from, "dd/MM/yyyy", { locale: pt })} a ${format(dateRange.to, "dd/MM/yyyy", { locale: pt })}`
+      : `Data: ${new Date().toLocaleDateString("pt-BR")}`;
+    doc.text(dateRangeText, 20, 30);
     doc.text(`Visitas: ${stats.views}`, 20, 45);
     doc.text(`Cliques CTA: ${stats.clicks}`, 20, 55);
     doc.text(`Taxa de Conversão: ${stats.rate}`, 20, 65);
@@ -60,9 +86,50 @@ const AdminDashboard = () => {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h2 className="font-display text-2xl font-bold">Dashboard</h2>
-        <button onClick={exportPDF} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm">
-          <Download className="w-4 h-4" /> Exportar PDF
-        </button>
+        <div className="flex items-center gap-3">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <Calendar className="w-4 h-4" />
+                {dateRange.from && dateRange.to
+                  ? `${format(dateRange.from, "dd/MM", { locale: pt })} - ${format(dateRange.to, "dd/MM", { locale: pt })}`
+                  : "Filtrar por datas"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <div className="p-4">
+                <div className="mb-4">
+                  <p className="text-sm font-medium mb-2">Data Inicial</p>
+                  <CalendarComponent
+                    mode="single"
+                    selected={dateRange.from}
+                    onSelect={(date) => setDateRange({ ...dateRange, from: date })}
+                    disabled={(date) => dateRange.to ? date > dateRange.to : false}
+                  />
+                </div>
+                <div className="mb-4">
+                  <p className="text-sm font-medium mb-2">Data Final</p>
+                  <CalendarComponent
+                    mode="single"
+                    selected={dateRange.to}
+                    onSelect={(date) => setDateRange({ ...dateRange, to: date })}
+                    disabled={(date) => dateRange.from ? date < dateRange.from : false}
+                  />
+                </div>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setDateRange({ from: undefined, to: undefined })}
+                >
+                  Limpar Filtro
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+          <button onClick={exportPDF} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm">
+            <Download className="w-4 h-4" /> Exportar PDF
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
