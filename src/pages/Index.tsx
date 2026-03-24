@@ -5,7 +5,7 @@ import LogoTrust from "@/components/landing/LogoTrust";
 import SocialProof from "@/components/landing/SocialProof";
 import StatsCounter from "@/components/landing/StatsCounter";
 import TargetAudience from "@/components/landing/TargetAudience";
-import Gallery from "@/components/landing/GalleryWithFallback";
+import Gallery from "@/components/landing/Gallery";
 import Features from "@/components/landing/Features";
 import ROICalculator from "@/components/landing/ROICalculator";
 import CTABanner from "@/components/landing/CTABanner";
