@@ -6,18 +6,18 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import AdminDashboard from "@/components/admin/AdminDashboard";
+import AdminDashboardExpanded from "@/components/admin/AdminDashboardExpanded";
 import AdminBuilderOmni from "@/components/admin/AdminBuilderOmni";
 import AdminPixelManager from "@/components/admin/AdminPixelManager";
 import AdminLinkRedirecionamento from "@/components/admin/AdminLinkRedirecionamento";
 import AdminCRM from "@/components/admin/AdminCRM";
-import AdminGallery from "@/components/admin/AdminGallery";
+// AdminGallery removido e integrado ao Builder
 import AdminReviews from "@/components/admin/AdminReviews";
 
 const tabs = [
   { id: "dashboard", label: "Dashboard", icon: BarChart3 },
   { id: "content", label: "Builder", icon: Type },
-  { id: "gallery", label: "Galeria", icon: Image },
+
   { id: "reviews", label: "Avaliações", icon: Users },
   { id: "pixels", label: "Pixels", icon: Megaphone },
   { id: "cta", label: "Link Redirecionamento", icon: MessageCircle },
@@ -93,9 +93,9 @@ const Admin = () => {
           transition={{ duration: 0.2 }}
           className="p-8"
         >
-          {activeTab === "dashboard" && <AdminDashboard />}
+          {activeTab === "dashboard" && <AdminDashboardExpanded />}
           {activeTab === "content" && <AdminBuilderOmni />}
-          {activeTab === "gallery" && <AdminGallery />}
+
           {activeTab === "reviews" && <AdminReviews />}
           {activeTab === "pixels" && <AdminPixelManager />}
           {activeTab === "cta" && <AdminLinkRedirecionamento />}
