@@ -1,5 +1,7 @@
 import { motion } from "framer-motion";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowDown } from "lucide-react";
+import MagneticButton from "./MagneticButton";
+import ScrollRevealText from "./ScrollRevealText";
 import { useLPConfig } from "@/hooks/useSupabaseQuery";
 
 const HeroSection = () => {
@@ -14,93 +16,48 @@ const HeroSection = () => {
   };
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
-      {/* Ticto Background Elements */}
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none animate-pulse" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-600/10 rounded-full blur-[120px] pointer-events-none animate-pulse" style={{ animationDelay: "2s" }} />
-      
-      {/* Grid Overlay Subtil */}
-      <div className="absolute inset-0 bg-[url('https://ticto.com.br/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))] opacity-20 pointer-events-none" />
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden grid-bg">
+      {/* Animated gradient orbs */}
+      <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-primary/5 rounded-full blur-3xl pointer-events-none animate-pulse" />
+      <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-primary/3 rounded-full blur-3xl pointer-events-none animate-pulse" style={{ animationDelay: "1s" }} />
 
-      <div className="container relative z-10 px-4 text-center">
+      <div className="container relative z-10 px-4 py-20 text-center">
         <motion.div
-          initial={{ opacity: 0, y: 40 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, ease: [0.23, 1, 0.32, 1] }}
-          className="max-w-5xl mx-auto"
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          className="max-w-4xl mx-auto"
         >
-          {/* Badge Ticto Style */}
-          <motion.div
+          <motion.span
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.2 }}
-            className="inline-flex items-center gap-2 px-4 py-2 mb-10 text-[10px] font-black tracking-[0.3em] uppercase rounded-full border border-white/10 bg-white/5 text-zinc-400 backdrop-blur-md"
+            className="inline-block px-4 py-1.5 mb-8 text-xs font-semibold tracking-widest uppercase rounded-full border border-primary/30 text-primary bg-primary/5"
           >
-            <Sparkles className="w-3 h-3 text-primary" />
             Coworking Premium em Moema — São Paulo
-          </motion.div>
+          </motion.span>
 
-          {/* Headline Gigante Ticto Style */}
-          <h1 className="font-display text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black leading-[1.1] mb-8 tracking-tight">
-            <span className="inline-block text-white">
-              {headline.split('. ')[0]}.
-            </span>
-            <br />
-            <span className="text-gradient-ticto">
-              {headline.split('. ')[1]}
-            </span>
+          <h1 className="font-display text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold leading-tight mb-6">
+            <span className="text-gradient-gold">{headline}</span>
           </h1>
 
-          {/* Subheadline Ticto Style */}
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5, duration: 1 }}
-            className="text-lg md:text-2xl text-zinc-400 max-w-3xl mx-auto mb-12 leading-relaxed font-medium"
-          >
-            {subheadline}
-          </motion.p>
+          <ScrollRevealText
+            text={subheadline}
+            className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 justify-center"
+          />
 
-          {/* Buttons Ticto Style */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.7 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-6"
+          <MagneticButton
+            onClick={scrollToPlans}
+            className="inline-flex items-center gap-2 px-8 py-4 text-lg font-bold rounded-xl bg-primary text-primary-foreground glow-gold animate-pulse-glow transition-all"
           >
-            <button
-              onClick={scrollToPlans}
-              className="ticto-button group"
-            >
-              Crie sua conta agora
-              <ArrowRight className="w-5 h-5 ml-2 transition-transform group-hover:translate-x-1" />
-            </button>
-            
-            <button
-              onClick={() => document.getElementById('espaco')?.scrollIntoView({ behavior: 'smooth' })}
-              className="ticto-button-outline"
-            >
-              Conhecer o espaço
-            </button>
-          </motion.div>
-
-          {/* Trust Indicators Ticto Style */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1.2 }}
-            className="mt-20 pt-10 border-t border-white/5 flex flex-wrap justify-center gap-x-12 gap-y-6 opacity-40 grayscale hover:grayscale-0 transition-all duration-500"
-          >
-            <img src="https://ticto.com.br/tabler-icon-currency-dollar.svg" alt="Trust" className="h-6" />
-            <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Ambiente de Elite</span>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Privacidade Total</span>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Networking VIP</span>
-          </motion.div>
+            Conhecer os Planos
+            <ArrowDown className="w-5 h-5" />
+          </MagneticButton>
         </motion.div>
       </div>
 
-      {/* Bottom Gradient Fade */}
-      <div className="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-t from-background via-background/80 to-transparent pointer-events-none" />
+      {/* Bottom fade */}
+      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent" />
     </section>
   );
 };
