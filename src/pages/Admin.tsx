@@ -7,9 +7,9 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import AdminDashboard from "@/components/admin/AdminDashboard";
-import AdminContentEditor from "@/components/admin/AdminContentEditor";
+import AdminBuilderOmni from "@/components/admin/AdminBuilderOmni";
 import AdminPixelManager from "@/components/admin/AdminPixelManager";
-import AdminCTAManager from "@/components/admin/AdminCTAManager";
+import AdminLinkRedirecionamento from "@/components/admin/AdminLinkRedirecionamento";
 import AdminCRM from "@/components/admin/AdminCRM";
 import AdminGallery from "@/components/admin/AdminGallery";
 import AdminReviews from "@/components/admin/AdminReviews";
@@ -94,11 +94,11 @@ const Admin = () => {
           className="p-8"
         >
           {activeTab === "dashboard" && <AdminDashboard />}
-          {activeTab === "content" && <AdminContentEditor />}
+          {activeTab === "content" && <AdminBuilderOmni />}
           {activeTab === "gallery" && <AdminGallery />}
           {activeTab === "reviews" && <AdminReviews />}
           {activeTab === "pixels" && <AdminPixelManager />}
-          {activeTab === "cta" && <AdminCTAManager />}
+          {activeTab === "cta" && <AdminLinkRedirecionamento />}
           {activeTab === "crm" && <AdminCRM />}
         </motion.div>
       </main>
