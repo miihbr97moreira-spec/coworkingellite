@@ -119,7 +119,7 @@ const StageColumn = ({ stage, leads, onAddLead }: { stage: any; leads: any[]; on
       <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar min-h-[150px] rounded-xl bg-secondary/10 p-2 border border-border/40">
         <SortableContext items={leads.map(l => l.id)} strategy={verticalListSortingStrategy}>
           {leads.map((lead) => (
-            <LeadCard key={lead.id} lead={lead} />
+            <LeadCard key={lead.id} lead={lead} onClick={() => {}} />
           ))}
         </SortableContext>
         
@@ -234,7 +234,17 @@ const AdminCRM = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
   const [selectedLead, setSelectedLead] = useState<any>(null);
+  
+  // Modais
+  const [showNewLead, setShowNewLead] = useState(false);
+  const [showNewStage, setShowNewStage] = useState(false);
+  const [showNewFunnel, setShowNewFunnel] = useState(false);
   const [addingToStage, setAddingToStage] = useState<string | null>(null);
+  
+  // Form states
+  const [newLead, setNewLead] = useState({ name: "", email: "", phone: "", company: "", deal_value: 0, tags: "" });
+  const [newStage, setNewStage] = useState({ name: "", color: "#3B82F6" });
+  const [newFunnel, setNewFunnel] = useState({ name: "", description: "" });
   
   const qc = useQueryClient();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
@@ -260,23 +270,7 @@ const AdminCRM = () => {
   const handleDragOver = (event: DragOverEvent) => {
     const { active, over } = event;
     if (!over || activeType !== 'Lead') return;
-
-    const activeId = active.id as string;
-    const overId = over.id as string;
-
-    // Find the containers
-    const activeLead = leads?.find(l => l.id === activeId);
-    const overLead = leads?.find(l => l.id === overId);
-    const overStage = stages?.find(s => s.id === overId);
-
-    if (!activeLead) return;
-
-    const targetStageId = overLead ? overLead.stage_id : (overStage ? overStage.id : null);
-
-    if (targetStageId && activeLead.stage_id !== targetStageId) {
-      // Move lead to different stage in UI (optimistic)
-      // In a real app, we'd update the local state here for smoother DND
-    }
+    // Lógica de DragOver para feedback visual imediato (opcional)
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -290,14 +284,12 @@ const AdminCRM = () => {
       const activeId = active.id as string;
       const overId = over.id as string;
       
-      const activeLead = leads?.find(l => l.id === activeId);
       const overLead = leads?.find(l => l.id === overId);
       const overStage = stages?.find(s => s.id === overId);
       
       const targetStageId = overLead ? overLead.stage_id : (overStage ? overStage.id : null);
       
       if (targetStageId) {
-        // Update Supabase
         const { error } = await supabase.from("leads").update({ 
           stage_id: targetStageId,
           updated_at: new Date().toISOString()
@@ -307,13 +299,11 @@ const AdminCRM = () => {
         qc.invalidateQueries({ queryKey: ["leads", selectedFunnel] });
       }
     } else if (activeType === 'Stage') {
-      // Handle stage reordering
       const oldIndex = stages?.findIndex(s => s.id === active.id);
       const newIndex = stages?.findIndex(s => s.id === over.id);
       
       if (oldIndex !== undefined && newIndex !== undefined && oldIndex !== newIndex) {
         const newStages = arrayMove(stages!, oldIndex, newIndex);
-        // Update positions in Supabase
         for (let i = 0; i < newStages.length; i++) {
           await supabase.from("stages").update({ position: i }).eq("id", newStages[i].id);
         }
@@ -321,6 +311,58 @@ const AdminCRM = () => {
       }
     }
   };
+
+  const createLead = async () => {
+    if (!newLead.name.trim() || !addingToStage || !selectedFunnel) return;
+    const { error } = await supabase.from("leads").insert({
+      funnel_id: selectedFunnel,
+      stage_id: addingToStage,
+      name: newLead.name,
+      email: newLead.email || null,
+      phone: newLead.phone || null,
+      company: newLead.company || null,
+      deal_value: newLead.deal_value || 0,
+      tags: newLead.tags ? newLead.tags.split(",").map((t) => t.trim()) : [],
+      position: (filteredLeads.filter(l => l.stage_id === addingToStage).length)
+    });
+    if (error) return toast.error(error.message);
+    setNewLead({ name: "", email: "", phone: "", company: "", deal_value: 0, tags: "" });
+    setShowNewLead(false);
+    setAddingToStage(null);
+    qc.invalidateQueries({ queryKey: ["leads", selectedFunnel] });
+    toast.success("Lead criado!");
+  };
+
+  const createStage = async () => {
+    if (!newStage.name.trim() || !selectedFunnel) return;
+    const { error } = await supabase.from("stages").insert({
+      funnel_id: selectedFunnel,
+      name: newStage.name,
+      color: newStage.color,
+      position: (stages?.length ?? 0)
+    });
+    if (error) return toast.error(error.message);
+    setNewStage({ name: "", color: "#3B82F6" });
+    setShowNewStage(false);
+    qc.invalidateQueries({ queryKey: ["stages", selectedFunnel] });
+    toast.success("Etapa criada!");
+  };
+
+  const createFunnel = async () => {
+    if (!newFunnel.name.trim()) return;
+    const { data, error } = await supabase.from("funnels").insert({
+      name: newFunnel.name,
+      description: newFunnel.description
+    }).select().single();
+    if (error) return toast.error(error.message);
+    setNewFunnel({ name: "", description: "" });
+    setShowNewFunnel(false);
+    setSelectedFunnel(data.id);
+    qc.invalidateQueries({ queryKey: ["funnels"] });
+    toast.success("Funil criado!");
+  };
+
+  const inputClass = "w-full px-4 py-2 rounded-xl bg-secondary/50 border border-border/40 text-sm focus:ring-2 focus:ring-primary/30 outline-none transition-all";
 
   if (funnelsLoading) return <div className="flex items-center justify-center h-64 text-muted-foreground"><Loader2 className="w-6 h-6 animate-spin mr-2" /> Carregando CRM...</div>;
 
@@ -343,11 +385,11 @@ const AdminCRM = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar leads, tags..." 
-              className="w-full pl-10 pr-4 py-2 rounded-xl bg-secondary/50 border border-border/40 text-sm focus:ring-2 focus:ring-primary/30 outline-none transition-all"
+              className={inputClass + " pl-10"}
             />
           </div>
           <Button variant="outline" className="gap-2 rounded-xl"><Filter className="w-4 h-4" /> Filtros</Button>
-          <Button className="gap-2 rounded-xl font-bold"><Plus className="w-4 h-4" /> Novo Lead</Button>
+          <Button onClick={() => { setAddingToStage(stages?.[0]?.id || null); setShowNewLead(true); }} className="gap-2 rounded-xl font-bold"><Plus className="w-4 h-4" /> Novo Lead</Button>
         </div>
       </div>
 
@@ -364,7 +406,7 @@ const AdminCRM = () => {
             {f.name}
           </button>
         ))}
-        <button className="p-2 rounded-full border border-dashed border-border hover:border-primary/40 text-muted-foreground transition-all"><Plus className="w-4 h-4" /></button>
+        <button onClick={() => setShowNewFunnel(true)} className="p-2 rounded-full border border-dashed border-border hover:border-primary/40 text-muted-foreground transition-all"><Plus className="w-4 h-4" /></button>
       </div>
 
       {/* Kanban Board */}
@@ -383,12 +425,12 @@ const AdminCRM = () => {
                   key={stage.id} 
                   stage={stage} 
                   leads={filteredLeads.filter(l => l.stage_id === stage.id)}
-                  onAddLead={() => { setAddingToStage(stage.id); }}
+                  onAddLead={() => { setAddingToStage(stage.id); setShowNewLead(true); }}
                 />
               ))}
             </SortableContext>
             
-            <button className="min-w-[200px] h-[150px] rounded-2xl border-2 border-dashed border-border/40 hover:border-primary/30 hover:bg-primary/5 transition-all flex flex-col items-center justify-center gap-2 text-muted-foreground group">
+            <button onClick={() => setShowNewStage(true)} className="min-w-[200px] h-[150px] rounded-2xl border-2 border-dashed border-border/40 hover:border-primary/30 hover:bg-primary/5 transition-all flex flex-col items-center justify-center gap-2 text-muted-foreground group">
               <div className="p-3 bg-secondary rounded-full group-hover:bg-primary/10 group-hover:text-primary transition-all"><Plus className="w-5 h-5" /></div>
               <span className="text-xs font-bold uppercase tracking-widest">Nova Etapa</span>
             </button>
@@ -458,6 +500,65 @@ const AdminCRM = () => {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Modais de Criação */}
+      {showNewLead && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setShowNewLead(false)} />
+          <div className="relative w-full max-w-md glass p-8 animate-in zoom-in-95 duration-200">
+            <h3 className="text-xl font-bold mb-6">Novo Lead</h3>
+            <div className="space-y-4">
+              <input value={newLead.name} onChange={(e) => setNewLead({ ...newLead, name: e.target.value })} placeholder="Nome *" className={inputClass} />
+              <input value={newLead.email} onChange={(e) => setNewLead({ ...newLead, email: e.target.value })} placeholder="Email" className={inputClass} />
+              <input value={newLead.phone} onChange={(e) => setNewLead({ ...newLead, phone: e.target.value })} placeholder="Telefone" className={inputClass} />
+              <input value={newLead.company} onChange={(e) => setNewLead({ ...newLead, company: e.target.value })} placeholder="Empresa" className={inputClass} />
+              <input type="number" value={newLead.deal_value || ""} onChange={(e) => setNewLead({ ...newLead, deal_value: Number(e.target.value) })} placeholder="Valor (R$)" className={inputClass} />
+              <input value={newLead.tags} onChange={(e) => setNewLead({ ...newLead, tags: e.target.value })} placeholder="Tags (separadas por vírgula)" className={inputClass} />
+              <div className="flex gap-3 pt-4">
+                <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setShowNewLead(false)}>Cancelar</Button>
+                <Button className="flex-1 rounded-xl font-bold" onClick={createLead}>Criar Lead</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showNewStage && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setShowNewStage(false)} />
+          <div className="relative w-full max-w-md glass p-8 animate-in zoom-in-95 duration-200">
+            <h3 className="text-xl font-bold mb-6">Nova Etapa</h3>
+            <div className="space-y-4">
+              <input value={newStage.name} onChange={(e) => setNewStage({ ...newStage, name: e.target.value })} placeholder="Nome da Etapa *" className={inputClass} />
+              <div className="flex items-center gap-3 p-4 bg-secondary/30 rounded-2xl border border-border/40">
+                <span className="text-xs font-bold uppercase tracking-widest">Cor da Etapa</span>
+                <input type="color" value={newStage.color} onChange={(e) => setNewStage({ ...newStage, color: e.target.value })} className="w-10 h-10 rounded-lg cursor-pointer bg-transparent border-none" />
+              </div>
+              <div className="flex gap-3 pt-4">
+                <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setShowNewStage(false)}>Cancelar</Button>
+                <Button className="flex-1 rounded-xl font-bold" onClick={createStage}>Criar Etapa</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showNewFunnel && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setShowNewFunnel(false)} />
+          <div className="relative w-full max-w-md glass p-8 animate-in zoom-in-95 duration-200">
+            <h3 className="text-xl font-bold mb-6">Novo Funil</h3>
+            <div className="space-y-4">
+              <input value={newFunnel.name} onChange={(e) => setNewFunnel({ ...newFunnel, name: e.target.value })} placeholder="Nome do Funil *" className={inputClass} />
+              <textarea value={newFunnel.description} onChange={(e) => setNewFunnel({ ...newFunnel, description: e.target.value })} placeholder="Descrição" className={inputClass + " min-h-[100px]"} />
+              <div className="flex gap-3 pt-4">
+                <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setShowNewFunnel(false)}>Cancelar</Button>
+                <Button className="flex-1 rounded-xl font-bold" onClick={createFunnel}>Criar Funil</Button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
