@@ -10,20 +10,18 @@ import AdminDashboard from "@/components/admin/AdminDashboard";
 import AdminContentEditor from "@/components/admin/AdminContentEditor";
 import AdminPixelManager from "@/components/admin/AdminPixelManager";
 import AdminCTAManager from "@/components/admin/AdminCTAManager";
-import AdminPreview from "@/components/admin/AdminPreview";
 import AdminCRM from "@/components/admin/AdminCRM";
 import AdminGallery from "@/components/admin/AdminGallery";
 import AdminReviews from "@/components/admin/AdminReviews";
 
 const tabs = [
   { id: "dashboard", label: "Dashboard", icon: BarChart3 },
-  { id: "content", label: "Conteúdo", icon: Type },
+  { id: "content", label: "Builder", icon: Type },
   { id: "gallery", label: "Galeria", icon: Image },
   { id: "reviews", label: "Avaliações", icon: Users },
   { id: "pixels", label: "Pixels", icon: Megaphone },
-  { id: "cta", label: "CTAs WhatsApp", icon: MessageCircle },
-  { id: "crm", label: "CRM / Funis", icon: Kanban },
-  { id: "preview", label: "Preview", icon: Monitor },
+  { id: "cta", label: "Link Redirecionamento", icon: MessageCircle },
+  { id: "crm", label: "CRM", icon: Kanban },
 ];
 
 const Admin = () => {
@@ -102,7 +100,6 @@ const Admin = () => {
           {activeTab === "pixels" && <AdminPixelManager />}
           {activeTab === "cta" && <AdminCTAManager />}
           {activeTab === "crm" && <AdminCRM />}
-          {activeTab === "preview" && <AdminPreview />}
         </motion.div>
       </main>
     </div>
