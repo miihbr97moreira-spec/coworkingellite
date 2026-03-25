@@ -248,7 +248,7 @@ const AdminCRM = () => {
       l.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
       l.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       l.tags?.some((t: string) => t.toLowerCase().includes(searchQuery.toLowerCase()))
-    ).sort((a, b) => (a.position || 0) - (b.position || 0));
+    ).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
   }, [leads, searchQuery]);
 
   const handleDragStart = (event: DragStartEvent) => {
