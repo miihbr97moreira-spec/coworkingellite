@@ -38,23 +38,7 @@ export const useCTASync = () => {
         if (matchingCTA) {
           // Se for WhatsApp, usar a mensagem configurada
           if (matchingCTA.type === "whatsapp") {
-            let message = matchingCTA.whatsapp_message || "Olá! Gostaria de saber mais sobre o Ellite Coworking.";
-            
-            // Se for específico por plano e tiver metadados de plano
-            if (matchingCTA.plan_specific && matchingCTA.plan_messages && ctaId.startsWith('plan-')) {
-              const planId = ctaId.replace('plan-', '');
-              // Mapear IDs de plano para nomes amigáveis se necessário
-              const planNameMap: Record<string, string> = {
-                'hora': 'Estação',
-                'diaria': 'Sala Reunião',
-                'mensal': 'Coworking Full'
-              };
-              const planName = planNameMap[planId] || planId;
-              if (matchingCTA.plan_messages[planName]) {
-                message = matchingCTA.plan_messages[planName];
-              }
-            }
-            
+            const message = matchingCTA.whatsapp_message || "Olá! Gostaria de saber mais sobre o Ellite Coworking.";
             const whatsappNumber = matchingCTA.destination;
             window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, "_blank");
           }

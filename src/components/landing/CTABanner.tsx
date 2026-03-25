@@ -2,13 +2,11 @@ import { motion } from "framer-motion";
 import { ArrowRight, Sparkles } from "lucide-react";
 import MagneticButton from "./MagneticButton";
 import { trackEvent } from "@/hooks/useSupabaseQuery";
-import { useCTASync } from "@/hooks/useCTASync";
 
 const CTABanner = () => {
-  const { syncCTAClick } = useCTASync();
   const scrollToPlans = () => {
     trackEvent("cta_click", { source: "banner" });
-    syncCTAClick("cta-banner-plans", "Ver Planos (Banner)", "anchor");
+    document.getElementById("planos")?.scrollIntoView({ behavior: "smooth" });
   };
 
   return (

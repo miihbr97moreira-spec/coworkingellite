@@ -1,16 +1,15 @@
 import { motion } from "framer-motion";
 import { MessageCircle } from "lucide-react";
 import { useLPConfig, trackEvent } from "@/hooks/useSupabaseQuery";
-import { useCTASync } from "@/hooks/useCTASync";
 
 const FloatingWhatsApp = () => {
   const { data: config } = useLPConfig();
-  const { syncCTAClick } = useCTASync();
   const whatsappConfig = config?.whatsapp as { number?: string } | undefined;
+  const number = whatsappConfig?.number ?? "5511976790653";
 
   const handleClick = () => {
     trackEvent("whatsapp_click", { source: "floating" });
-    syncCTAClick("floating-whatsapp", "WhatsApp Flutuante", "whatsapp");
+    window.open(`https://wa.me/${number}?text=${encodeURIComponent("Olá! Gostaria de saber mais sobre o Ellite Coworking.")}`, "_blank");
   };
 
   return (
