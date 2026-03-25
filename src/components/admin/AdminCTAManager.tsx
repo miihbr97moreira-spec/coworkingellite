@@ -71,9 +71,9 @@ const AdminCTAManager = () => {
   const { data: ctas, isLoading } = useQuery({
     queryKey: ["cta-buttons"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("cta_buttons").select("*").order("position");
+      const { data, error } = await supabase.from("cta_buttons" as any).select("*").order("position");
       if (error) throw error;
-      return data;
+      return data as any[];
     },
   });
 
