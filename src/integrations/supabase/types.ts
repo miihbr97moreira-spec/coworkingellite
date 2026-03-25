@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      cta_buttons: {
+        Row: {
+          active: boolean
+          color: string
+          created_at: string
+          destination: string
+          id: string
+          label: string
+          plan_messages: Json | null
+          plan_specific: boolean | null
+          position: number
+          type: string
+          whatsapp_message: string | null
+        }
+        Insert: {
+          active?: boolean
+          color?: string
+          created_at?: string
+          destination?: string
+          id?: string
+          label: string
+          plan_messages?: Json | null
+          plan_specific?: boolean | null
+          position?: number
+          type?: string
+          whatsapp_message?: string | null
+        }
+        Update: {
+          active?: boolean
+          color?: string
+          created_at?: string
+          destination?: string
+          id?: string
+          label?: string
+          plan_messages?: Json | null
+          plan_specific?: boolean | null
+          position?: number
+          type?: string
+          whatsapp_message?: string | null
+        }
+        Relationships: []
+      }
       funnels: {
         Row: {
           created_at: string
