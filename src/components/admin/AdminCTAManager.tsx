@@ -94,7 +94,7 @@ const AdminCTAManager = () => {
   };
 
   const removeCTA = async (id: string) => {
-    const { error } = await supabase.from("cta_buttons").delete().eq("id", id);
+    const { error } = await supabase.from("cta_buttons" as any).delete().eq("id", id);
     if (error) return toast.error("Erro ao remover");
     qc.invalidateQueries({ queryKey: ["cta-buttons"] });
     toast.success("CTA removido!");
