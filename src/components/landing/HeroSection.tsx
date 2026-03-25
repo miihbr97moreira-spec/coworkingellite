@@ -8,8 +8,8 @@ const HeroSection = () => {
   const { data: config } = useLPConfig();
   const hero = config?.hero as { headline?: string; subheadline?: string } | undefined;
 
-  const headline = hero?.headline || "Saia do amadorismo do Home Office. Feche contratos de alto valor em um ambiente de elite.";
-  const subheadline = hero?.subheadline || "O coworking premium em Moema para profissionais que exigem excelência. Sua próxima conquista começa aqui.";
+  const headline = hero?.headline || "O Fim do Home Office Amador. Feche Contratos High-Ticket em Moema.";
+  const subheadline = hero?.subheadline || "Um ecossistema de elite projetado para profissionais que exigem excelência. Sua autoridade é percebida no primeiro segundo.";
 
   const scrollToPlans = () => {
     document.getElementById("planos")?.scrollIntoView({ behavior: "smooth" });
