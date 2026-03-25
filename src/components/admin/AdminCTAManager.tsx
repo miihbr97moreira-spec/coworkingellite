@@ -71,9 +71,9 @@ const AdminCTAManager = () => {
   const { data: ctas, isLoading } = useQuery({
     queryKey: ["cta-buttons"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("cta_buttons").select("*").order("position");
+      const { data, error } = await supabase.from("cta_buttons" as any).select("*").order("position");
       if (error) throw error;
-      return data;
+      return data as any[];
     },
   });
 
@@ -81,7 +81,7 @@ const AdminCTAManager = () => {
     e.preventDefault();
     setIsSaving(true);
     try {
-      const { error } = await supabase.from("cta_buttons").upsert(editingCTA);
+      const { error } = await supabase.from("cta_buttons" as any).upsert(editingCTA as any);
       if (error) throw error;
       toast.success("CTA salvo com sucesso!");
       setEditingCTA(null);
@@ -94,7 +94,7 @@ const AdminCTAManager = () => {
   };
 
   const removeCTA = async (id: string) => {
-    const { error } = await supabase.from("cta_buttons").delete().eq("id", id);
+    const { error } = await supabase.from("cta_buttons" as any).delete().eq("id", id);
     if (error) return toast.error("Erro ao remover");
     qc.invalidateQueries({ queryKey: ["cta-buttons"] });
     toast.success("CTA removido!");
@@ -114,7 +114,7 @@ const AdminCTAManager = () => {
       
       // Sync with DB
       for (let i = 0; i < newOrder.length; i++) {
-        await supabase.from("cta_buttons").update({ position: i }).eq("id", newOrder[i].id);
+        await supabase.from("cta_buttons" as any).update({ position: i } as any).eq("id", newOrder[i].id);
       }
     }
   };

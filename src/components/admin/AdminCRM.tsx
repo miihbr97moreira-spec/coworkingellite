@@ -248,7 +248,7 @@ const AdminCRM = () => {
       l.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
       l.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       l.tags?.some((t: string) => t.toLowerCase().includes(searchQuery.toLowerCase()))
-    ).sort((a, b) => (a.position || 0) - (b.position || 0));
+    ).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
   }, [leads, searchQuery]);
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -315,7 +315,7 @@ const AdminCRM = () => {
         const newStages = arrayMove(stages!, oldIndex, newIndex);
         // Update positions in Supabase
         for (let i = 0; i < newStages.length; i++) {
-          await supabase.from("stages").update({ position: i }).eq("id", newStages[i].id);
+          await supabase.from("stages").update({ sort_order: i }).eq("id", newStages[i].id);
         }
         qc.invalidateQueries({ queryKey: ["stages", selectedFunnel] });
       }
@@ -378,7 +378,7 @@ const AdminCRM = () => {
         >
           <div className="flex gap-6 overflow-x-auto pb-8 h-full min-h-[500px] custom-scrollbar items-start">
             <SortableContext items={stages?.map(s => s.id) || []} strategy={horizontalListSortingStrategy}>
-              {stages?.sort((a, b) => (a.position || 0) - (b.position || 0)).map((stage) => (
+              {stages?.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)).map((stage) => (
                 <StageColumn 
                   key={stage.id} 
                   stage={stage} 

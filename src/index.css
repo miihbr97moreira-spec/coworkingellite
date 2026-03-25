@@ -130,15 +130,27 @@
   }
 
   @keyframes pulse-glow {
-    0%,
-    100% {
+    0%, 100% {
       opacity: 1;
-      box-shadow: 0 0 20px rgba(37, 211, 102, 0.4), 0 0 40px rgba(37, 211, 102, 0.15);
+      box-shadow: 0 0 20px hsl(var(--primary) / 0.4), 0 0 40px hsl(var(--primary) / 0.15);
     }
     50% {
-      opacity: 0.8;
-      box-shadow: 0 0 10px rgba(37, 211, 102, 0.2), 0 0 20px rgba(37, 211, 102, 0.08);
+      opacity: 0.85;
+      box-shadow: 0 0 10px hsl(var(--primary) / 0.2), 0 0 20px hsl(var(--primary) / 0.08);
     }
+  }
+
+  .text-gradient-silver {
+    @apply bg-gradient-to-r from-gray-200 via-white to-gray-200 bg-clip-text text-transparent;
+  }
+
+  @keyframes marquee {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
+  .animate-marquee {
+    animation: marquee 30s linear infinite;
   }
 
   .delay-100 {

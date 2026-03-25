@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { motion, useMotionValue, useTransform, animate } from "framer-motion";
+import { motion } from "framer-motion";
 import { Slider } from "@/components/ui/slider";
-import { TrendingUp, Zap, Target } from "lucide-react";
+import { TrendingUp, Zap, Target, AlertTriangle, ArrowDown } from "lucide-react";
 
 const ROICalculator = () => {
   const [days, setDays] = useState(10);
@@ -9,6 +9,7 @@ const ROICalculator = () => {
   const focusBoost = Math.min(95, 40 + days * 3.5);
   const authorityBoost = Math.min(98, 30 + days * 4);
   const savingsPerMonth = days * 85;
+  const moneyLeftOnTable = days * 320; // custo estimado de aluguel tradicional vs coworking
 
   return (
     <section className="py-20 grid-bg-subtle">
@@ -17,7 +18,7 @@ const ROICalculator = () => {
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="max-w-4xl mx-auto"
+          className="max-w-5xl mx-auto"
         >
           <div className="text-center mb-12">
             <motion.span
@@ -60,7 +61,7 @@ const ROICalculator = () => {
               <p className="text-xs text-muted-foreground mt-2">dias/mês</p>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-6">
+            <div className="grid md:grid-cols-3 gap-6 mb-8">
               <MetricCard
                 icon={Zap}
                 label="Aumento de Foco"
@@ -80,6 +81,43 @@ const ROICalculator = () => {
                 color="text-primary"
               />
             </div>
+
+            {/* Loss Aversion Card */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              className="p-6 rounded-2xl border-2 border-red-500/30 bg-red-500/5 backdrop-blur-sm relative overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 via-transparent to-red-500/5 animate-pulse pointer-events-none" />
+              <div className="relative z-10 flex flex-col md:flex-row items-center gap-6">
+                <div className="p-4 bg-red-500/10 rounded-2xl shrink-0">
+                  <AlertTriangle className="w-10 h-10 text-red-500" />
+                </div>
+                <div className="flex-1 text-center md:text-left">
+                  <h4 className="font-bold text-lg text-red-400 mb-1">Dinheiro Deixado na Mesa</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Se você mantiver o home office amador, estará perdendo em autoridade, networking e oportunidades de negócio.
+                    Em um escritório convencional, você gastaria significativamente mais.
+                  </p>
+                </div>
+                <div className="text-center shrink-0">
+                  <motion.p
+                    key={moneyLeftOnTable}
+                    initial={{ scale: 1.2, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="text-4xl font-bold text-red-400"
+                  >
+                    R$ {moneyLeftOnTable.toLocaleString("pt-BR")}
+                  </motion.p>
+                  <p className="text-xs text-red-400/70 font-bold uppercase tracking-wider mt-1">custo desperdiçado/mês</p>
+                  <div className="flex items-center justify-center gap-1 mt-2 text-xs text-muted-foreground">
+                    <ArrowDown className="w-3 h-3" />
+                    <span>vs. R$ {(days * 130).toLocaleString("pt-BR")} no Ellite</span>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
           </div>
         </motion.div>
       </div>

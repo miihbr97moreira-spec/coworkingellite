@@ -324,9 +324,9 @@ const AdminLinkRedirecionamento = () => {
   const { data: ctas, isLoading } = useQuery({
     queryKey: ["cta-buttons"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("cta_buttons").select("*").order("position");
+      const { data, error } = await supabase.from("cta_buttons" as any).select("*").order("position");
       if (error) throw error;
-      return data as CTA[];
+      return data as unknown as CTA[];
     },
   });
 
@@ -336,7 +336,7 @@ const AdminLinkRedirecionamento = () => {
   const saveCTA = async (cta: CTA) => {
     setIsSaving(true);
     try {
-      const { error } = await supabase.from("cta_buttons").upsert(cta);
+      const { error } = await supabase.from("cta_buttons" as any).upsert(cta as any);
       if (error) throw error;
       toast.success("Link salvo com sucesso!");
       setEditingCTA(null);
@@ -350,7 +350,7 @@ const AdminLinkRedirecionamento = () => {
 
   const removeCTA = async (id: string) => {
     if (!confirm("Tem certeza que deseja remover este link?")) return;
-    const { error } = await supabase.from("cta_buttons").delete().eq("id", id);
+    const { error } = await supabase.from("cta_buttons" as any).delete().eq("id", id);
     if (error) return toast.error("Erro ao remover");
     qc.invalidateQueries({ queryKey: ["cta-buttons"] });
     toast.success("Link removido!");
@@ -367,7 +367,7 @@ const AdminLinkRedirecionamento = () => {
     const updates = newOrder.map((c, i) => ({ ...c, position: i }));
 
     for (const cta of updates) {
-      await supabase.from("cta_buttons").update({ position: cta.position }).eq("id", cta.id);
+      await supabase.from("cta_buttons" as any).update({ position: cta.position } as any).eq("id", cta.id);
     }
 
     qc.invalidateQueries({ queryKey: ["cta-buttons"] });
