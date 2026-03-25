@@ -54,38 +54,30 @@ export const useFunnels = () =>
     },
   });
 
-// Stages for a funnel
+// Stages for a funnel (pass null for all stages)
 export const useStages = (funnelId: string | null) =>
   useQuery({
     queryKey: ["stages", funnelId],
     queryFn: async () => {
-      if (!funnelId) return [];
-      const { data, error } = await supabase
-        .from("stages")
-        .select("*")
-        .eq("funnel_id", funnelId)
-        .order("sort_order");
+      let query = supabase.from("stages").select("*").order("sort_order");
+      if (funnelId) query = query.eq("funnel_id", funnelId);
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
-    enabled: !!funnelId,
   });
 
-// Leads for a funnel
+// Leads for a funnel (pass null for all leads)
 export const useLeads = (funnelId: string | null) =>
   useQuery({
     queryKey: ["leads", funnelId],
     queryFn: async () => {
-      if (!funnelId) return [];
-      const { data, error } = await supabase
-        .from("leads")
-        .select("*")
-        .eq("funnel_id", funnelId)
-        .order("sort_order");
+      let query = supabase.from("leads").select("*").order("sort_order");
+      if (funnelId) query = query.eq("funnel_id", funnelId);
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
-    enabled: !!funnelId,
   });
 
 // Lead notes

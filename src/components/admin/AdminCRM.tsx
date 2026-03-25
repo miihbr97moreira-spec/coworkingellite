@@ -378,7 +378,7 @@ const AdminCRM = () => {
         >
           <div className="flex gap-6 overflow-x-auto pb-8 h-full min-h-[500px] custom-scrollbar items-start">
             <SortableContext items={stages?.map(s => s.id) || []} strategy={horizontalListSortingStrategy}>
-              {stages?.sort((a, b) => (a.position || 0) - (b.position || 0)).map((stage) => (
+              {stages?.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)).map((stage) => (
                 <StageColumn 
                   key={stage.id} 
                   stage={stage} 

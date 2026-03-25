@@ -11,8 +11,8 @@ import { ptBR } from "date-fns/locale";
 
 const AdminDashboard = () => {
   const { data: events } = useLPEvents();
-  const { data: leads } = useLeads();
-  const { data: stages } = useStages();
+  const { data: leads } = useLeads(null);
+  const { data: stages } = useStages(null);
   
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
     from: subDays(new Date(), 30),
