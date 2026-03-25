@@ -336,7 +336,7 @@ const AdminLinkRedirecionamento = () => {
   const saveCTA = async (cta: CTA) => {
     setIsSaving(true);
     try {
-      const { error } = await supabase.from("cta_buttons").upsert(cta);
+      const { error } = await supabase.from("cta_buttons" as any).upsert(cta as any);
       if (error) throw error;
       toast.success("Link salvo com sucesso!");
       setEditingCTA(null);
