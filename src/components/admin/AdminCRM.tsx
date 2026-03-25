@@ -315,7 +315,7 @@ const AdminCRM = () => {
         const newStages = arrayMove(stages!, oldIndex, newIndex);
         // Update positions in Supabase
         for (let i = 0; i < newStages.length; i++) {
-          await supabase.from("stages").update({ position: i }).eq("id", newStages[i].id);
+          await supabase.from("stages").update({ sort_order: i }).eq("id", newStages[i].id);
         }
         qc.invalidateQueries({ queryKey: ["stages", selectedFunnel] });
       }
