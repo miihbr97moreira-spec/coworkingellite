@@ -81,7 +81,7 @@ const AdminCTAManager = () => {
     e.preventDefault();
     setIsSaving(true);
     try {
-      const { error } = await supabase.from("cta_buttons").upsert(editingCTA);
+      const { error } = await supabase.from("cta_buttons" as any).upsert(editingCTA as any);
       if (error) throw error;
       toast.success("CTA salvo com sucesso!");
       setEditingCTA(null);
