@@ -23,7 +23,7 @@ export const useCTASync = () => {
     queryFn: async () => {
       const { data, error } = await supabase.from("cta_buttons" as any).select("*").order("position");
       if (error) throw error;
-      return data as CTA[];
+      return data as unknown as CTA[];
     },
   });
 
