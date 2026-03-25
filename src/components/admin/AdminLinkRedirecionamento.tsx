@@ -367,7 +367,7 @@ const AdminLinkRedirecionamento = () => {
     const updates = newOrder.map((c, i) => ({ ...c, position: i }));
 
     for (const cta of updates) {
-      await supabase.from("cta_buttons").update({ position: cta.position }).eq("id", cta.id);
+      await supabase.from("cta_buttons" as any).update({ position: cta.position } as any).eq("id", cta.id);
     }
 
     qc.invalidateQueries({ queryKey: ["cta-buttons"] });

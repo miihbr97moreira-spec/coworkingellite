@@ -114,7 +114,7 @@ const AdminCTAManager = () => {
       
       // Sync with DB
       for (let i = 0; i < newOrder.length; i++) {
-        await supabase.from("cta_buttons").update({ position: i }).eq("id", newOrder[i].id);
+        await supabase.from("cta_buttons" as any).update({ position: i } as any).eq("id", newOrder[i].id);
       }
     }
   };
