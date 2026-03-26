@@ -292,6 +292,126 @@ export type Database = {
         }
         Relationships: []
       }
+      quiz_submissions: {
+        Row: {
+          answers: Json | null
+          created_at: string
+          email: string | null
+          id: string
+          lead_id: string | null
+          name: string | null
+          phone: string | null
+          quiz_id: string
+        }
+        Insert: {
+          answers?: Json | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          lead_id?: string | null
+          name?: string | null
+          phone?: string | null
+          quiz_id: string
+        }
+        Update: {
+          answers?: Json | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          lead_id?: string | null
+          name?: string | null
+          phone?: string | null
+          quiz_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_submissions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_submissions_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quizzes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          crm_funnel_id: string | null
+          crm_stage_id: string | null
+          description: string | null
+          ga_id: string | null
+          id: string
+          logo_position: string | null
+          logo_url: string | null
+          meta_pixel_id: string | null
+          questions: Json | null
+          slug: string
+          status: string
+          theme: Json | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          crm_funnel_id?: string | null
+          crm_stage_id?: string | null
+          description?: string | null
+          ga_id?: string | null
+          id?: string
+          logo_position?: string | null
+          logo_url?: string | null
+          meta_pixel_id?: string | null
+          questions?: Json | null
+          slug: string
+          status?: string
+          theme?: Json | null
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          crm_funnel_id?: string | null
+          crm_stage_id?: string | null
+          description?: string | null
+          ga_id?: string | null
+          id?: string
+          logo_position?: string | null
+          logo_url?: string | null
+          meta_pixel_id?: string | null
+          questions?: Json | null
+          slug?: string
+          status?: string
+          theme?: Json | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quizzes_crm_funnel_id_fkey"
+            columns: ["crm_funnel_id"]
+            isOneToOne: false
+            referencedRelation: "funnels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quizzes_crm_stage_id_fkey"
+            columns: ["crm_stage_id"]
+            isOneToOne: false
+            referencedRelation: "stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reviews: {
         Row: {
           active: boolean
