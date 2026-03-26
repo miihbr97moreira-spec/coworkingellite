@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-builder`;
 
 interface AIResponse {
   message: string;
@@ -15,23 +16,31 @@ export const useAIBuilder = () => {
     async (prompt: string, currentConfig: Record<string, any>): Promise<AIResponse | null> => {
       setIsLoading(true);
       try {
-        const { data, error } = await supabase.functions.invoke("ai-builder", {
-          body: { prompt, currentConfig },
+        const resp = await fetch(CHAT_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ prompt, mode: "edit", currentConfig }),
         });
 
-        if (error) throw error;
+        if (resp.status === 429) {
+          toast.error("Rate limit atingido. Aguarde alguns segundos.");
+          return null;
+        }
+        if (resp.status === 402) {
+          toast.error("Créditos insuficientes para IA.");
+          return null;
+        }
+        if (!resp.ok) throw new Error("AI error");
+
+        const data = await resp.json();
         return data as AIResponse;
       } catch (error) {
         console.error("Erro ao processar prompt:", error);
-        
-        // Fallback para simulação se a Edge Function não estiver pronta
-        const fallbackResponse: AIResponse = {
-          message: "A integração com a IA está sendo processada. Por enquanto, posso ajudar com comandos básicos como 'mudar cores' ou 'restaurar'.",
-          action: prompt.toLowerCase().includes("restaurar") ? "restore" : "modify_element"
-        };
-        
-        toast.error("Erro ao conectar com a IA. Usando modo de segurança.");
-        return fallbackResponse;
+        toast.error("Erro ao conectar com a IA.");
+        return null;
       } finally {
         setIsLoading(false);
       }
@@ -39,5 +48,67 @@ export const useAIBuilder = () => {
     []
   );
 
-  return { processPrompt, isLoading };
+  const generatePage = useCallback(
+    async (prompt: string, onDelta: (text: string) => void, onDone: () => void) => {
+      setIsLoading(true);
+      try {
+        const resp = await fetch(CHAT_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ prompt, mode: "generate" }),
+        });
+
+        if (resp.status === 429) {
+          toast.error("Rate limit atingido.");
+          onDone();
+          return;
+        }
+        if (resp.status === 402) {
+          toast.error("Créditos insuficientes.");
+          onDone();
+          return;
+        }
+        if (!resp.ok || !resp.body) throw new Error("Stream error");
+
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let streamDone = false;
+
+        while (!streamDone) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          let idx: number;
+          while ((idx = buffer.indexOf("\n")) !== -1) {
+            let line = buffer.slice(0, idx);
+            buffer = buffer.slice(idx + 1);
+            if (line.endsWith("\r")) line = line.slice(0, -1);
+            if (!line.startsWith("data: ")) continue;
+            const jsonStr = line.slice(6).trim();
+            if (jsonStr === "[DONE]") { streamDone = true; break; }
+            try {
+              const parsed = JSON.parse(jsonStr);
+              const content = parsed.choices?.[0]?.delta?.content;
+              if (content) onDelta(content);
+            } catch { /* partial */ }
+          }
+        }
+        onDone();
+      } catch (error) {
+        console.error("Erro ao gerar página:", error);
+        toast.error("Erro ao gerar página com IA.");
+        onDone();
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    []
+  );
+
+  return { processPrompt, generatePage, isLoading };
 };
