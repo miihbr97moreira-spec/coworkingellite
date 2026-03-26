@@ -7,6 +7,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import Index from "./pages/Index";
 import Admin from "./pages/Admin";
 import AdminLogin from "./pages/AdminLogin";
+import GeneratedPage from "./pages/GeneratedPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
