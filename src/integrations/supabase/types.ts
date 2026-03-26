@@ -83,6 +83,39 @@ export type Database = {
         }
         Relationships: []
       }
+      generated_pages: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          html_content: string
+          id: string
+          slug: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          html_content?: string
+          id?: string
+          slug: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          html_content?: string
+          id?: string
+          slug?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       landing_page_config: {
         Row: {
           id: string
