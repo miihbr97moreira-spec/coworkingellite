@@ -112,6 +112,17 @@ export const useLPEvents = () =>
     },
   });
 
+// Quizzes
+export const useQuizzes = () =>
+  useQuery({
+    queryKey: ["quizzes"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("quizzes").select("*").order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
 // Track event (no auth needed)
 export const trackEvent = async (eventType: string, metadata?: Record<string, any>) => {
   await supabase.from("lp_events").insert({ event_type: eventType, metadata: metadata ?? {} });
