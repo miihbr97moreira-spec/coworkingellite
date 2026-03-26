@@ -87,8 +87,10 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          ga_id: string | null
           html_content: string
           id: string
+          meta_pixel_id: string | null
           slug: string
           status: string
           title: string
@@ -97,8 +99,10 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          ga_id?: string | null
           html_content?: string
           id?: string
+          meta_pixel_id?: string | null
           slug: string
           status?: string
           title?: string
@@ -107,8 +111,10 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          ga_id?: string | null
           html_content?: string
           id?: string
+          meta_pixel_id?: string | null
           slug?: string
           status?: string
           title?: string

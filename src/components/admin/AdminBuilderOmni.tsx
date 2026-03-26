@@ -5,7 +5,7 @@ import {
   MousePointer2, Undo2, Redo2, Send, RotateCcw, Sparkles,
   Plus, FileText, Globe, Download, Trash2,
   ExternalLink, Eye, Copy, Check, Settings, Image, Link2,
-  Type, Palette, X, Upload, MessageCircle, Key, Bot
+  Type, Palette, X, Upload, MessageCircle, Key, Bot, Code
 } from "lucide-react";
 import { toast } from "sonner";
 import { useLPConfig, useUpdateLPConfig } from "@/hooks/useSupabaseQuery";
@@ -32,6 +32,8 @@ interface GenPage {
   html_content: string;
   status: string;
   created_at: string;
+  meta_pixel_id?: string;
+  ga_id?: string;
 }
 
 interface SelectedElement {
@@ -61,23 +63,20 @@ const loadBYOK = (): BYOKConfig => {
 };
 const saveBYOK = (c: BYOKConfig) => localStorage.setItem(BYOK_KEY, JSON.stringify(c));
 
-/* ───────── canvas injection script ───────── */
-const CANVAS_SCRIPT = `
-<script>
+/* ───────── raw canvas script (no <script> tags) ───────── */
+const CANVAS_SCRIPT_RAW = `
 (function(){
-  // block link navigation
+  if(window.__builderInjected) return;
+  window.__builderInjected = true;
   document.addEventListener('click', function(e){
     var el = e.target.closest('a,button');
     if(el && el.tagName==='A'){ e.preventDefault(); e.stopPropagation(); }
-    // find clickable element
     var t = e.target;
-    // outline
     document.querySelectorAll('[data-builder-selected]').forEach(function(s){
       s.style.outline=''; s.removeAttribute('data-builder-selected');
     });
     t.style.outline='2px solid #FBBF24';
     t.setAttribute('data-builder-selected','1');
-    // build xpath
     function xpath(node){
       if(!node||node===document.body) return '/body';
       var idx=0,sib=node.parentNode?node.parentNode.childNodes:[];
@@ -96,8 +95,6 @@ const CANVAS_SCRIPT = `
     };
     window.parent.postMessage({type:'BUILDER_SELECT',payload:info},'*');
   }, true);
-
-  // listen for mutations from parent
   window.addEventListener('message', function(e){
     if(!e.data||!e.data.type) return;
     var d=e.data;
@@ -130,20 +127,20 @@ const CANVAS_SCRIPT = `
       if(el) el.remove();
     }
     if(d.type==='BUILDER_GET_HTML'){
-      // remove outlines
       document.querySelectorAll('[data-builder-selected]').forEach(function(s){
         s.style.outline=''; s.removeAttribute('data-builder-selected');
       });
       window.parent.postMessage({type:'BUILDER_HTML',html:document.documentElement.outerHTML},'*');
     }
   });
-})();
-<\/script>`;
+})();`;
+
+const CANVAS_SCRIPT = `<script>${CANVAS_SCRIPT_RAW}<\/script>`;
 
 /* ───────── helper: inject script into HTML ───────── */
 function injectScript(html: string): string {
   if (!html) return html;
-  if (html.includes("BUILDER_SELECT")) return html; // already injected
+  if (html.includes("__builderInjected")) return html;
   if (html.includes("</body>")) return html.replace("</body>", CANVAS_SCRIPT + "</body>");
   if (html.includes("</html>")) return html.replace("</html>", CANVAS_SCRIPT + "</html>");
   return html + CANVAS_SCRIPT;
@@ -152,20 +149,16 @@ function injectScript(html: string): string {
 /* ───────── helper: clean AI response ───────── */
 function cleanAIPayload(raw: string): { html: string; title: string } {
   let s = raw.trim();
-  // Remove markdown fences
   const mdMatch = s.match(/```(?:html|json)?\s*\n?([\s\S]*?)```/);
   if (mdMatch) s = mdMatch[1].trim();
-  // Try JSON parse
   try {
     const j = JSON.parse(s);
     if (j.html) return { html: j.html, title: j.title || "" };
   } catch {}
-  // Try extracting JSON html field
   const jsonField = s.match(/"html"\s*:\s*"([\s\S]*?)"\s*[,}]/);
   if (jsonField) {
     try { return { html: JSON.parse(`"${jsonField[1]}"`), title: "" }; } catch {}
   }
-  // Assume raw HTML
   if (s.includes("<") && (s.includes("<!DOCTYPE") || s.includes("<html") || s.includes("<div") || s.includes("<section"))) {
     return { html: s, title: "" };
   }
@@ -185,6 +178,7 @@ const AdminBuilderOmni = () => {
   const [viewport, setViewport] = useState<"desktop" | "tablet" | "mobile">("desktop");
   const [localConfig, setLocalConfig] = useState<any>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [lpHtml, setLpHtml] = useState<string | null>(null); // captured LP HTML for click-to-edit
 
   /* ── chat ── */
   const [chatMessages, setChatMessages] = useState<Message[]>([]);
@@ -218,6 +212,11 @@ const AdminBuilderOmni = () => {
   const [byokOpen, setBYOKOpen] = useState(false);
   const [byok, setBYOK] = useState<BYOKConfig>(loadBYOK);
 
+  /* ── pixel per page ── */
+  const [pagePixelOpen, setPagePixelOpen] = useState(false);
+  const [pageMetaPixel, setPageMetaPixel] = useState("");
+  const [pageGaId, setPageGaId] = useState("");
+
   const chatEndRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -247,7 +246,6 @@ const AdminBuilderOmni = () => {
         setEditText(p.text || "");
         setEditSrc(p.src || "");
         setEditHref(p.href || "");
-        // auto-detect whatsapp
         if (p.href?.includes("wa.me")) {
           setLinkAction("whatsapp");
           const m = p.href.match(/wa\.me\/(\d+)/);
@@ -261,15 +259,34 @@ const AdminBuilderOmni = () => {
         }
       }
       if (e.data.type === "BUILDER_HTML") {
-        // snapshot received
         const html = e.data.html as string;
-        setGeneratedHtml(html);
+        if (mode === "edit-lp") {
+          setLpHtml(html);
+        } else {
+          setGeneratedHtml(html);
+        }
         pushHtmlHistory(html);
       }
     };
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, []);
+  }, [mode]);
+
+  /* ── inject canvas script into LP iframe on load ── */
+  const handleLPIframeLoad = useCallback(() => {
+    if (mode !== "edit-lp") return;
+    try {
+      const doc = iframeRef.current?.contentDocument;
+      if (doc && !doc.querySelector('[data-builder-script]')) {
+        const script = doc.createElement("script");
+        script.setAttribute("data-builder-script", "1");
+        script.textContent = CANVAS_SCRIPT_RAW;
+        doc.body.appendChild(script);
+      }
+    } catch (err) {
+      console.warn("Cannot inject into LP iframe (cross-origin?):", err);
+    }
+  }, [mode]);
 
   /* ── push history ── */
   const pushHtmlHistory = useCallback((html: string) => {
@@ -315,6 +332,7 @@ const AdminBuilderOmni = () => {
       setLocalConfig(config);
       setConfigHistory([config]);
       setConfigIdx(0);
+      setLpHtml(null);
       toast.success("Restaurado!");
     }
   };
@@ -332,7 +350,6 @@ const AdminBuilderOmni = () => {
     if (!generatedHtml) return;
     setIsSaving(true);
     try {
-      // Request latest HTML from iframe (remove outlines)
       iframeRef.current?.contentWindow?.postMessage({ type: "BUILDER_GET_HTML" }, "*");
       await new Promise(r => setTimeout(r, 200));
 
@@ -343,8 +360,8 @@ const AdminBuilderOmni = () => {
             .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + "-" + Date.now().toString(36);
 
       const { data: user } = await supabase.auth.getUser();
-      // Strip injected script before saving
-      const cleanHtml = generatedHtml.replace(/<script>[\s\S]*?BUILDER_SELECT[\s\S]*?<\/script>/g, "");
+      const cleanHtml = generatedHtml.replace(/<script[^>]*data-builder-script[^>]*>[\s\S]*?<\/script>/g, "")
+        .replace(/<script>[\s\S]*?__builderInjected[\s\S]*?<\/script>/g, "");
 
       if (activePage) {
         await supabase.from("generated_pages").update({
@@ -352,6 +369,8 @@ const AdminBuilderOmni = () => {
           title: newPageTitle || activePage.title,
           slug: newPageSlug.trim() || activePage.slug,
           status: publish ? "published" : activePage.status,
+          meta_pixel_id: pageMetaPixel,
+          ga_id: pageGaId,
         }).eq("id", activePage.id);
         toast.success(publish ? "Publicada!" : "Salva!");
       } else {
@@ -360,6 +379,8 @@ const AdminBuilderOmni = () => {
           html_content: cleanHtml,
           status: publish ? "published" : "draft",
           created_by: user?.user?.id,
+          meta_pixel_id: pageMetaPixel,
+          ga_id: pageGaId,
         });
         if (error) throw error;
         toast.success(publish ? "Criada e publicada!" : "Rascunho salvo!");
@@ -394,6 +415,8 @@ const AdminBuilderOmni = () => {
     setGeneratedHtml(html);
     setNewPageTitle(page.title);
     setNewPageSlug(page.slug);
+    setPageMetaPixel(page.meta_pixel_id || "");
+    setPageGaId(page.ga_id || "");
     setHtmlHistory([html]);
     setHistoryIdx(0);
     setMode("edit-generated");
@@ -408,7 +431,8 @@ const AdminBuilderOmni = () => {
   };
 
   const exportHtml = () => {
-    const clean = generatedHtml.replace(/<script>[\s\S]*?BUILDER_SELECT[\s\S]*?<\/script>/g, "");
+    const clean = generatedHtml.replace(/<script[^>]*data-builder-script[^>]*>[\s\S]*?<\/script>/g, "")
+      .replace(/<script>[\s\S]*?__builderInjected[\s\S]*?<\/script>/g, "");
     const blob = new Blob([clean], { type: "text/html" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -481,25 +505,44 @@ const AdminBuilderOmni = () => {
         if (title) setNewPageTitle(title);
         setChatMessages(prev => [...prev, {
           id: (Date.now() + 1).toString(), role: "assistant",
-          content: "✅ Página gerada! Clique em qualquer elemento para editar, ou salve quando pronta.",
+          content: "✅ Página gerada! Clique em qualquer elemento no canvas para editar, ou salve quando pronta.",
           timestamp: new Date(),
         }]);
       });
     } else {
-      const resp = await processPrompt(input, localConfig);
-      if (resp) {
-        setChatMessages(prev => [...prev, {
-          id: (Date.now() + 1).toString(), role: "assistant", content: resp.message, timestamp: new Date(),
-        }]);
-        if (resp.updatedConfig) {
-          const newCfg = { ...localConfig, ...resp.updatedConfig };
-          setLocalConfig(newCfg);
-          const next = [...configHistory.slice(0, configIdx + 1), newCfg];
-          setConfigHistory(next);
-          setConfigIdx(next.length - 1);
-          toast.success("Alterações aplicadas!");
+      // LP edit mode - also use generatePage to get full HTML modifications
+      setIsGenerating(true);
+      let fullRaw = "";
+      const editPrompt = `O usuário quer editar a landing page atual. Pedido: "${input}". 
+Gere o HTML COMPLETO atualizado da landing page com as modificações solicitadas. Mantenha o design existente e aplique APENAS as mudanças pedidas.`;
+      
+      await generatePage(editPrompt, (delta) => {
+        fullRaw += delta;
+        const { html } = cleanAIPayload(fullRaw);
+        if (html.includes("<")) {
+          const injected = injectScript(html);
+          setLpHtml(injected);
         }
-      }
+      }, () => {
+        setIsGenerating(false);
+        const { html } = cleanAIPayload(fullRaw);
+        if (html.includes("<")) {
+          const injected = injectScript(html);
+          setLpHtml(injected);
+          pushHtmlHistory(injected);
+          setChatMessages(prev => [...prev, {
+            id: (Date.now() + 1).toString(), role: "assistant",
+            content: "✅ Alterações aplicadas na LP! Clique nos elementos para editar manualmente.",
+            timestamp: new Date(),
+          }]);
+        } else {
+          setChatMessages(prev => [...prev, {
+            id: (Date.now() + 1).toString(), role: "assistant",
+            content: "Não consegui aplicar as mudanças. Tente ser mais específico.",
+            timestamp: new Date(),
+          }]);
+        }
+      });
     }
   };
 
@@ -521,6 +564,118 @@ const AdminBuilderOmni = () => {
     );
   }
 
+  /* ── Element Inspector (shared between modes) ── */
+  const renderElementInspector = () => {
+    if (!selectedEl) return null;
+    return (
+      <div className="p-4 border-b border-border space-y-3">
+        <div className="flex items-center justify-between">
+          <h4 className="font-bold text-xs uppercase tracking-wider text-primary">Elemento Selecionado</h4>
+          <button onClick={() => setSelectedEl(null)} className="text-muted-foreground hover:text-foreground"><X className="w-3.5 h-3.5" /></button>
+        </div>
+        <p className="text-[10px] text-muted-foreground bg-secondary/50 px-2 py-1 rounded font-mono">&lt;{selectedEl.tagName.toLowerCase()}&gt;</p>
+
+        {/* Text editing */}
+        {!selectedEl.isImage && (
+          <div>
+            <label className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1 mb-1"><Type className="w-3 h-3" /> Texto</label>
+            <textarea value={editText} onChange={e => setEditText(e.target.value)} rows={2}
+              className="w-full px-2 py-1.5 rounded-md bg-secondary/50 border border-border/40 text-xs focus:ring-1 focus:ring-primary/30 outline-none resize-none" />
+            <Button size="sm" variant="outline" onClick={applyText} className="w-full mt-1 h-6 text-[10px]">Aplicar Texto</Button>
+          </div>
+        )}
+
+        {/* Image editing */}
+        {selectedEl.isImage && (
+          <div>
+            <label className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1 mb-1"><Image className="w-3 h-3" /> Imagem</label>
+            <input value={editSrc} onChange={e => setEditSrc(e.target.value)} placeholder="URL da imagem..."
+              className="w-full px-2 py-1.5 rounded-md bg-secondary/50 border border-border/40 text-xs focus:ring-1 focus:ring-primary/30 outline-none mb-1" />
+            <div className="flex gap-1">
+              <Button size="sm" variant="outline" onClick={applySrc} className="flex-1 h-6 text-[10px]">Aplicar URL</Button>
+              <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} className="h-6 text-[10px] gap-1">
+                <Upload className="w-3 h-3" /> Upload
+              </Button>
+            </div>
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+          </div>
+        )}
+
+        {/* Link/CTA editing */}
+        {selectedEl.isLink && (
+          <div>
+            <label className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1 mb-1"><Link2 className="w-3 h-3" /> Ação do Link</label>
+            <div className="flex gap-1 mb-2">
+              {(["url", "anchor", "whatsapp"] as const).map(a => (
+                <button key={a} onClick={() => setLinkAction(a)}
+                  className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${linkAction === a ? "bg-primary text-primary-foreground" : "bg-secondary/50 text-muted-foreground"}`}>
+                  {a === "url" ? "URL" : a === "anchor" ? "Âncora" : "WhatsApp"}
+                </button>
+              ))}
+            </div>
+            {linkAction === "url" && (
+              <input value={editHref} onChange={e => setEditHref(e.target.value)} placeholder="https://..."
+                className="w-full px-2 py-1.5 rounded-md bg-secondary/50 border border-border/40 text-xs outline-none" />
+            )}
+            {linkAction === "anchor" && (
+              <input value={editHref} onChange={e => setEditHref(e.target.value)} placeholder="#secao-id"
+                className="w-full px-2 py-1.5 rounded-md bg-secondary/50 border border-border/40 text-xs outline-none" />
+            )}
+            {linkAction === "whatsapp" && (
+              <div className="space-y-1">
+                <input value={waNumber} onChange={e => setWaNumber(e.target.value)} placeholder="5511999999999"
+                  className="w-full px-2 py-1.5 rounded-md bg-secondary/50 border border-border/40 text-xs outline-none" />
+                <textarea value={waMessage} onChange={e => setWaMessage(e.target.value)} placeholder="Mensagem automática..."
+                  rows={2} className="w-full px-2 py-1.5 rounded-md bg-secondary/50 border border-border/40 text-xs outline-none resize-none" />
+              </div>
+            )}
+            <Button size="sm" variant="outline" onClick={applyHref} className="w-full mt-1 h-6 text-[10px]">Aplicar Link</Button>
+          </div>
+        )}
+
+        {/* Style controls */}
+        <div>
+          <label className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1 mb-1"><Palette className="w-3 h-3" /> Estilos Rápidos</label>
+          <div className="grid grid-cols-2 gap-1">
+            <div>
+              <span className="text-[9px] text-muted-foreground">Cor texto</span>
+              <input type="color" defaultValue="#ffffff" onChange={e => applyStyle("color", e.target.value)}
+                className="w-full h-6 rounded cursor-pointer bg-transparent" />
+            </div>
+            <div>
+              <span className="text-[9px] text-muted-foreground">Cor fundo</span>
+              <input type="color" defaultValue="#000000" onChange={e => applyStyle("backgroundColor", e.target.value)}
+                className="w-full h-6 rounded cursor-pointer bg-transparent" />
+            </div>
+            <div>
+              <span className="text-[9px] text-muted-foreground">Font Size</span>
+              <select onChange={e => applyStyle("fontSize", e.target.value)} defaultValue=""
+                className="w-full px-1 py-1 rounded bg-secondary/50 border border-border/40 text-[10px]">
+                <option value="" disabled>—</option>
+                {["12px","14px","16px","18px","20px","24px","28px","32px","36px","48px","64px"].map(s =>
+                  <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <span className="text-[9px] text-muted-foreground">Font Weight</span>
+              <select onChange={e => applyStyle("fontWeight", e.target.value)} defaultValue=""
+                className="w-full px-1 py-1 rounded bg-secondary/50 border border-border/40 text-[10px]">
+                <option value="" disabled>—</option>
+                {["300","400","500","600","700","800","900"].map(w =>
+                  <option key={w} value={w}>{w}</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Delete element */}
+        <Button size="sm" variant="destructive" onClick={deleteEl} className="w-full h-6 text-[10px] gap-1">
+          <Trash2 className="w-3 h-3" /> Remover Elemento
+        </Button>
+      </div>
+    );
+  };
+
   /* ═══════ RENDER ═══════ */
   return (
     <div className="h-[calc(100vh-120px)] flex flex-col -m-6 bg-background">
@@ -533,7 +688,7 @@ const AdminBuilderOmni = () => {
               className={`px-3 py-1.5 rounded-md transition-all font-medium ${mode === "edit-lp" ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"}`}>
               <FileText className="w-3.5 h-3.5 inline mr-1.5" />LP Atual
             </button>
-            <button onClick={() => { setMode("generate"); setSelectedEl(null); }}
+            <button onClick={() => { setMode("generate"); setSelectedEl(null); setLpHtml(null); }}
               className={`px-3 py-1.5 rounded-md transition-all font-medium ${mode !== "edit-lp" ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"}`}>
               <Sparkles className="w-3.5 h-3.5 inline mr-1.5" />✨ Gerar Nova
             </button>
@@ -578,13 +733,15 @@ const AdminBuilderOmni = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* BYOK settings */}
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setBYOKOpen(true)} title="Configurar IA">
             <Key className="w-3.5 h-3.5" />
           </Button>
 
           {mode !== "edit-lp" && generatedHtml && (
             <>
+              <Button variant="outline" size="sm" className="gap-1.5 rounded-lg h-7 text-xs" onClick={() => setPagePixelOpen(true)}>
+                <Code className="w-3 h-3" /> Pixels
+              </Button>
               <Button variant="outline" size="sm" className="gap-1.5 rounded-lg h-7 text-xs" onClick={exportHtml}>
                 <Download className="w-3 h-3" /> Exportar
               </Button>
@@ -607,14 +764,23 @@ const AdminBuilderOmni = () => {
       <div className="flex-1 flex overflow-hidden">
         {/* ─── Left Panel: Properties / Page Manager ─── */}
         <div className="w-72 border-r border-border bg-background overflow-y-auto shrink-0 flex flex-col">
+          {/* Element inspector - always shown when element selected */}
+          {renderElementInspector()}
+
           {mode === "edit-lp" ? (
             <div className="p-4 flex-1">
               <div className="flex items-center gap-2 mb-4">
                 <div className="p-1.5 bg-primary/10 rounded-lg text-primary"><Layout className="w-3.5 h-3.5" /></div>
-                <h3 className="font-bold text-xs uppercase tracking-wider">Propriedades LP</h3>
+                <h3 className="font-bold text-xs uppercase tracking-wider">LP Atual</h3>
               </div>
-              <p className="text-[11px] text-muted-foreground mb-4">Use o chat de IA à direita para editar a Landing Page atual.</p>
-              {/* Quick config editors could go here */}
+              {!selectedEl && (
+                <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 mb-4">
+                  <p className="text-[11px] text-muted-foreground">
+                    <MousePointer2 className="w-3 h-3 inline mr-1 text-primary" />
+                    Clique em qualquer elemento no canvas para editar texto, imagens, links, cores e mais.
+                  </p>
+                </div>
+              )}
               <div className="space-y-3">
                 {Object.entries(localConfig).slice(0, 8).map(([key, val]) => (
                   <div key={key} className="text-xs">
@@ -636,7 +802,7 @@ const AdminBuilderOmni = () => {
               </div>
             </div>
           ) : (
-            <div className="flex flex-col h-full">
+            <div className="flex flex-col flex-1">
               {/* Page title & slug inputs */}
               <div className="p-4 border-b border-border space-y-2">
                 <div className="flex items-center gap-2 mb-2">
@@ -651,115 +817,6 @@ const AdminBuilderOmni = () => {
                     placeholder="slug-personalizado" className="flex-1 px-2 py-1 rounded bg-secondary/50 border border-border/40 text-xs focus:ring-1 focus:ring-primary/30 outline-none" />
                 </div>
               </div>
-
-              {/* Element Inspector */}
-              {selectedEl && (
-                <div className="p-4 border-b border-border space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-bold text-xs uppercase tracking-wider text-primary">Elemento Selecionado</h4>
-                    <button onClick={() => setSelectedEl(null)} className="text-muted-foreground hover:text-foreground"><X className="w-3.5 h-3.5" /></button>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground bg-secondary/50 px-2 py-1 rounded font-mono">&lt;{selectedEl.tagName.toLowerCase()}&gt;</p>
-
-                  {/* Text editing */}
-                  {!selectedEl.isImage && (
-                    <div>
-                      <label className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1 mb-1"><Type className="w-3 h-3" /> Texto</label>
-                      <textarea value={editText} onChange={e => setEditText(e.target.value)} rows={2}
-                        className="w-full px-2 py-1.5 rounded-md bg-secondary/50 border border-border/40 text-xs focus:ring-1 focus:ring-primary/30 outline-none resize-none" />
-                      <Button size="sm" variant="outline" onClick={applyText} className="w-full mt-1 h-6 text-[10px]">Aplicar Texto</Button>
-                    </div>
-                  )}
-
-                  {/* Image editing */}
-                  {selectedEl.isImage && (
-                    <div>
-                      <label className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1 mb-1"><Image className="w-3 h-3" /> Imagem</label>
-                      <input value={editSrc} onChange={e => setEditSrc(e.target.value)} placeholder="URL da imagem..."
-                        className="w-full px-2 py-1.5 rounded-md bg-secondary/50 border border-border/40 text-xs focus:ring-1 focus:ring-primary/30 outline-none mb-1" />
-                      <div className="flex gap-1">
-                        <Button size="sm" variant="outline" onClick={applySrc} className="flex-1 h-6 text-[10px]">Aplicar URL</Button>
-                        <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} className="h-6 text-[10px] gap-1">
-                          <Upload className="w-3 h-3" /> Upload
-                        </Button>
-                      </div>
-                      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-                    </div>
-                  )}
-
-                  {/* Link/CTA editing */}
-                  {selectedEl.isLink && (
-                    <div>
-                      <label className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1 mb-1"><Link2 className="w-3 h-3" /> Ação do Link</label>
-                      <div className="flex gap-1 mb-2">
-                        {(["url", "anchor", "whatsapp"] as const).map(a => (
-                          <button key={a} onClick={() => setLinkAction(a)}
-                            className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${linkAction === a ? "bg-primary text-primary-foreground" : "bg-secondary/50 text-muted-foreground"}`}>
-                            {a === "url" ? "URL" : a === "anchor" ? "Âncora" : "WhatsApp"}
-                          </button>
-                        ))}
-                      </div>
-                      {linkAction === "url" && (
-                        <input value={editHref} onChange={e => setEditHref(e.target.value)} placeholder="https://..."
-                          className="w-full px-2 py-1.5 rounded-md bg-secondary/50 border border-border/40 text-xs outline-none" />
-                      )}
-                      {linkAction === "anchor" && (
-                        <input value={editHref} onChange={e => setEditHref(e.target.value)} placeholder="#secao-id"
-                          className="w-full px-2 py-1.5 rounded-md bg-secondary/50 border border-border/40 text-xs outline-none" />
-                      )}
-                      {linkAction === "whatsapp" && (
-                        <div className="space-y-1">
-                          <input value={waNumber} onChange={e => setWaNumber(e.target.value)} placeholder="5511999999999"
-                            className="w-full px-2 py-1.5 rounded-md bg-secondary/50 border border-border/40 text-xs outline-none" />
-                          <textarea value={waMessage} onChange={e => setWaMessage(e.target.value)} placeholder="Mensagem automática..."
-                            rows={2} className="w-full px-2 py-1.5 rounded-md bg-secondary/50 border border-border/40 text-xs outline-none resize-none" />
-                        </div>
-                      )}
-                      <Button size="sm" variant="outline" onClick={applyHref} className="w-full mt-1 h-6 text-[10px]">Aplicar Link</Button>
-                    </div>
-                  )}
-
-                  {/* Style controls */}
-                  <div>
-                    <label className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1 mb-1"><Palette className="w-3 h-3" /> Estilos Rápidos</label>
-                    <div className="grid grid-cols-2 gap-1">
-                      <div>
-                        <span className="text-[9px] text-muted-foreground">Cor texto</span>
-                        <input type="color" defaultValue="#ffffff" onChange={e => applyStyle("color", e.target.value)}
-                          className="w-full h-6 rounded cursor-pointer bg-transparent" />
-                      </div>
-                      <div>
-                        <span className="text-[9px] text-muted-foreground">Cor fundo</span>
-                        <input type="color" defaultValue="#000000" onChange={e => applyStyle("backgroundColor", e.target.value)}
-                          className="w-full h-6 rounded cursor-pointer bg-transparent" />
-                      </div>
-                      <div>
-                        <span className="text-[9px] text-muted-foreground">Font Size</span>
-                        <select onChange={e => applyStyle("fontSize", e.target.value)} defaultValue=""
-                          className="w-full px-1 py-1 rounded bg-secondary/50 border border-border/40 text-[10px]">
-                          <option value="" disabled>—</option>
-                          {["12px","14px","16px","18px","20px","24px","28px","32px","36px","48px","64px"].map(s =>
-                            <option key={s} value={s}>{s}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <span className="text-[9px] text-muted-foreground">Font Weight</span>
-                        <select onChange={e => applyStyle("fontWeight", e.target.value)} defaultValue=""
-                          className="w-full px-1 py-1 rounded bg-secondary/50 border border-border/40 text-[10px]">
-                          <option value="" disabled>—</option>
-                          {["300","400","500","600","700","800","900"].map(w =>
-                            <option key={w} value={w}>{w}</option>)}
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Delete element */}
-                  <Button size="sm" variant="destructive" onClick={deleteEl} className="w-full h-6 text-[10px] gap-1">
-                    <Trash2 className="w-3 h-3" /> Remover Elemento
-                  </Button>
-                </div>
-              )}
 
               {/* Page list */}
               <div className="flex-1 overflow-y-auto p-3 space-y-2">
@@ -808,7 +865,13 @@ const AdminBuilderOmni = () => {
             <div className={`bg-background rounded-xl shadow-2xl overflow-hidden transition-all duration-300 ${vpW}`}
               style={{ height: "calc(100vh - 200px)" }}>
               {mode === "edit-lp" ? (
-                <iframe src="/" className="w-full h-full border-0" title="Preview LP" ref={iframeRef} />
+                lpHtml ? (
+                  <iframe srcDoc={lpHtml} className="w-full h-full border-0" title="Preview LP" ref={iframeRef}
+                    sandbox="allow-scripts allow-same-origin" />
+                ) : (
+                  <iframe src="/" className="w-full h-full border-0" title="Preview LP" ref={iframeRef}
+                    onLoad={handleLPIframeLoad} />
+                )
               ) : generatedHtml ? (
                 <iframe srcDoc={generatedHtml} className="w-full h-full border-0" title="Preview" ref={iframeRef}
                   sandbox="allow-scripts allow-same-origin" />
@@ -878,7 +941,7 @@ const AdminBuilderOmni = () => {
               <div className="flex justify-start">
                 <div className="bg-secondary px-3 py-2 rounded-xl flex items-center gap-2">
                   <Loader2 className="w-3 h-3 animate-spin text-primary" />
-                  <span className="text-[10px] text-muted-foreground">{isGenerating ? "Gerando página..." : "Processando..."}</span>
+                  <span className="text-[10px] text-muted-foreground">{isGenerating ? "Gerando..." : "Processando..."}</span>
                 </div>
               </div>
             )}
@@ -943,6 +1006,31 @@ const AdminBuilderOmni = () => {
               </>
             )}
             <Button onClick={saveBYOKConfig} className="w-full">Salvar Configuração</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Pixel per Page Modal ─── */}
+      <Dialog open={pagePixelOpen} onOpenChange={setPagePixelOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Code className="w-4 h-4 text-primary" /> Pixels desta Página</DialogTitle>
+            <DialogDescription>Configure pixels de rastreamento individuais para esta página.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">Meta Pixel ID</label>
+              <input value={pageMetaPixel} onChange={e => setPageMetaPixel(e.target.value)}
+                placeholder="Ex: 123456789012345" className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">Google Analytics ID</label>
+              <input value={pageGaId} onChange={e => setPageGaId(e.target.value)}
+                placeholder="Ex: G-XXXXXXXXXX" className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm" />
+            </div>
+            <Button onClick={() => { setPagePixelOpen(false); toast.success("Pixels configurados! Salve a página para aplicar."); }} className="w-full">
+              Confirmar
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
