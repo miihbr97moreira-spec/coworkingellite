@@ -11,59 +11,82 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
 
   try {
-    const { prompt, mode, currentConfig } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    const { prompt, mode, currentConfig, byok } = await req.json();
+
+    // Determine API endpoint and key
+    let apiUrl = "https://ai.gateway.lovable.dev/v1/chat/completions";
+    let apiKey = Deno.env.get("LOVABLE_API_KEY");
+    let model = "google/gemini-3-flash-preview";
+
+    if (byok?.enabled && byok?.apiKey) {
+      apiKey = byok.apiKey;
+      model = byok.model || "gpt-4o";
+      switch (byok.provider) {
+        case "openai": apiUrl = "https://api.openai.com/v1/chat/completions"; break;
+        case "anthropic": apiUrl = "https://api.anthropic.com/v1/messages"; break;
+        case "groq": apiUrl = "https://api.groq.com/openai/v1/chat/completions"; break;
+        case "openrouter": apiUrl = "https://openrouter.ai/api/v1/chat/completions"; break;
+        case "gemini": apiUrl = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"; break;
+        default: apiUrl = "https://ai.gateway.lovable.dev/v1/chat/completions"; break;
+      }
+    }
+
+    if (!apiKey) throw new Error("API key not configured");
 
     const systemPrompt =
       mode === "generate"
-        ? `Você é um gerador de Landing Pages de elite. O usuário vai descrever o que quer e você deve gerar código HTML completo, moderno, responsivo, com Tailwind CSS inline via CDN.
+        ? `Você é um gerador de Landing Pages de ELITE MUNDIAL. O usuário descreve o que quer e você gera HTML completo, moderno, responsivo, premium.
 
 REGRAS OBRIGATÓRIAS:
-- Retorne APENAS HTML puro e completo (com <!DOCTYPE html>, <head> com CDN do Tailwind, <body>)
-- Use classes Tailwind para TUDO: layout, cores, tipografia, espaçamento, animações
-- Inclua efeitos: hover transitions, gradients, glassmorphism (backdrop-blur), shadows
-- Use fontes do Google Fonts (Inter, Space Grotesk, Playfair Display)
-- Crie seções: Hero, Features, Social Proof, Pricing, CTA, Footer
-- Tema dark por padrão (bg-gray-950, text-white) com acentos dourados (#FBBF24)
-- Imagens: use https://images.unsplash.com/photo-XXXXX?w=800 com IDs reais do Unsplash
-- Botões com efeitos hover e transições suaves
-- Design premium, nível Apple/Stripe
-- NÃO inclua JavaScript, apenas HTML + Tailwind
-- NÃO use comentários explicativos, apenas código
-
-Responda com JSON: { "html": "<código completo>", "title": "Título da página" }`
-        : `Você é um assistente de edição de Landing Pages. O usuário descreve mudanças para a landing page atual. Analise o pedido e retorne instruções claras.
+- Retorne APENAS HTML puro completo (<!DOCTYPE html>, <head> com CDN do Tailwind via https://cdn.tailwindcss.com, <body>)
+- Use classes Tailwind para TUDO: layout, cores, tipografia, espaçamento
+- Inclua efeitos visuais: hover transitions, gradients, glassmorphism (backdrop-blur-xl), shadows
+- Use Google Fonts (Inter, Space Grotesk, Playfair Display) via <link> HTTPS
+- Crie seções completas: Hero com CTA, Features com ícones, Social Proof, Pricing, FAQ, Footer
+- Tema dark sofisticado (bg-gray-950, text-white) com acentos vibrantes
+- Imagens: use https://images.unsplash.com com IDs reais
+- Botões com hover effects e transições suaves (transition-all duration-300)
+- Adicione animações CSS inline: @keyframes fadeInUp, slideIn
+- Design nivel Apple/Stripe/Vercel
+- NÃO use JavaScript complexo, apenas CSS animations
+- NÃO inclua comentários, apenas código limpo
+- Responda SOMENTE com o HTML, sem JSON wrapper, sem markdown fences`
+        : `Você é um assistente de edição de Landing Pages. Analise o pedido e retorne instruções claras em JSON.
 
 Configuração atual: ${JSON.stringify(currentConfig || {})}
 
-Responda com JSON: { "message": "Explicação do que foi feito", "updatedConfig": { ...campos alterados }, "action": "modify_element" | "change_theme" | "restore" }
+Responda com JSON: { "message": "Explicação do que foi feito", "updatedConfig": { ...campos alterados }, "action": "modify_element" | "change_theme" | "restore" }`;
 
-Se o usuário pedir para restaurar, use action "restore". Se pedir mudanças de cor/tema, use "change_theme". Para edições de texto/conteúdo, use "modify_element".`;
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
 
-    const response = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: prompt },
-          ],
-          stream: mode === "generate",
-        }),
-      }
-    );
+    // Anthropic uses x-api-key, others use Authorization Bearer
+    if (byok?.provider === "anthropic") {
+      headers["x-api-key"] = apiKey;
+      headers["anthropic-version"] = "2023-06-01";
+    } else {
+      headers["Authorization"] = `Bearer ${apiKey}`;
+    }
+
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: prompt },
+        ],
+        stream: mode === "generate",
+        ...(mode === "generate" ? { max_tokens: 16000 } : {}),
+      }),
+    });
 
     if (!response.ok) {
       if (response.status === 429) {
         return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Tente novamente em alguns segundos." }),
+          JSON.stringify({ error: "Rate limit atingido. Tente novamente em alguns segundos." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -74,8 +97,8 @@ Se o usuário pedir para restaurar, use action "restore". Se pedir mudanças de 
         );
       }
       const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
-      throw new Error(`AI gateway error: ${response.status}`);
+      console.error("AI error:", response.status, t);
+      throw new Error(`AI error: ${response.status}`);
     }
 
     if (mode === "generate") {
@@ -87,7 +110,6 @@ Se o usuário pedir para restaurar, use action "restore". Se pedir mudanças de 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || "";
 
-    // Try to parse JSON from the response
     let parsed;
     try {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
