@@ -119,10 +119,106 @@ const AdminQuizBuilder = () => {
   const { generatePage, isLoading: aiLoading } = useAIBuilder();
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  const handleChat = async () => {
+    if (!chatInput.trim()) return;
+    const userMsg: ChatMsg = { id: Date.now().toString(), role: "user", content: chatInput };
+    setChatMsgs(prev => [...prev, userMsg]);
+    const input = chatInput;
+    setChatInput("");
+
+    const systemPrompt = `Você é um especialista em criação de quizzes de alta conversão (benchmark: Inlead).
+
+Gere um Quiz em formato JSON com suporte completo às seguintes funcionalidades:
+
+1. LÓGICA CONDICIONAL (Branching):
+   - Cada pergunta pode ter um array 'logic' com regras
+   - Formato: { "action": "go_to" | "finish", "destination": "id_da_proxima_pergunta", "condition_value": "valor_selecionado" }
+   - Exemplo: Se usuário responder "Sim", ir para pergunta q3; se "Não", finalizar (lead_capture)
+
+2. TIPOS DE PERGUNTAS SUPORTADOS:
+   - "multiple_choice": Opções de seleção única (com auto-advance)
+   - "image_grid": Grade de imagens (2-4 opções visuais com URLs)
+   - "text": Texto longo
+   - "email": Captura de email
+   - "phone": Captura de telefone
+
+3. GAMIFICAÇÃO:
+   - auto_advance: true (pula para próxima ao selecionar em múltipla escolha)
+   - enable_fake_loading: true (mostra "Analisando..." com barra de progresso)
+   - enable_timer: true/false (cronômetro de urgência)
+   - show_progress_bar: true (barra de progresso visual)
+
+4. VARIÁVEIS DINÂMICAS (Piping):
+   - Use {nome}, {email}, etc. nos títulos das perguntas
+   - Exemplo: "Ótimo, {nome}! Qual seu orçamento?"
+
+5. ESTRUTURA JSON ESPERADA:
+{
+  "title": "Nome do Quiz",
+  "description": "Descrição curta",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple_choice" | "image_grid" | "text" | "email" | "phone",
+      "title": "Pergunta aqui",
+      "options": ["Opção 1", "Opção 2"],
+      "image_options": [{"label": "Opção 1", "url": "https://..."}, ...],
+      "required": true,
+      "logic": [
+        {"action": "go_to", "destination": "q2", "condition_value": "Opção 1"},
+        {"action": "finish", "condition_value": "Opção 2"}
+      ]
+    },
+    ...
+  ]
+}
+
+Pedido do usuário: "${input}"
+
+Retorne APENAS o JSON puro, sem markdown ou explicações.`;
+
+    let fullRaw = "";
+    await generatePage(systemPrompt, (delta) => { fullRaw += delta; }, () => {
+      try {
+        const cleaned = fullRaw.replace(/\`\`\`json?\s*/g, "").replace(/\`\`\`/g, "").trim();
+        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (parsed.title) setTitle(parsed.title);
+          if (parsed.description) setDescription(parsed.description);
+          if (parsed.questions?.length) {
+            setQuestions(parsed.questions.map((q: any, i: number) => ({
+              id: q.id || `q${i}`,
+              type: q.type || "multiple_choice",
+              title: q.title || "",
+              options: q.options,
+              image_options: q.image_options,
+              required: q.required !== false,
+              logic: q.logic || []
+            })));
+          }
+          setChatMsgs(prev => [...prev, {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: `✅ **Quiz gerado com sucesso!**\n\n📊 ${parsed.questions?.length || 0} perguntas criadas com lógica condicional, gamificação e piping de variáveis.\n\nVocê pode agora:\n- Editar as perguntas e adicionar mais lógica\n- Configurar cores e tipografia na aba **Design**\n- Ativar Auto-Advance, Fake Loading e Timer na aba **Configurações**\n- Ver o funil de drop-off na aba **Analytics**`
+          }]);
+        }
+      } catch (err) {
+        setChatMsgs(prev => [...prev, {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: "❌ Desculpe, nao consegui gerar o quiz. Tente descrever de forma mais clara.\n\nDicas:\n- Especifique o tipo de negocio\n- Mencione quantas perguntas deseja\n- Peca para usar logica condicional, imagens ou fake loading\n- Exemplo: Quiz de fitness com 5 perguntas, imagens para objetivos e logica condicional"
+        }]);
+      }
+    });
+    setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+  };
+
   const { data: funnels } = useFunnels();
   const { data: crmStages } = useStages(crmFunnelId);
 
   useEffect(() => { loadQuizzes(); }, []);
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMsgs]);
 
   const loadQuizzes = async () => {
     const { data } = await supabase.from("quizzes").select("*").order("created_at", { ascending: false });
@@ -567,10 +663,22 @@ const AdminQuizBuilder = () => {
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {chatMsgs.length === 0 && (
-              <div className="text-center py-10 opacity-40">
-                <Sparkles className="w-10 h-10 mx-auto mb-4" />
-                <p className="text-xs font-bold uppercase tracking-tighter">Descreva o quiz dos seus sonhos</p>
-                <p className="text-[10px] mt-1">Ex: "Crie um quiz de emagrecimento com lógica condicional para quem quer perder mais de 10kg"</p>
+              <div className="text-center py-6 space-y-4">
+                <Sparkles className="w-10 h-10 mx-auto text-primary/40" />
+                <div className="space-y-2">
+                  <p className="text-xs font-black uppercase tracking-tighter">Templates Rapidos</p>
+                  <div className="space-y-2">
+                    {[
+                      { name: "Captacao Estetica", prompt: "Crie um quiz de captacao de leads para clinica de estetica com 4 perguntas sobre tipo de pele, tratamentos de interesse, faixa etaria e orcamento. Use logica condicional para rotear para diferentes resultados baseado no orcamento." },
+                      { name: "Qualificacao B2B", prompt: "Crie um quiz para qualificar leads B2B com perguntas sobre tamanho da empresa, orcamento mensal, principal dor e urgencia. Use imagens para as opcoes de tamanho de empresa." },
+                      { name: "Fitness", prompt: "Crie um quiz para personal trainer com perguntas sobre objetivo (imagens de corpos), frequencia de treino, experiencia e disponibilidade. Ative o fake loading e timer para gerar urgencia." },
+                    ].map((t, i) => (
+                      <button key={i} onClick={() => { setChatInput(t.prompt); }} className="block w-full text-left px-3 py-2 rounded-lg bg-secondary/50 hover:bg-secondary text-[10px] font-bold transition-colors text-primary">
+                        {t.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
             {chatMsgs.map(m => (
@@ -595,12 +703,13 @@ const AdminQuizBuilder = () => {
               <textarea 
                 value={chatInput} 
                 onChange={e => setChatInput(e.target.value)}
-                onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); /* handleChat(); */ } }}
-                placeholder="Peça para a IA..." 
+                onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleChat(); } }}
+                placeholder="Descreva seu quiz..." 
                 rows={3}
-                className="w-full bg-secondary/50 border border-border/40 rounded-2xl p-4 pr-12 text-xs outline-none resize-none focus:ring-2 focus:ring-primary/30"
+                disabled={aiLoading}
+                className="w-full bg-secondary/50 border border-border/40 rounded-2xl p-4 pr-12 text-xs outline-none resize-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
               />
-              <button className="absolute right-3 bottom-3 p-2 rounded-xl bg-primary text-primary-foreground">
+              <button onClick={handleChat} disabled={aiLoading || !chatInput.trim()} className="absolute right-3 bottom-3 p-2 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-all">
                 <Send className="w-4 h-4" />
               </button>
             </div>
