@@ -17,51 +17,37 @@ interface ManagedUser {
 }
 
 async function callManageUsers(action: string, payload: Record<string, unknown> = {}) {
-  // Primeiro tentamos via método nativo invoke (padrão)
   try {
     const { data, error } = await supabase.functions.invoke('manage-users', {
       body: { action, ...payload },
     });
 
-    if (!error) return data;
-    
-    // Se o erro for 404, não adianta tentar fallback
-    if (error.message?.includes('404') || error.message?.includes('not found')) {
-      throw new Error("A função 'manage-users' não foi encontrada no seu projeto Supabase. Por favor, realize o deploy da função.");
-    }
-    
-    console.warn("Invoke falhou, tentando fallback via fetch direto...", error);
-  } catch (err) {
-    console.warn("Erro no invoke, tentando fallback...", err);
-  }
+    if (error) {
+      console.error("Erro retornado pela Edge Function:", error);
+      
+      // Tratamento de erros específicos de rede/CORS
+      if (error instanceof TypeError && error.message === "Failed to fetch") {
+        throw new Error("Erro de conexão com o servidor. Verifique se a função 'manage-users' foi publicada no Supabase.");
+      }
+      
+      // Tratamento de erro 404
+      if (error.message?.includes('404') || error.message?.includes('not found')) {
+        throw new Error("Função de gerenciamento não encontrada (404). É necessário realizar o deploy no Supabase.");
+      }
 
-  // Fallback: Chamada direta via fetch caso o invoke falhe por problemas de rede/DNS/CORS no cliente
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-    
-    const response = await fetch(`${supabaseUrl}/functions/v1/manage-users`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session?.access_token}`,
-        'apikey': supabaseKey,
-      },
-      body: JSON.stringify({ action, ...payload }),
-    });
-
-    if (response.status === 404) {
-      throw new Error("A função 'manage-users' não foi encontrada (404). Realize o deploy no painel do Supabase.");
+      throw new Error(error.message || "Erro inesperado na comunicação com o servidor.");
     }
 
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || `Erro do servidor (${response.status})`);
+    return data;
+  } catch (err: any) {
+    console.error("Falha crítica na chamada da função:", err);
     
-    return result;
-  } catch (err) {
-    console.error("Falha total na comunicação:", err);
-    throw new Error("Não foi possível conectar à Edge Function. Certifique-se de que a função foi publicada (deploy) e que as configurações de rede estão corretas.");
+    // Fallback amigável para erro de rede genérico
+    if (err.message?.includes("Failed to fetch") || err.message?.includes("NetworkError")) {
+      throw new Error("Não foi possível conectar ao servidor do Supabase. Verifique se o deploy da função foi realizado e se as configurações de CORS estão corretas.");
+    }
+    
+    throw err;
   }
 }
 
