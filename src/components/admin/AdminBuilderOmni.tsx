@@ -330,8 +330,6 @@ const AdminBuilderOmni = ({ isLegacyLP = false }: AdminBuilderOmniProps) => {
   };
 
   const handleGeneratePage = async () => {
-    if (!newPageTitle.trim() || !newPageSlug.trim()) return;
-    // Apenas avança para o chat, não cria a página aqui
     setMode("edit-generated");
     setGeneratedHtml("");
     setHtmlHistory([""]);
@@ -339,10 +337,9 @@ const AdminBuilderOmni = ({ isLegacyLP = false }: AdminBuilderOmniProps) => {
     setChatMessages([{
       id: "welcome",
       role: "assistant",
-      content: `Olá! Vou ajudá-lo a criar a Landing Page "${newPageTitle}". Descreva o que você gostaria que a página tivesse. Por exemplo: "Crie uma landing page para um curso de programação com seção de hero, benefícios, depoimentos e CTA".`,
+      content: `Olá! Estou pronto para criar sua Landing Page. Descreva o que você gostaria que a página tivesse. Por exemplo: "Crie uma landing page para um curso de programação com seção de hero, benefícios, depoimentos e CTA".`,
       timestamp: new Date()
     }]);
-    toast.info(`Projeto "${newPageTitle}" criado. Agora descreva sua página no chat!`);
   };
 
   const handleSavePage = async () => {
@@ -636,26 +633,8 @@ const AdminBuilderOmni = ({ isLegacyLP = false }: AdminBuilderOmniProps) => {
                 className="max-w-xl w-full z-10 space-y-8"
               >
                 <div className="text-center space-y-4">
-                  <h1 className="text-5xl font-bold tracking-tight text-white">O que vamos <span className="text-primary">construir</span> hoje?</h1>
-                  <p className="text-white/60 text-lg">Descreva seu negócio e a IA criará uma Landing Page completa em segundos.</p>
-                </div>
-                <div className="bg-white/5 border border-white/10 p-8 rounded-3xl backdrop-blur-2xl shadow-2xl space-y-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-xs font-medium text-white/40 uppercase tracking-widest">Título da Página</label>
-                      <input type="text" placeholder="Ex: Masterclass de Vendas" value={newPageTitle} onChange={e => {
-                        setNewPageTitle(e.target.value);
-                        setNewPageSlug(e.target.value.toLowerCase().replace(/ /g, "-").replace(/[^\w-]/g, ""));
-                      }} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 focus:border-primary/50 outline-none" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-medium text-white/40 uppercase tracking-widest">Slug da URL</label>
-                      <input type="text" placeholder="minha-pagina" value={newPageSlug} onChange={e => setNewPageSlug(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 focus:border-primary/50 outline-none" />
-                    </div>
-                  </div>
-                  <Button className="w-full py-7 text-xl font-bold gap-3 rounded-2xl shadow-xl shadow-primary/20" onClick={handleGeneratePage} disabled={!newPageTitle.trim()}>
-                    <Sparkles className="h-6 w-6" /> Começar Geração Mágica
-                  </Button>
+                  <h1 className="text-5xl font-bold tracking-tight text-white">Bem-vindo ao <span className="text-primary">IA Builder</span></h1>
+                  <p className="text-white/60 text-lg">Descreva sua Landing Page no chat abaixo e a IA criará tudo para você em segundos.</p>
                 </div>
               </motion.div>
             ) : (
@@ -672,7 +651,7 @@ const AdminBuilderOmni = ({ isLegacyLP = false }: AdminBuilderOmniProps) => {
         </div>
 
         {/* AI Chat Drawer */}
-        {mode === "edit-generated" && (
+        {(mode === "edit-generated" || !generatedHtml) && (
           <div className="absolute bottom-8 right-8 w-[400px] h-[500px] bg-[#050505]/95 backdrop-blur-2xl border border-white/10 rounded-3xl shadow-2xl flex flex-col z-30 overflow-hidden group">
             <div className="p-4 border-b border-white/10 flex items-center gap-3 bg-white/5">
               <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center border border-primary/30">
