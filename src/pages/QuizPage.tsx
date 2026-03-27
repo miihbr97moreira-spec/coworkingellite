@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, ArrowRight, CheckCircle2, AlertCircle, Timer } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import PremiumQuizOption from "@/components/quiz/PremiumQuizOption";
+import { useQuizCheckoutFlow } from "@/hooks/useQuizCheckoutFlow";
+import { calculateLeadScore } from "@/utils/leadScoring";
 
 interface QuizQuestion {
   id: string;
@@ -40,6 +42,7 @@ interface QuizSettings {
 const QuizPage = ({ overrideSlug }: { overrideSlug?: string }) => {
   const { slug: paramSlug } = useParams();
   const slug = overrideSlug || paramSlug;
+  const { captureQuizData } = useQuizCheckoutFlow();
   
   const [quiz, setQuiz] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -48,6 +51,7 @@ const QuizPage = ({ overrideSlug }: { overrideSlug?: string }) => {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [contactInfo, setContactInfo] = useState({ name: "", email: "", phone: "" });
   const [submitted, setSubmitted] = useState(false);
+  const [leadScore, setLeadScore] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processPercent, setProcessPercent] = useState(0);
   const [sessionId] = useState(() => crypto.randomUUID());
@@ -200,6 +204,31 @@ const QuizPage = ({ overrideSlug }: { overrideSlug?: string }) => {
       setProcessPercent(current);
     }, 300);
   }, [settings.enable_fake_loading]);
+
+  // Capturar dados do Quiz para o Checkout
+  useEffect(() => {
+    if (submitted && contactInfo.name && contactInfo.email) {
+      const score = calculateLeadScore({
+        name: contactInfo.name,
+        email: contactInfo.email,
+        phone: contactInfo.phone,
+        deal_value: 0, // Será definido no checkout
+        source: "quiz",
+      }).score;
+
+      setLeadScore(score);
+
+      // Capturar dados para o Checkout
+      captureQuizData({
+        name: contactInfo.name,
+        email: contactInfo.email,
+        phone: contactInfo.phone,
+        answers,
+        leadScore: score,
+        quizId: quiz?.id,
+      });
+    }
+  }, [submitted, contactInfo, answers, quiz?.id, captureQuizData]);
 
   const submitQuiz = useCallback(async () => {
     try {
