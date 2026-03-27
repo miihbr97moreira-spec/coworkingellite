@@ -12,7 +12,7 @@ import AdminBuilderOmni from "@/components/admin/AdminBuilderOmni";
 import AdminCRM from "@/components/admin/AdminCRM";
 import AdminQuizBuilder from "@/components/admin/AdminQuizBuilder";
 import OmniFlow from "@/components/admin/OmniFlow";
-import AdminSettings from "@/components/admin/AdminSettings";
+import TenantSettings from "@/components/admin/TenantSettings";
 import SuperAdminPanel from "@/pages/SuperAdmin";
 
 // Main navigation tabs (top-down order)
@@ -269,7 +269,7 @@ const Admin = () => {
           {activeTab === "content" && <AdminBuilderOmni />}
           {activeTab === "quiz" && <AdminQuizBuilder />}
           {activeTab === "omni_flow" && <OmniFlow />}
-          {activeTab === "settings" && <AdminSettings />}
+          {activeTab === "settings" && <TenantSettings />}
           {activeTab === "super_admin" && isSuperAdmin && <SuperAdminPanel />}
         </motion.div>
       </main>

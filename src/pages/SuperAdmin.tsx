@@ -3,12 +3,13 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
-import { ShieldAlert, ArrowLeft, Plus, Trash2, Loader2, Users, TrendingUp, Activity, AlertCircle, RefreshCw } from "lucide-react";
+import { ShieldAlert, ArrowLeft, Plus, Trash2, Loader2, Users, TrendingUp, Activity, AlertCircle, RefreshCw, Eye, EyeOff, Edit2, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const SUPER_ADMIN_EMAIL = "jpm19990@gmail.com";
 
@@ -29,8 +30,16 @@ interface SystemMetrics {
 }
 
 interface SuperAdminProps {
-  isEmbedded?: boolean; // When used inside Admin.tsx
+  isEmbedded?: boolean;
 }
+
+const MODULES = [
+  { id: 'builder', label: 'Builder (Omni)' },
+  { id: 'quiz_builder', label: 'Quiz Builder' },
+  { id: 'pixels', label: 'Pixels' },
+  { id: 'crm', label: 'CRM' },
+  { id: 'omni_flow', label: 'Omni Flow' },
+];
 
 const SuperAdmin = ({ isEmbedded = false }: SuperAdminProps) => {
   const navigate = useNavigate();
@@ -42,6 +51,8 @@ const SuperAdmin = ({ isEmbedded = false }: SuperAdminProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSaving, setSaving] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const authCheckRef = useRef(false);
   const dataLoadedRef = useRef(false);
 
@@ -49,13 +60,18 @@ const SuperAdmin = ({ isEmbedded = false }: SuperAdminProps) => {
     email: "",
     full_name: "",
     password: "",
+    role: "editor" as "super_admin" | "editor",
+    max_domains: 1,
+    max_quizzes: 5,
+    max_pages: 10,
+    allowed_modules: ['builder', 'quiz_builder', 'pixels', 'crm', 'omni_flow'] as string[],
   });
 
   // Security check: Only allow jpm19990@gmail.com (runs only once)
   useEffect(() => {
-    if (loading) return; // Wait for auth to load
+    if (loading) return;
 
-    if (authCheckRef.current) return; // Prevent duplicate checks
+    if (authCheckRef.current) return;
     authCheckRef.current = true;
 
     if (!user) {
@@ -100,6 +116,7 @@ const SuperAdmin = ({ isEmbedded = false }: SuperAdminProps) => {
         }
       } catch (err) {
         console.warn("Não foi possível listar usuários via Admin API:", err);
+        toast.error("Erro ao listar usuários: verifique as permissões do Supabase Auth Admin");
       }
 
       setUsers(authUsers);
@@ -143,32 +160,70 @@ const SuperAdmin = ({ isEmbedded = false }: SuperAdminProps) => {
     }
   };
 
+  const toggleModule = (moduleId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      allowed_modules: prev.allowed_modules.includes(moduleId)
+        ? prev.allowed_modules.filter(id => id !== moduleId)
+        : [...prev.allowed_modules, moduleId]
+    }));
+  };
+
   const handleAddUser = async () => {
-    if (!formData.email || !formData.full_name || !formData.password) {
-      toast.error("Preencha todos os campos");
+    if (!formData.email.trim() || !formData.full_name.trim() || !formData.password.trim()) {
+      toast.error("Preencha todos os campos obrigatórios");
       return;
     }
 
     setSaving(true);
     try {
-      const { error } = await supabase.auth.admin.createUser({
-        email: formData.email,
+      // Create user in Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: formData.email.trim(),
         password: formData.password,
         email_confirm: true,
         user_metadata: {
-          full_name: formData.full_name,
-          role: "user",
+          full_name: formData.full_name.trim(),
+          role: formData.role,
         },
       });
 
-      if (error) throw error;
+      if (authError) throw authError;
+      if (!authData.user) throw new Error("Falha ao criar usuário");
+
+      // Create entry in user_management table
+      const { error: dbError } = await supabase
+        .from('user_management')
+        .insert({
+          user_id: authData.user.id,
+          email: formData.email.trim(),
+          full_name: formData.full_name.trim(),
+          is_active: true,
+          role: formData.role,
+          max_domains: formData.max_domains,
+          max_quizzes: formData.max_quizzes,
+          max_pages: formData.max_pages,
+          allowed_modules: formData.allowed_modules,
+        });
+
+      if (dbError) throw dbError;
 
       toast.success(`Usuário ${formData.email} criado com sucesso!`);
-      setFormData({ email: "", full_name: "", password: "" });
+      setFormData({
+        email: "",
+        full_name: "",
+        password: "",
+        role: "editor",
+        max_domains: 1,
+        max_quizzes: 5,
+        max_pages: 10,
+        allowed_modules: ['builder', 'quiz_builder', 'pixels', 'crm', 'omni_flow'],
+      });
       setIsDialogOpen(false);
-      dataLoadedRef.current = false; // Reset to reload data
+      dataLoadedRef.current = false;
       await loadData();
     } catch (error: any) {
+      console.error("Erro ao criar usuário:", error);
       toast.error("Erro ao criar usuário: " + error.message);
     } finally {
       setSaving(false);
@@ -181,16 +236,25 @@ const SuperAdmin = ({ isEmbedded = false }: SuperAdminProps) => {
       return;
     }
 
-    if (!confirm(`Tem certeza que deseja deletar o usuário ${userEmail}?`)) return;
+    if (!confirm(`Tem certeza que deseja deletar o usuário ${userEmail}? Esta ação é irreversível.`)) return;
 
     try {
+      // Delete from user_management first
+      await supabase
+        .from('user_management')
+        .delete()
+        .eq('user_id', userId)
+        .catch(() => null); // Ignore if table doesn't exist
+
+      // Delete from auth
       const { error } = await supabase.auth.admin.deleteUser(userId);
       if (error) throw error;
 
       toast.success("Usuário deletado com sucesso");
-      dataLoadedRef.current = false; // Reset to reload data
+      dataLoadedRef.current = false;
       await loadData();
     } catch (error: any) {
+      console.error("Erro ao deletar usuário:", error);
       toast.error("Erro ao deletar usuário: " + error.message);
     }
   };
@@ -304,7 +368,7 @@ const SuperAdmin = ({ isEmbedded = false }: SuperAdminProps) => {
           className="bg-secondary/30 border border-border rounded-xl p-4 md:p-8"
         >
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
-            <h2 className="text-xl md:text-2xl font-bold">Gestão de Usuários</h2>
+            <h2 className="text-xl md:text-2xl font-bold">Gestão Global de Usuários</h2>
             <div className="flex gap-2 w-full md:w-auto">
               <Button
                 variant="outline"
@@ -321,11 +385,11 @@ const SuperAdmin = ({ isEmbedded = false }: SuperAdminProps) => {
                   <Plus className="w-4 h-4" />
                   <span className="hidden sm:inline">Novo Usuário</span>
                 </Button>
-                <DialogContent className="bg-secondary/50 border-border w-full sm:max-w-md">
+                <DialogContent className="bg-secondary/50 border-border w-full sm:max-w-md max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>Adicionar Novo Usuário</DialogTitle>
                     <DialogDescription>
-                      Crie um novo usuário manualmente no sistema
+                      Crie um novo usuário com permissões e limites personalizados
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 pt-4">
@@ -352,15 +416,89 @@ const SuperAdmin = ({ isEmbedded = false }: SuperAdminProps) => {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="password">Senha *</Label>
-                      <Input
-                        id="password"
-                        type="password"
-                        value={formData.password}
-                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                        placeholder="••••••••"
-                        className="bg-background border-border"
-                      />
+                      <div className="relative">
+                        <Input
+                          id="password"
+                          type={showPassword ? "text" : "password"}
+                          value={formData.password}
+                          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                          placeholder="••••••••"
+                          className="bg-background border-border pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
                     </div>
+
+                    <div className="border-t border-border pt-4">
+                      <Label className="text-sm font-semibold mb-3 block">Perfil</Label>
+                      <select
+                        value={formData.role}
+                        onChange={(e) => setFormData({ ...formData, role: e.target.value as "super_admin" | "editor" })}
+                        className="w-full px-3 py-2 rounded-lg bg-background border border-border text-sm"
+                      >
+                        <option value="editor">Editor (Padrão)</option>
+                        <option value="super_admin">Super Admin</option>
+                      </select>
+                    </div>
+
+                    <div className="border-t border-border pt-4 space-y-3">
+                      <Label className="text-sm font-semibold">Limites</Label>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="text-xs text-muted-foreground">Domínios</label>
+                          <Input
+                            type="number"
+                            min="1"
+                            value={formData.max_domains}
+                            onChange={(e) => setFormData({ ...formData, max_domains: parseInt(e.target.value) || 1 })}
+                            className="bg-background border-border text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-muted-foreground">Quizzes</label>
+                          <Input
+                            type="number"
+                            min="1"
+                            value={formData.max_quizzes}
+                            onChange={(e) => setFormData({ ...formData, max_quizzes: parseInt(e.target.value) || 1 })}
+                            className="bg-background border-border text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-muted-foreground">Páginas</label>
+                          <Input
+                            type="number"
+                            min="1"
+                            value={formData.max_pages}
+                            onChange={(e) => setFormData({ ...formData, max_pages: parseInt(e.target.value) || 1 })}
+                            className="bg-background border-border text-sm"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-border pt-4 space-y-2">
+                      <Label className="text-sm font-semibold">Módulos Permitidos</Label>
+                      <div className="space-y-2">
+                        {MODULES.map(mod => (
+                          <div key={mod.id} className="flex items-center gap-2">
+                            <Checkbox
+                              id={mod.id}
+                              checked={formData.allowed_modules.includes(mod.id)}
+                              onCheckedChange={() => toggleModule(mod.id)}
+                            />
+                            <label htmlFor={mod.id} className="text-sm cursor-pointer">{mod.label}</label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
                     <div className="flex gap-2 pt-4">
                       <Button
                         onClick={handleAddUser}
