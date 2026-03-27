@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { useUpdateLPConfig } from "@/hooks/useSupabaseQuery";
 import { useAIBuilder } from "@/hooks/useAIBuilder";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import ReactMarkdown from "react-markdown";
 import {
