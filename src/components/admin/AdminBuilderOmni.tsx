@@ -91,8 +91,7 @@ const CANVAS_SCRIPT_RAW = `
       classes:t.className||'',
       xpath:xpath(t),
       isImage:t.tagName==='IMG'||!!t.querySelector('img'),
-      isLink:t.tagName==='A'||t.tagName==='BUTTON'||!!t.closest('a'),
-      configPath: t.getAttribute('data-path') || t.closest('[data-path]')?.getAttribute('data-path') || ''
+      isLink:t.tagName==='A'||t.tagName==='BUTTON'||!!t.closest('a')
     };
     window.parent.postMessage({type:'BUILDER_SELECT',payload:info},'*');
   }, true);
@@ -174,31 +173,6 @@ const AdminBuilderOmni = () => {
   const updateConfig = useUpdateLPConfig();
   const { processPrompt, generatePage, isLoading: aiLoading } = useAIBuilder();
 
-  /* ── access control ── */
-  const [canAccessLP, setCanAccessLP] = useState<boolean | null>(null);
-  const [showTemplates, setShowTemplates] = useState(false);
-
-  useEffect(() => {
-    const checkAccess = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('can_access_lp, role')
-        .eq('user_id', user.id)
-        .single();
-      
-      if (data) {
-        // Super admins sempre têm acesso, outros dependem da flag
-        const hasAccess = data.role === 'super_admin' || data.can_access_lp;
-        setCanAccessLP(hasAccess);
-        if (!hasAccess) setShowTemplates(true);
-      }
-    };
-    checkAccess();
-  }, []);
-
   /* ── core state ── */
   const [mode, setMode] = useState<BuilderMode>("edit-lp");
   const [viewport, setViewport] = useState<"desktop" | "tablet" | "mobile">("desktop");
@@ -267,7 +241,7 @@ const AdminBuilderOmni = () => {
     const handler = (e: MessageEvent) => {
       if (!e.data?.type) return;
       if (e.data.type === "BUILDER_SELECT") {
-        const p = e.data.payload as SelectedElement & { configPath?: string };
+        const p = e.data.payload as SelectedElement;
         setSelectedEl(p);
         setEditText(p.text || "");
         setEditSrc(p.src || "");
@@ -470,57 +444,19 @@ const AdminBuilderOmni = () => {
   const saveLP = async () => {
     setIsSaving(true);
     try {
-      // 1. Save structured config (for components like HeroSection)
       for (const key of Object.keys(localConfig)) {
         await updateConfig.mutateAsync({ key, value: localConfig[key] });
       }
-
-      // 2. If we have modified HTML from the canvas, we should also save it 
-      // to a special 'custom_html' key in landing_page_config if the project 
-      // supports raw HTML overrides, OR ensure the localConfig is updated 
-      // from the canvas before saving.
-      
-      // Request latest HTML from canvas to ensure we have the most recent edits
-      sendToCanvas({ type: 'BUILDER_GET_HTML' });
-      
-      // Wait a bit for the message to return and update lpHtml
-      await new Promise(resolve => setTimeout(resolve, 500));
-
       toast.success("Landing Page publicada!");
-    } catch (err) { 
-      console.error("Erro ao salvar LP:", err);
-      toast.error("Erro ao salvar."); 
-    } finally { setIsSaving(false); }
+    } catch { toast.error("Erro ao salvar."); }
+    finally { setIsSaving(false); }
   };
 
   /* ── canvas mutations ── */
   const sendToCanvas = (msg: any) => iframeRef.current?.contentWindow?.postMessage(msg, "*");
 
-  const updateLocalConfigByPath = (path: string, value: any) => {
-    const keys = path.split('.');
-    const newConfig = { ...localConfig };
-    let current = newConfig;
-    for (let i = 0; i < keys.length - 1; i++) {
-      if (!current[keys[i]]) current[keys[i]] = {};
-      current[keys[i]] = { ...current[keys[i]] };
-      current = current[keys[i]];
-    }
-    current[keys[keys.length - 1]] = value;
-    setLocalConfig(newConfig);
-  };
-
-  const applyText = () => { 
-    sendToCanvas({ type: "BUILDER_UPDATE_TEXT", value: editText });
-    if ((selectedEl as any)?.configPath) {
-      updateLocalConfigByPath((selectedEl as any).configPath, editText);
-    }
-  };
-  const applySrc = () => { 
-    sendToCanvas({ type: "BUILDER_UPDATE_SRC", value: editSrc });
-    if ((selectedEl as any)?.configPath) {
-      updateLocalConfigByPath((selectedEl as any).configPath, editSrc);
-    }
-  };
+  const applyText = () => { sendToCanvas({ type: "BUILDER_UPDATE_TEXT", value: editText }); };
+  const applySrc = () => { sendToCanvas({ type: "BUILDER_UPDATE_SRC", value: editSrc }); };
   const applyHref = () => {
     let href = editHref;
     if (linkAction === "whatsapp") {
@@ -529,9 +465,6 @@ const AdminBuilderOmni = () => {
       href = editHref.startsWith("#") ? editHref : `#${editHref}`;
     }
     sendToCanvas({ type: "BUILDER_UPDATE_HREF", value: href });
-    if ((selectedEl as any)?.configPath) {
-      updateLocalConfigByPath((selectedEl as any).configPath, href);
-    }
   };
   const applyStyle = (prop: string, value: string) => sendToCanvas({ type: "BUILDER_SET_STYLE", prop, value });
   const deleteEl = () => { sendToCanvas({ type: "BUILDER_DELETE" }); setSelectedEl(null); };
@@ -623,43 +556,10 @@ Gere o HTML COMPLETO atualizado da landing page com as modificações solicitada
   /* ── viewport width ── */
   const vpW = viewport === "desktop" ? "w-full max-w-6xl" : viewport === "tablet" ? "w-full max-w-2xl" : "w-full max-w-sm";
 
-  if (isLoading || canAccessLP === null) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64 text-muted-foreground">
         <Loader2 className="w-6 h-6 animate-spin mr-2" /> Carregando Builder...
-      </div>
-    );
-  }
-
-  if (showTemplates) {
-    return (
-      <div className="p-8 max-w-6xl mx-auto">
-        <div className="mb-8 text-center">
-          <h2 className="text-3xl font-bold mb-2">Escolha um Template</h2>
-          <p className="text-muted-foreground">Você não tem acesso à LP atual. Escolha um dos templates abaixo para começar sua própria página.</p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {[
-            { id: 'modern', title: 'Moderno & Clean', desc: 'Ideal para startups e tecnologia.', img: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&q=80' },
-            { id: 'luxury', title: 'Luxo & Elite', desc: 'Perfeito para serviços premium.', img: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&q=80' },
-            { id: 'creative', title: 'Criativo & Bold', desc: 'Para agências e portfólios.', img: 'https://images.unsplash.com/photo-1542744094-24638eff58bb?w=800&q=80' }
-          ].map(t => (
-            <div key={t.id} className="group relative rounded-2xl border border-border overflow-hidden bg-secondary/20 hover:border-primary/50 transition-all">
-              <img src={t.img} alt={t.title} className="w-full h-48 object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
-              <div className="p-6">
-                <h3 className="text-lg font-bold mb-1">{t.title}</h3>
-                <p className="text-xs text-muted-foreground mb-4">{t.desc}</p>
-                <Button onClick={() => {
-                  setShowTemplates(false);
-                  setMode('generate');
-                  setChatMessages([{
-                    id: 'welcome', role: 'assistant', content: `Ótima escolha! Vou preparar o template ${t.title} para você. O que deseja mudar primeiro?`, timestamp: new Date()
-                  }]);
-                }} className="w-full">Usar este Template</Button>
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
     );
   }

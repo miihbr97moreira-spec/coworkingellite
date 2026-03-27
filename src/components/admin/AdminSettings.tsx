@@ -10,7 +10,6 @@ interface User {
   email: string;
   full_name: string;
   is_active: boolean;
-  can_access_lp: boolean;
   created_at: string;
 }
 
@@ -34,25 +33,24 @@ const AdminSettings = () => {
   const loadUsers = async () => {
     setLoading(true);
     try {
-      // Buscar usuários reais do banco de dados (user_roles)
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('user_id, role, can_access_lp');
-      
-      if (error) throw error;
-
-      // Como não temos acesso direto à tabela auth.users via client, 
-      // vamos usar os dados de user_roles e complementar com o que temos
-      const formattedUsers: User[] = data.map(u => ({
-        id: u.user_id,
-        email: "Usuário do Sistema", // Email real fica no auth.users
-        full_name: u.role === 'super_admin' ? "Super Admin" : "Editor",
-        is_active: true,
-        can_access_lp: u.can_access_lp || false,
-        created_at: new Date().toISOString(),
-      }));
-
-      setUsers(formattedUsers);
+      // Buscar usuários do localStorage (simulando banco de dados)
+      const stored = localStorage.getItem("admin_users");
+      if (stored) {
+        setUsers(JSON.parse(stored));
+      } else {
+        // Usuário padrão
+        const defaultUsers: User[] = [
+          {
+            id: "1",
+            email: "jpm19990@gmail.com",
+            full_name: "Administrador",
+            is_active: true,
+            created_at: new Date().toISOString(),
+          },
+        ];
+        setUsers(defaultUsers);
+        localStorage.setItem("admin_users", JSON.stringify(defaultUsers));
+      }
     } catch (error) {
       console.error("Erro ao carregar usuários:", error);
       toast.error("Erro ao carregar usuários");
@@ -125,24 +123,14 @@ const AdminSettings = () => {
   };
 
   const toggleUserStatus = (userId: string) => {
-    // Implementação futura para desativar no auth.users
-    toast.info("Funcionalidade de desativação em desenvolvimento");
-  };
-
-  const toggleLPAccess = async (userId: string, currentStatus: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('user_roles')
-        .update({ can_access_lp: !currentStatus })
-        .eq('user_id', userId);
-      
-      if (error) throw error;
-      
-      toast.success(`Acesso à LP ${!currentStatus ? 'liberado' : 'bloqueado'}`);
-      loadUsers();
-    } catch (error) {
-      toast.error("Erro ao atualizar acesso");
-    }
+    const updated = users.map(u => {
+      if (u.id === userId) {
+        return { ...u, is_active: !u.is_active };
+      }
+      return u;
+    });
+    saveUsers(updated);
+    toast.success("Status do usuário atualizado!");
   };
 
   const openEditDialog = (user: User) => {
@@ -185,7 +173,6 @@ const AdminSettings = () => {
                 <th className="p-4 text-left font-semibold">Nome</th>
                 <th className="p-4 text-left font-semibold">Email</th>
                 <th className="p-4 text-center font-semibold">Status</th>
-                <th className="p-4 text-center font-semibold">Acesso LP Atual</th>
                 <th className="p-4 text-right font-semibold">Ações</th>
               </tr>
             </thead>
@@ -211,18 +198,6 @@ const AdminSettings = () => {
                         }`}
                       >
                         {user.is_active ? "✓ Ativo" : "✗ Inativo"}
-                      </button>
-                    </td>
-                    <td className="p-4 text-center">
-                      <button
-                        onClick={() => toggleLPAccess(user.id, user.can_access_lp)}
-                        className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                          user.can_access_lp
-                            ? "bg-primary/20 text-primary"
-                            : "bg-secondary text-muted-foreground"
-                        }`}
-                      >
-                        {user.can_access_lp ? "✓ Liberado" : "✗ Bloqueado"}
                       </button>
                     </td>
                     <td className="p-4 text-right flex justify-end gap-2">

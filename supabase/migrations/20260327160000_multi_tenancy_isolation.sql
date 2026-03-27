@@ -8,7 +8,6 @@ ALTER TABLE public.stages ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.
 ALTER TABLE public.generated_pages ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) DEFAULT auth.uid();
 ALTER TABLE public.quizzes ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) DEFAULT auth.uid();
 ALTER TABLE public.custom_domains ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) DEFAULT auth.uid();
-ALTER TABLE public.user_roles ADD COLUMN IF NOT EXISTS can_access_lp BOOLEAN DEFAULT false;
 
 -- 2. Atualizar registros existentes para o usuário atual (se houver)
 UPDATE public.leads SET user_id = auth.uid() WHERE user_id IS NULL;
