@@ -7,6 +7,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useDNSResolver } from "@/hooks/useDNSResolver";
+import DNSValidationGuide from "./DNSValidationGuide";
 
 const AdminDomains = React.forwardRef<HTMLDivElement>((_, ref) => {
   const [addOpen, setAddOpen] = useState(false);
@@ -132,8 +133,6 @@ const AdminDomains = React.forwardRef<HTMLDivElement>((_, ref) => {
     toast.success("Copiado!");
   };
 
-  const publishedUrl = window.location.origin;
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -194,37 +193,57 @@ const AdminDomains = React.forwardRef<HTMLDivElement>((_, ref) => {
         )}
       </div>
 
-      {/* Instruções DNS */}
+      {/* Instruções DNS Simplificadas */}
       <div className="rounded-xl border border-primary/20 bg-primary/5 p-6 max-w-3xl">
         <div className="flex items-start gap-4">
           <div className="p-2 rounded-full bg-primary/20 mt-0.5"><Info className="w-5 h-5 text-primary" /></div>
           <div>
-            <p className="text-sm font-bold mb-3">Como configurar a Hospedagem Nativa</p>
+            <p className="text-sm font-bold mb-3">Como Configurar Seu Domínio (Hospedagem Nativa)</p>
             <div className="space-y-4">
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Para que seu domínio funcione nativamente neste projeto, você deve configurar os registros DNS no seu provedor (Cloudflare, Hostinger, etc.):
+                Acesse o painel de controle do seu provedor de domínio (Cloudflare, Hostinger, GoDaddy, Namecheap, etc.) e adicione o registro DNS abaixo:
               </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="p-3 rounded-lg bg-background border border-border/40">
-                  <p className="text-[10px] font-bold text-primary uppercase mb-2">Opção 1: Registro A (Recomendado)</p>
-                  <div className="space-y-1 font-mono text-[11px]">
-                    <div className="flex justify-between"><span>Tipo:</span> <span className="font-bold">A</span></div>
-                    <div className="flex justify-between"><span>Nome:</span> <span className="font-bold">@</span></div>
-                    <div className="flex justify-between"><span>Valor:</span> <span className="font-bold text-primary">76.76.21.21</span></div>
+              
+              <div className="p-4 rounded-lg bg-background border border-border/40">
+                <p className="text-[11px] font-bold text-primary uppercase mb-3 flex items-center gap-2">
+                  Registro A (Recomendado para Hospedagem Nativa)
+                </p>
+                <div className="space-y-2 font-mono text-[11px]">
+                  <div className="flex items-center justify-between p-2 bg-secondary/30 rounded">
+                    <span className="text-muted-foreground">Tipo:</span>
+                    <span className="font-bold text-primary">A</span>
+                  </div>
+                  <div className="flex items-center justify-between p-2 bg-secondary/30 rounded">
+                    <span className="text-muted-foreground">Nome:</span>
+                    <span className="font-bold">@ (ou deixe em branco)</span>
+                  </div>
+                  <div className="flex items-center justify-between p-2 bg-secondary/30 rounded">
+                    <span className="text-muted-foreground">Valor (IP):</span>
+                    <span className="font-bold text-primary">76.76.21.21</span>
+                  </div>
+                  <div className="flex items-center justify-between p-2 bg-secondary/30 rounded">
+                    <span className="text-muted-foreground">TTL:</span>
+                    <span className="font-bold">3600 (1 hora) ou Auto</span>
                   </div>
                 </div>
-                <div className="p-3 rounded-lg bg-background border border-border/40">
-                  <p className="text-[10px] font-bold text-primary uppercase mb-2">Opção 2: Registro CNAME</p>
-                  <div className="space-y-1 font-mono text-[11px]">
-                    <div className="flex justify-between"><span>Tipo:</span> <span className="font-bold">CNAME</span></div>
-                    <div className="flex justify-between"><span>Nome:</span> <span className="font-bold">www</span></div>
-                    <div className="flex justify-between"><span>Valor:</span> <span className="font-bold text-primary">cname.vercel-dns.com</span></div>
-                  </div>
-                </div>
+                <p className="text-[10px] text-muted-foreground mt-2 italic">⏱️ Propagação: 5-30 minutos</p>
               </div>
-              <p className="text-[10px] text-muted-foreground italic">
-                * O valor do IP pode variar dependendo de onde seu projeto está hospedado (Vercel, Netlify, etc.). Use o IP fornecido pela sua plataforma de deploy.
-              </p>
+
+              <div className="p-3 rounded-lg bg-secondary/20 border border-border/30">
+                <p className="text-[10px] font-bold text-foreground mb-2">📋 O que significa cada campo:</p>
+                <ul className="text-[10px] text-muted-foreground space-y-1">
+                  <li><strong>Tipo:</strong> A (IPv4 - Endereço de Internet Protocol versão 4)</li>
+                  <li><strong>Nome:</strong> @ para domínio raiz (exemplo.com)</li>
+                  <li><strong>Valor:</strong> IP do servidor (76.76.21.21)</li>
+                  <li><strong>TTL:</strong> Tempo de cache em segundos (3600 = 1 hora, 86400 = 1 dia)</li>
+                </ul>
+              </div>
+
+              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                <p className="text-[10px] text-amber-700 font-semibold">
+                  ⚠️ <strong>Importante:</strong> Após adicionar o registro DNS, aguarde 5-30 minutos para a propagação. Clique em "Verificar" no modal para confirmar que o domínio foi configurado corretamente.
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -235,7 +254,7 @@ const AdminDomains = React.forwardRef<HTMLDivElement>((_, ref) => {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Globe2 className="w-4 h-4 text-primary" /> Conectar Novo Domínio</DialogTitle>
-            <DialogDescription>Vincule um domínio próprio a um conteúdo específico do seu projeto.</DialogDescription>
+            <DialogDescription>Vincule um domínio próprio. A conexão com conteúdo é opcional e pode ser feita depois.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 border border-border/50">
@@ -288,59 +307,32 @@ const AdminDomains = React.forwardRef<HTMLDivElement>((_, ref) => {
               </div>
             )}
 
-            {!isNative && (
-              <div>
-                <label className="text-xs font-semibold block mb-1.5">Slug Opcional (Caminho)</label>
-                <input 
-                  value={slug} 
-                  onChange={e => setSlug(e.target.value)}
-                  placeholder="slug (opcional)" 
-                  className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm outline-none" 
-                />
-              </div>
-            )}
-
-            {/* DNS Status */}
-            {dnsInfo && (
-              <div className={`p-3 rounded-lg border ${dnsInfo.isConfigured ? 'bg-green-500/5 border-green-500/20' : 'bg-amber-500/5 border-amber-500/20'}`}>
-                <div className="flex items-start gap-2">
-                  {dnsInfo.isConfigured ? (
-                    <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
-                  ) : (
-                    <AlertCircle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
-                  )}
-                  <div className="text-xs">
-                    <p className="font-semibold mb-1">
-                      {dnsInfo.isConfigured ? "✓ Domínio Configurado" : "⚠ Domínio Não Configurado"}
-                    </p>
-                    {dnsInfo.records.length > 0 && (
-                      <div className="space-y-1 text-[10px] text-muted-foreground">
-                        {dnsInfo.records.map((r: any, i: number) => (
-                          <div key={i}>
-                            <strong>{r.type}:</strong> {r.value}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
+            {/* DNS Validation Guide */}
+            {!isNative && domain && (
+              <DNSValidationGuide
+                domain={domain}
+                isConfigured={dnsInfo?.isConfigured || false}
+                records={dnsInfo?.records || []}
+                onRetry={handleCheckDns}
+                isLoading={checkingDns}
+              />
             )}
 
             <div>
-              <label className="text-xs font-semibold block mb-1.5">O que este domínio deve exibir?</label>
+              <label className="text-xs font-semibold block mb-1.5">O que este domínio deve exibir? (Opcional)</label>
               <select 
                 value={contentType} 
                 onChange={e => setContentType(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm outline-none focus:ring-1 focus:ring-primary/30"
               >
+                <option value="none">Nenhum (Configurar depois)</option>
                 <option value="main_lp">Landing Page Principal (Home)</option>
                 <option value="page">Uma Página Gerada específica</option>
                 <option value="quiz">Um Quiz específico</option>
               </select>
             </div>
 
-            {contentType !== "main_lp" && (
+            {contentType !== "main_lp" && contentType !== "none" && (
               <div>
                 <label className="text-xs font-semibold block mb-1.5">Selecione o conteúdo</label>
                 <select 
@@ -349,28 +341,18 @@ const AdminDomains = React.forwardRef<HTMLDivElement>((_, ref) => {
                   className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm outline-none focus:ring-1 focus:ring-primary/30"
                 >
                   <option value="">Selecione...</option>
-                  {contentType === "page" ? (
-                    pages.map(p => <option key={p.id} value={p.id}>{p.title} ({p.slug})</option>)
-                  ) : (
-                    quizzes.map(q => <option key={q.id} value={q.id}>{q.title} ({q.slug})</option>)
-                  )}
+                  {contentType === "page" && pages.map(p => (
+                    <option key={p.id} value={p.id}>{p.title}</option>
+                  ))}
+                  {contentType === "quiz" && quizzes.map(q => (
+                    <option key={q.id} value={q.id}>{q.title}</option>
+                  ))}
                 </select>
               </div>
             )}
 
-            <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20 flex items-start gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
-              <p className="text-[10px] text-muted-foreground">
-                Certifique-se de que o domínio está configurado no DNS antes de conectar. Use o botão "Verificar" para confirmar.
-              </p>
-            </div>
-
-            <Button 
-              onClick={handleAddDomain} 
-              className="w-full"
-              disabled={!domain.trim() || (contentType !== "main_lp" && !contentId)}
-            >
-              {dnsInfo?.isConfigured ? "✓ Conectar Domínio" : "Conectar Domínio"}
+            <Button onClick={handleAddDomain} className="w-full">
+              Conectar Domínio
             </Button>
           </div>
         </DialogContent>
@@ -380,5 +362,4 @@ const AdminDomains = React.forwardRef<HTMLDivElement>((_, ref) => {
 });
 
 AdminDomains.displayName = "AdminDomains";
-
 export default AdminDomains;
