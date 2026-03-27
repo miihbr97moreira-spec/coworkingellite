@@ -112,6 +112,8 @@ const AdminDomains = React.forwardRef<HTMLDivElement>((_, ref) => {
       </Dialog>
     </div>
   );
-};
+});
+
+AdminDomains.displayName = "AdminDomains";
 
 export default AdminDomains;
