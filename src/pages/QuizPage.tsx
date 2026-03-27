@@ -51,6 +51,15 @@ const QuizPage = ({ overrideSlug }: { overrideSlug?: string }) => {
   const [processPercent, setProcessPercent] = useState(0);
   const [sessionId] = useState(() => crypto.randomUUID());
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [settings, setSettings] = useState<QuizSettings>({
+    auto_advance: true,
+    show_progress_bar: true,
+    enable_fake_loading: true,
+    fake_loading_text: "Analisando seu perfil...",
+    enable_timer: false,
+    timer_seconds: 300,
+    piping_enabled: true,
+  });
 
   // Load Quiz Data
   useEffect(() => {
@@ -63,8 +72,20 @@ const QuizPage = ({ overrideSlug }: { overrideSlug?: string }) => {
         .single();
       if (data) {
         setQuiz(data);
-        if (data.settings?.enable_timer) {
-          setTimeLeft(data.settings.timer_seconds || 300);
+        // Merge settings com defaults
+        const mergedSettings: QuizSettings = {
+          auto_advance: true,
+          show_progress_bar: true,
+          enable_fake_loading: true,
+          fake_loading_text: "Analisando seu perfil...",
+          enable_timer: false,
+          timer_seconds: 300,
+          piping_enabled: true,
+          ...(data.settings ?? {}),
+        };
+        setSettings(mergedSettings);
+        if (mergedSettings.enable_timer) {
+          setTimeLeft(mergedSettings.timer_seconds || 300);
         }
         // Track initial view usando quiz_id direto para evitar closure stale
         await supabase.from("quiz_analytics").insert({
@@ -101,7 +122,7 @@ const QuizPage = ({ overrideSlug }: { overrideSlug?: string }) => {
 
   // Piping logic: Replace {name} with answer value
   const pipeText = (text: string) => {
-    if (!quiz?.settings?.piping_enabled || !text) return text;
+    if (!settings?.piping_enabled || !text) return text;
     let newText = text;
     Object.entries(answers).forEach(([id, val]) => {
       newText = newText.replace(new RegExp(`{${id}}`, 'g'), val);
@@ -125,10 +146,10 @@ const QuizPage = ({ overrideSlug }: { overrideSlug?: string }) => {
     setCurrentStepId(prevStepId);
   };
 
-  const handleAnswer = (qId: string, value: string, autoAdvance = false) => {
+  const handleAnswer = useCallback((qId: string, value: string, autoAdvance = false) => {
     setAnswers(p => ({ ...p, [qId]: value }));
     
-    if (autoAdvance && quiz?.settings?.auto_advance) {
+    if (autoAdvance && settings.auto_advance && quiz) {
       setTimeout(() => {
         const question = quiz.questions.find((q: any) => q.id === qId);
         const logicRule = question?.logic?.find((l: any) => l.condition_value === value);
@@ -150,10 +171,10 @@ const QuizPage = ({ overrideSlug }: { overrideSlug?: string }) => {
         }
       }, 400);
     }
-  };
+  }, [settings.auto_advance, quiz, handleNext]);
 
-  const startFakeLoading = () => {
-    if (!quiz?.settings?.enable_fake_loading) {
+  const startFakeLoading = useCallback(() => {
+    if (!settings.enable_fake_loading) {
       setSubmitted(true);
       return;
     }
@@ -171,9 +192,9 @@ const QuizPage = ({ overrideSlug }: { overrideSlug?: string }) => {
       }
       setProcessPercent(current);
     }, 300);
-  };
+  }, [settings.enable_fake_loading]);
 
-  const submitQuiz = async () => {
+  const submitQuiz = useCallback(async () => {
     try {
       trackEvent("lead_capture", "complete");
       await supabase.from("quiz_submissions").insert({
@@ -202,35 +223,22 @@ const QuizPage = ({ overrideSlug }: { overrideSlug?: string }) => {
     } catch (err) {
       console.error("Erro ao enviar quiz:", err);
     }
-  };
+  }, [quiz, contactInfo, answers, trackEvent, startFakeLoading]);
 
-  if (loading) return (
+  if (loading || !quiz) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-950">
-      <Loader2 className="w-8 h-8 animate-spin text-yellow-500" />
+      {loading ? (
+        <Loader2 className="w-8 h-8 animate-spin text-yellow-500" />
+      ) : (
+        <div className="text-center space-y-4">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto" />
+          <p className="text-xl font-medium text-white">Quiz não encontrado ou indisponível.</p>
+        </div>
+      )}
     </div>
   );
 
-  if (!quiz) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-950 text-white">
-      <div className="text-center space-y-4">
-        <AlertCircle className="w-12 h-12 text-red-500 mx-auto" />
-        <p className="text-xl font-medium">Quiz não encontrado ou indisponível.</p>
-      </div>
-    </div>
-  );
-
-  const theme: QuizTheme = { bgColor: "#0f172a", textColor: "#fff", buttonColor: "#FBBF24", buttonTextColor: "#000", fontFamily: "Inter", ...(quiz.theme || {}) };
-  // Merge com defaults usando spread para preservar valores false/0 do banco
-  const settings: QuizSettings = {
-    auto_advance: true,
-    show_progress_bar: true,
-    enable_fake_loading: true,
-    fake_loading_text: "Analisando seu perfil...",
-    enable_timer: false,
-    timer_seconds: 300,
-    piping_enabled: true,
-    ...(quiz.settings ?? {}),
-  };
+  const theme: QuizTheme = quiz.theme || { bgColor: "#0f172a", textColor: "#fff", buttonColor: "#FBBF24", buttonTextColor: "#000", fontFamily: "Inter" };
   
   const currentQuestion = quiz.questions.find((q: any) => q.id === currentStepId);
   const questionIndex = quiz.questions.findIndex((q: any) => q.id === currentStepId);
@@ -258,7 +266,7 @@ const QuizPage = ({ overrideSlug }: { overrideSlug?: string }) => {
         {quiz.logo_url && (
           <img src={quiz.logo_url} style={{ maxHeight: 40 }} className="mb-6 object-contain" alt="Logo" />
         )}
-        {settings.show_progress_bar && !submitted && !isProcessing && (
+        {settings?.show_progress_bar && !submitted && !isProcessing && (
           <div className="w-full max-w-xl h-1.5 bg-white/10 rounded-full overflow-hidden">
             <motion.div 
               initial={{ width: 0 }}
@@ -271,7 +279,7 @@ const QuizPage = ({ overrideSlug }: { overrideSlug?: string }) => {
       </div>
 
       {/* Timer UI */}
-      {settings.enable_timer && timeLeft !== null && !submitted && (
+      {settings?.enable_timer && timeLeft !== null && !submitted && (
         <div className="fixed top-24 right-6 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-2 rounded-full flex items-center gap-2 text-sm font-mono z-30">
           <Timer className={`w-4 h-4 ${timeLeft < 60 ? 'text-red-500 animate-pulse' : 'text-primary'}`} />
           <span className={timeLeft < 60 ? 'text-red-500' : ''}>{formatTime(timeLeft)}</span>
@@ -295,10 +303,11 @@ const QuizPage = ({ overrideSlug }: { overrideSlug?: string }) => {
                     className="text-primary stroke-current" 
                     style={{ color: theme.buttonColor }}
                     strokeWidth="4" 
-                    strokeDasharray="283"
-                    animate={{ strokeDashoffset: 283 - (283 * processPercent) / 100 }}
                     strokeLinecap="round" 
                     fill="transparent" r="45" cx="50" cy="50" 
+                    initial={{ strokeDasharray: "282.7", strokeDashoffset: "282.7" }}
+                    animate={{ strokeDashoffset: 282.7 - (282.7 * processPercent) / 100 }}
+                    transition={{ duration: 0.3 }}
                   />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center text-2xl font-bold">
@@ -456,7 +465,7 @@ const QuizPage = ({ overrideSlug }: { overrideSlug?: string }) => {
                       autoFocus
                       type={currentQuestion.type === "text" ? "text" : currentQuestion.type}
                       value={answers[currentQuestion.id] || ""} 
-                      onChange={e => handleAnswer(currentQuestion.id, e.target.value)}
+                      onChange={e => handleAnswer(currentQuestion.id, e.target.value, true)}
                       placeholder="Sua resposta aqui..." 
                       className="w-full p-6 rounded-2xl bg-white/5 border-2 border-white/10 focus:border-primary outline-none text-xl font-medium transition-all"
                       style={{ caretColor: theme.buttonColor }}
