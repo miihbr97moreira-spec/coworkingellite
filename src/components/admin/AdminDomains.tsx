@@ -7,7 +7,6 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useDNSResolver } from "@/hooks/useDNSResolver";
-import DNSValidationGuide from "./DNSValidationGuide";
 
 const AdminDomains = React.forwardRef<HTMLDivElement>((_, ref) => {
   const [addOpen, setAddOpen] = useState(false);
@@ -353,15 +352,31 @@ const AdminDomains = React.forwardRef<HTMLDivElement>((_, ref) => {
               </div>
             )}
 
-            {/* DNS Validation Guide */}
-            {!isNative && domain && (
-              <DNSValidationGuide
-                domain={domain}
-                isConfigured={dnsInfo?.isConfigured || false}
-                records={dnsInfo?.records || []}
-                onRetry={handleCheckDns}
-                isLoading={checkingDns}
-              />
+            {/* DNS Status */}
+            {dnsInfo && (
+              <div className={`p-3 rounded-lg border ${dnsInfo.isConfigured ? 'bg-green-500/5 border-green-500/20' : 'bg-amber-500/5 border-amber-500/20'}`}>
+                <div className="flex items-start gap-2">
+                  {dnsInfo.isConfigured ? (
+                    <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+                  )}
+                  <div className="text-xs">
+                    <p className="font-semibold mb-1">
+                      {dnsInfo.isConfigured ? "✓ Domínio Configurado" : "⚠ Domínio Não Configurado"}
+                    </p>
+                    {dnsInfo.records.length > 0 && (
+                      <div className="space-y-1 text-[10px] text-muted-foreground">
+                        {dnsInfo.records.map((r: any, i: number) => (
+                          <div key={i}>
+                            <strong>{r.type}:</strong> {r.value}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             )}
 
             <div>

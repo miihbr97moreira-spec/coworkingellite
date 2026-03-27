@@ -11,7 +11,6 @@ import GeneratedPage from "./pages/GeneratedPage";
 import QuizPage from "./pages/QuizPage";
 import NotFound from "./pages/NotFound";
 import DomainRouter from "./components/DomainRouter";
-import ErrorBoundary from "./components/ErrorBoundary";
 
 const queryClient = new QueryClient();
 
@@ -22,18 +21,16 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <ErrorBoundary>
-            <DomainRouter>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/admin/login" element={<AdminLogin />} />
-                <Route path="/admin" element={<Admin />} />
-                <Route path="/p/:slug" element={<GeneratedPage />} />
-                <Route path="/quiz/:slug" element={<QuizPage />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </DomainRouter>
-          </ErrorBoundary>
+          <DomainRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/admin/login" element={<AdminLogin />} />
+              <Route path="/admin" element={<Admin />} />
+              <Route path="/p/:slug" element={<GeneratedPage />} />
+              <Route path="/quiz/:slug" element={<QuizPage />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </DomainRouter>
         </BrowserRouter>
       </AuthProvider>
     </TooltipProvider>
