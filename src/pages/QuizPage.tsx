@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, ArrowRight, CheckCircle2, AlertCircle, Timer } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import PremiumQuizOption from "@/components/quiz/PremiumQuizOption";
 
 interface QuizQuestion {
   id: string;
@@ -146,10 +147,13 @@ const QuizPage = ({ overrideSlug }: { overrideSlug?: string }) => {
     setCurrentStepId(prevStepId);
   };
 
-  const handleAnswer = useCallback((qId: string, value: string, autoAdvance = false) => {
+  const handleAnswer = useCallback((qId: string, value: string, autoAdvance = false, questionAutoAdvance?: boolean) => {
     setAnswers(p => ({ ...p, [qId]: value }));
     
-    if (autoAdvance && settings.auto_advance && quiz) {
+    // Usar configuração granular da pergunta se disponível, senão usar global
+    const shouldAutoAdvance = questionAutoAdvance !== undefined ? questionAutoAdvance : settings.auto_advance;
+    
+    if (autoAdvance && shouldAutoAdvance && quiz) {
       setTimeout(() => {
         const question = quiz.questions.find((q: any) => q.id === qId);
         const logicRule = question?.logic?.find((l: any) => l.condition_value === value);
@@ -173,8 +177,11 @@ const QuizPage = ({ overrideSlug }: { overrideSlug?: string }) => {
     }
   }, [settings.auto_advance, quiz, handleNext]);
 
-  const startFakeLoading = useCallback(() => {
-    if (!settings.enable_fake_loading) {
+  const startFakeLoading = useCallback((questionFakeLoading?: boolean) => {
+    // Usar configuração granular da pergunta se disponível, senão usar global
+    const shouldShowFakeLoading = questionFakeLoading !== undefined ? questionFakeLoading : settings.enable_fake_loading;
+    
+    if (!shouldShowFakeLoading) {
       setSubmitted(true);
       return;
     }
@@ -219,7 +226,9 @@ const QuizPage = ({ overrideSlug }: { overrideSlug?: string }) => {
         }).catch(err => console.error("Webhook error:", err));
       }
 
-      startFakeLoading();
+      // Usar configuração granular da pergunta de captura de lead se disponível
+      const lastQuestion = quiz.questions[quiz.questions.length - 1];
+      startFakeLoading(lastQuestion?.enable_fake_loading);
     } catch (err) {
       console.error("Erro ao enviar quiz:", err);
     }
@@ -414,47 +423,40 @@ const QuizPage = ({ overrideSlug }: { overrideSlug?: string }) => {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -30 }}
               transition={{ duration: 0.3, ease: "easeOut" }}
-              className="space-y-8"
+              className="space-y-8 p-8 rounded-3xl"
+              style={{
+                backgroundColor: currentQuestion.card_style === "minimal" ? "transparent" : (currentQuestion.card_style === "glassmorphism" ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.05)"),
+                backdropFilter: currentQuestion.card_style === "glassmorphism" ? "blur(10px)" : "none",
+                border: currentQuestion.card_style === "minimal" ? "none" : `1px solid ${currentQuestion.card_style === "glassmorphism" ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.1)"}`,
+                boxShadow: currentQuestion.card_style === "minimal" ? "none" : "0 8px 32px rgba(0, 0, 0, 0.1)",
+              }}
             >
               <h2 className="text-3xl font-bold leading-tight">{pipeText(currentQuestion.title)}</h2>
               
               <div className="space-y-3">
                 {currentQuestion.type === "multiple_choice" && currentQuestion.options?.map((opt: string, i: number) => (
-                  <button 
-                    key={i} 
-                    onClick={() => handleAnswer(currentQuestion.id, opt, true)}
-                    className={`w-full p-5 rounded-2xl text-left font-medium border-2 transition-all flex items-center justify-between group ${
-                      answers[currentQuestion.id] === opt 
-                        ? 'border-primary bg-primary/10' 
-                        : 'border-white/5 bg-white/5 hover:border-white/20 hover:bg-white/10'
-                    }`}
-                    style={{ borderColor: answers[currentQuestion.id] === opt ? theme.buttonColor : undefined }}
-                  >
-                    <span className="text-lg">{opt}</span>
-                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                      answers[currentQuestion.id] === opt ? 'bg-primary border-primary' : 'border-white/20'
-                    }`} style={{ backgroundColor: answers[currentQuestion.id] === opt ? theme.buttonColor : undefined, borderColor: answers[currentQuestion.id] === opt ? theme.buttonColor : undefined }}>
-                      {answers[currentQuestion.id] === opt && <CheckCircle2 className="w-4 h-4 text-black" />}
-                    </div>
-                  </button>
+                  <PremiumQuizOption
+                    key={i}
+                    label={opt}
+                    isSelected={answers[currentQuestion.id] === opt}
+                    onClick={() => handleAnswer(currentQuestion.id, opt, true, currentQuestion.auto_advance)}
+                    style={currentQuestion.option_style || "cards"}
+                    theme={{ buttonColor: theme.buttonColor, buttonTextColor: theme.buttonTextColor }}
+                  />
                 ))}
 
                 {currentQuestion.type === "image_grid" && (
                   <div className="grid grid-cols-2 gap-4">
                     {currentQuestion.image_options?.map((opt: any, i: number) => (
-                      <button 
+                      <PremiumQuizOption
                         key={i}
-                        onClick={() => handleAnswer(currentQuestion.id, opt.label, true)}
-                        className={`group relative aspect-square rounded-3xl overflow-hidden border-4 transition-all ${
-                          answers[currentQuestion.id] === opt.label ? 'border-primary' : 'border-transparent'
-                        }`}
-                        style={{ borderColor: answers[currentQuestion.id] === opt.label ? theme.buttonColor : undefined }}
-                      >
-                        <img src={opt.url} className="w-full h-full object-cover transition-transform group-hover:scale-110" alt={opt.label} />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-4">
-                          <span className="font-bold text-sm">{opt.label}</span>
-                        </div>
-                      </button>
+                        label={opt.label}
+                        isSelected={answers[currentQuestion.id] === opt.label}
+                        onClick={() => handleAnswer(currentQuestion.id, opt.label, true, currentQuestion.auto_advance)}
+                        style="bento-grid"
+                        theme={{ buttonColor: theme.buttonColor, buttonTextColor: theme.buttonTextColor }}
+                        imageUrl={opt.url}
+                      />
                     ))}
                   </div>
                 )}
@@ -465,28 +467,33 @@ const QuizPage = ({ overrideSlug }: { overrideSlug?: string }) => {
                       autoFocus
                       type={currentQuestion.type === "text" ? "text" : currentQuestion.type}
                       value={answers[currentQuestion.id] || ""} 
-                      onChange={e => handleAnswer(currentQuestion.id, e.target.value, true)}
+                      onChange={e => handleAnswer(currentQuestion.id, e.target.value, true, currentQuestion.auto_advance)}
                       placeholder="Sua resposta aqui..." 
                       className="w-full p-6 rounded-2xl bg-white/5 border-2 border-white/10 focus:border-primary outline-none text-xl font-medium transition-all"
                       style={{ caretColor: theme.buttonColor }}
                     />
-                    <button 
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
                       onClick={() => {
                         const idx = quiz.questions.findIndex((q: any) => q.id === currentStepId);
                         if (idx < quiz.questions.length - 1) handleNext(quiz.questions[idx + 1].id);
                         else handleNext("lead_capture");
                       }}
-                      className="w-full py-5 rounded-2xl font-black text-lg shadow-xl"
-                      style={{ background: theme.buttonColor, color: theme.buttonTextColor }}
+                      className="w-full py-5 rounded-2xl font-black text-lg transition-all shadow-xl"
+                      style={{
+                        backgroundColor: theme.buttonColor,
+                        color: theme.buttonTextColor,
+                      }}
                     >
-                      CONTINUAR
-                    </button>
+                      {currentQuestion.button_text || "CONTINUAR"}
+                    </motion.button>
                   </div>
                 )}
               </div>
 
               {history.length > 0 && (
-                <button 
+                <button
                   onClick={handleBack}
                   className="text-sm font-bold opacity-40 hover:opacity-100 transition-opacity uppercase tracking-widest"
                 >

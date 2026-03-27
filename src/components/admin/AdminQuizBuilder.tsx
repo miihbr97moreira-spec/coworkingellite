@@ -25,6 +25,15 @@ interface QuizQuestion {
     destination?: string;
     condition_value?: string;
   }[];
+  // Configurações granulares por pergunta
+  auto_advance?: boolean;
+  enable_fake_loading?: boolean;
+  fake_loading_text?: string;
+  button_text?: string; // Customizar texto do botão de continuar
+  // Design premium
+  background_image?: string; // Base64 ou URL
+  card_style?: "default" | "bento" | "glassmorphism" | "minimal";
+  option_style?: "pills" | "cards" | "bento-grid" | "radio"; // Estilos de opções
 }
 
 interface QuizTheme {
@@ -33,6 +42,14 @@ interface QuizTheme {
   buttonColor: string;
   buttonTextColor: string;
   fontFamily: string;
+  // Cores adicionais para design premium
+  accentColor?: string;
+  cardBgColor?: string;
+  cardBorderColor?: string;
+  cardShadow?: string;
+  gradientStart?: string;
+  gradientEnd?: string;
+  backdropBlur?: boolean;
 }
 
 interface QuizSettings {
@@ -223,31 +240,55 @@ const AdminQuizBuilder = () => {
     const input = chatInput;
     setChatInput("");
 
-    const systemPrompt = `Você é um especialista em criação de quizzes de alta conversão.
+    const systemPrompt = `Você é um especialista em criação de quizzes PREMIUM de alta conversão com design de agências de elite.
 
-Gere um Quiz em formato JSON:
+Gere um Quiz em formato JSON com design moderno e impactante:
 {
-  "title": "Nome do Quiz",
-  "description": "Descrição curta",
+  "title": "Nome do Quiz Impactante",
+  "description": "Descrição curta e persuasiva",
+  "theme": {
+    "bgColor": "#0f172a",
+    "textColor": "#ffffff",
+    "buttonColor": "#FBBF24",
+    "buttonTextColor": "#000000",
+    "fontFamily": "Inter",
+    "accentColor": "#3B82F6",
+    "cardBgColor": "rgba(255,255,255,0.08)",
+    "gradientStart": "#0f172a",
+    "gradientEnd": "#1e293b",
+    "backdropBlur": true
+  },
   "questions": [
     {
       "id": "q1",
       "type": "multiple_choice" | "image_grid" | "text" | "email" | "phone",
-      "title": "Pergunta aqui",
+      "title": "Pergunta impactante",
       "options": ["Opção 1", "Opção 2"],
       "image_options": [{"label": "Opção 1", "url": "https://..."}, ...],
       "required": true,
-      "logic": [
-        {"action": "go_to", "destination": "q2", "condition_value": "Opção 1"},
-        {"action": "finish", "condition_value": "Opção 2"}
-      ]
+      "logic": [{"action": "go_to", "destination": "q2", "condition_value": "Opção 1"}],
+      "auto_advance": false,
+      "enable_fake_loading": true,
+      "fake_loading_text": "Analisando sua resposta...",
+      "button_text": "CONTINUAR",
+      "card_style": "glassmorphism",
+      "option_style": "cards"
     }
   ]
 }
 
-Pedido: "${input}"
+DIRETRIZES DE DESIGN PREMIUM:
+- card_style: use \"glassmorphism\" para visual sofisticado
+- option_style: use \"cards\" para múltipla escolha, \"pills\" para espaço reduzido, \"bento-grid\" para imagens
+- auto_advance: false para perguntas que precisam de clique, true para auto-avançar
+- enable_fake_loading: true para criar suspense nos resultados
+- button_text: customize com \"DESCOBRIR\", \"REVELAR\", \"CONTINUAR\", \"PRÓXIMO\", etc
+- CRIE PERGUNTAS QUE ARRANQUEM \"UAUS\" DO USUÁRIO NO PRIMEIRO PROMPT
+- Estruture para máxima conversão: impacto inicial → perguntas relevantes → captura de lead
 
-Retorne APENAS o JSON puro.`;
+Pedido: \"${input}\"
+
+Retorne APENAS o JSON puro, sem markdown.`;
 
     try {
       let fullRaw = "";
@@ -283,8 +324,21 @@ Retorne APENAS o JSON puro.`;
             options: q.options || [],
             image_options: q.image_options || [],
             required: q.required !== false,
-            logic: q.logic || []
+            logic: q.logic || [],
+            auto_advance: q.auto_advance ?? false,
+            enable_fake_loading: q.enable_fake_loading ?? true,
+            fake_loading_text: q.fake_loading_text || "Analisando sua resposta...",
+            button_text: q.button_text || "CONTINUAR",
+            card_style: q.card_style || "glassmorphism",
+            option_style: q.option_style || "cards"
           })));
+          
+          if (parsed.theme) {
+            setTheme(prev => ({
+              ...prev,
+              ...parsed.theme
+            }));
+          }
 
           setChatMsgs(prev => [...prev, {
             id: Date.now().toString(),
@@ -565,6 +619,74 @@ Retorne APENAS o JSON puro.`;
                               </Button>
                             </div>
                           )}
+
+                          {/* Configurações Granulares da Pergunta */}
+                          <div className="pt-4 border-t border-border/30 space-y-4">
+                            <h5 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2">
+                              <Settings className="w-3 h-3" /> Configurações da Pergunta
+                            </h5>
+                            <div className="grid grid-cols-2 gap-3">
+                              <label className="flex items-center gap-2 p-2 rounded-lg border border-border/20 bg-secondary/20 cursor-pointer hover:bg-secondary/30">
+                                <input
+                                  type="checkbox"
+                                  checked={q.auto_advance ?? false}
+                                  onChange={e => updateQuestion(q.id, { auto_advance: e.target.checked })}
+                                  className="w-3 h-3"
+                                />
+                                <div className="text-[10px]">
+                                  <p className="font-bold">Auto-Advance</p>
+                                  <p className="text-muted-foreground">Avançar automaticamente</p>
+                                </div>
+                              </label>
+                              <label className="flex items-center gap-2 p-2 rounded-lg border border-border/20 bg-secondary/20 cursor-pointer hover:bg-secondary/30">
+                                <input
+                                  type="checkbox"
+                                  checked={q.enable_fake_loading ?? true}
+                                  onChange={e => updateQuestion(q.id, { enable_fake_loading: e.target.checked })}
+                                  className="w-3 h-3"
+                                />
+                                <div className="text-[10px]">
+                                  <p className="font-bold">Fake Loading</p>
+                                  <p className="text-muted-foreground">Mostrar processamento</p>
+                                </div>
+                              </label>
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-bold">Texto do Botão</label>
+                              <input
+                                value={q.button_text || "CONTINUAR"}
+                                onChange={e => updateQuestion(q.id, { button_text: e.target.value })}
+                                placeholder="CONTINUAR, DESCOBRIR, REVELAR, etc"
+                                className="w-full bg-background/50 text-[10px] p-2 rounded border border-border/20 outline-none"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-bold">Estilo do Card</label>
+                              <select
+                                value={q.card_style || "glassmorphism"}
+                                onChange={e => updateQuestion(q.id, { card_style: e.target.value as any })}
+                                className="w-full bg-background/50 text-[10px] p-2 rounded border border-border/20 outline-none"
+                              >
+                                <option value="default">Padrão</option>
+                                <option value="glassmorphism">Glassmorphism</option>
+                                <option value="bento">Bento Grid</option>
+                                <option value="minimal">Minimalista</option>
+                              </select>
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-bold">Estilo das Opções</label>
+                              <select
+                                value={q.option_style || "cards"}
+                                onChange={e => updateQuestion(q.id, { option_style: e.target.value as any })}
+                                className="w-full bg-background/50 text-[10px] p-2 rounded border border-border/20 outline-none"
+                              >
+                                <option value="cards">Cards</option>
+                                <option value="pills">Pills</option>
+                                <option value="bento-grid">Bento Grid</option>
+                                <option value="radio">Radio</option>
+                              </select>
+                            </div>
+                          </div>
 
                           {/* Logic Editor */}
                           <div className="pt-4 border-t border-border/30">

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, CheckCircle2, Loader2, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import PremiumQuizOption from "@/components/quiz/PremiumQuizOption";
 
 interface QuizQuestion {
   id: string;
@@ -15,6 +16,13 @@ interface QuizQuestion {
     destination?: string;
     condition_value?: string;
   }[];
+  auto_advance?: boolean;
+  enable_fake_loading?: boolean;
+  fake_loading_text?: string;
+  button_text?: string;
+  background_image?: string;
+  card_style?: "default" | "bento" | "glassmorphism" | "minimal";
+  option_style?: "pills" | "cards" | "bento-grid" | "radio";
 }
 
 interface QuizTheme {
@@ -23,20 +31,13 @@ interface QuizTheme {
   buttonColor: string;
   buttonTextColor: string;
   fontFamily: string;
+  accentColor?: string;
   cardBgColor?: string;
   cardBorderColor?: string;
-  cardBorderRadius?: number;
   cardShadow?: string;
-  inputBgColor?: string;
-  inputBorderColor?: string;
-  inputBorderRadius?: number;
-  buttonBorderRadius?: number;
-  buttonShadow?: string;
-  progressBarColor?: string;
-  progressBarBgColor?: string;
-  optionHoverBgColor?: string;
-  optionSelectedBgColor?: string;
-  optionSelectedBorderColor?: string;
+  gradientStart?: string;
+  gradientEnd?: string;
+  backdropBlur?: boolean;
 }
 
 interface QuizSettings {
@@ -107,9 +108,10 @@ const QuizPreview = ({
     setCurrentStepId(prevStepId);
   };
 
-  const handleAnswer = (qId: string, value: string) => {
+  const handleAnswer = (qId: string, value: string, questionAutoAdvance?: boolean) => {
     setAnswers(p => ({ ...p, [qId]: value }));
-    if (settings?.auto_advance) {
+    const shouldAutoAdvance = questionAutoAdvance !== undefined ? questionAutoAdvance : settings?.auto_advance;
+    if (shouldAutoAdvance) {
       setTimeout(() => {
         const question = questions.find(q => q.id === qId);
         const logicRule = question?.logic?.find(l => l.condition_value === value);
@@ -125,8 +127,9 @@ const QuizPreview = ({
     }
   };
 
-  const startFakeLoading = () => {
-    if (!settings?.enable_fake_loading) { setSubmitted(true); return; }
+  const startFakeLoading = (questionFakeLoading?: boolean) => {
+    const shouldShowFakeLoading = questionFakeLoading !== undefined ? questionFakeLoading : settings?.enable_fake_loading;
+    if (!shouldShowFakeLoading) { setSubmitted(true); return; }
     setIsProcessing(true);
     let current = 0;
     const interval = setInterval(() => {
@@ -150,46 +153,114 @@ const QuizPreview = ({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const cardStyle = {
-    backgroundColor: theme.cardBgColor || 'rgba(255,255,255,0.05)',
-    border: `1px solid ${theme.cardBorderColor || 'rgba(255,255,255,0.1)'}`,
-    borderRadius: `${theme.cardBorderRadius || 12}px`,
-    boxShadow: theme.cardShadow === 'sm' ? '0 1px 2px 0 rgb(0 0 0 / 0.05)' : 
-               theme.cardShadow === 'md' ? '0 4px 6px -1px rgb(0 0 0 / 0.1)' :
-               theme.cardShadow === 'lg' ? '0 10px 15px -3px rgb(0 0 0 / 0.1)' : 'none'
+  // Estilos de card premium
+  const getCardStyle = (cardStyle?: string) => {
+    const baseStyle = {
+      backgroundColor: theme.cardBgColor || 'rgba(255,255,255,0.05)',
+      border: `1px solid ${theme.cardBorderColor || 'rgba(255,255,255,0.1)'}`,
+      borderRadius: '24px',
+      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+    };
+
+    if (cardStyle === "glassmorphism") {
+      return {
+        ...baseStyle,
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        backdropFilter: 'blur(10px)',
+        border: '1px solid rgba(255,255,255,0.2)',
+      };
+    }
+
+    if (cardStyle === "minimal") {
+      return {
+        backgroundColor: 'transparent',
+        border: 'none',
+        boxShadow: 'none',
+      };
+    }
+
+    return baseStyle;
   };
 
   return (
     <div
-      style={{ minHeight: "100%", background: theme.bgColor, color: theme.textColor, fontFamily: `'${theme.fontFamily}', sans-serif` }}
+      style={{
+        minHeight: "100%",
+        background: theme.gradientStart && theme.gradientEnd
+          ? `linear-gradient(135deg, ${theme.gradientStart} 0%, ${theme.gradientEnd} 100%)`
+          : theme.bgColor,
+        color: theme.textColor,
+        fontFamily: `'${theme.fontFamily}', sans-serif`,
+      }}
       className="flex flex-col items-center justify-center relative overflow-hidden p-6"
     >
       <link href={`https://fonts.googleapis.com/css2?family=${theme.fontFamily.replace(/ /g, "+")}&display=swap`} rel="stylesheet" />
       
+      {/* Background decorative elements */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
+
       <div className="w-full flex flex-col items-center z-20 mb-8">
         {logoUrl && <img src={logoUrl} style={{ maxHeight: 40 }} className="mb-6 object-contain" alt="Logo" />}
         {settings.show_progress_bar && !submitted && !isProcessing && (
-          <div className="w-full max-w-xl h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: theme.progressBarBgColor || 'rgba(255,255,255,0.1)' }}>
-            <motion.div initial={{ width: 0 }} animate={{ width: `${progress}%` }} className="h-full" style={{ backgroundColor: theme.progressBarColor || theme.buttonColor }} />
+          <div className="w-full max-w-xl h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}>
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${progress}%` }}
+              className="h-full rounded-full"
+              style={{ backgroundColor: theme.buttonColor }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+            />
           </div>
         )}
       </div>
 
+      {/* Timer UI */}
+      {settings?.enable_timer && timeLeft !== null && !submitted && (
+        <div className="fixed top-24 right-6 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-2 rounded-full flex items-center gap-2 text-sm font-mono z-30">
+          <Timer className={`w-4 h-4 ${timeLeft < 60 ? 'text-red-500 animate-pulse' : 'text-primary'}`} />
+          <span className={timeLeft < 60 ? 'text-red-500' : ''}>{formatTime(timeLeft)}</span>
+        </div>
+      )}
+
       <main className="w-full max-w-xl z-10">
         <AnimatePresence mode="wait">
           {isProcessing ? (
-            <motion.div key="processing" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center space-y-8 p-8" style={cardStyle}>
+            <motion.div
+              key="processing"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 1.1 }}
+              className="text-center space-y-8 p-8"
+              style={getCardStyle("glassmorphism")}
+            >
               <div className="relative w-32 h-32 mx-auto">
                 <svg className="w-full h-full" viewBox="0 0 100 100">
                   <circle className="text-white/10 stroke-current" strokeWidth="4" fill="transparent" r="45" cx="50" cy="50" />
-                  <motion.circle style={{ color: theme.progressBarColor || theme.buttonColor }} strokeWidth="4" strokeDasharray="283" animate={{ strokeDashoffset: 283 - (283 * processPercent) / 100 }} strokeLinecap="round" fill="transparent" r="45" cx="50" cy="50" />
+                  <motion.circle
+                    style={{ color: theme.buttonColor }}
+                    strokeWidth="4"
+                    strokeDasharray="283"
+                    animate={{ strokeDashoffset: 283 - (283 * processPercent) / 100 }}
+                    strokeLinecap="round"
+                    fill="transparent"
+                    r="45"
+                    cx="50"
+                    cy="50"
+                  />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center text-2xl font-bold">{processPercent}%</div>
               </div>
               <h2 className="text-2xl font-bold animate-pulse">{settings.fake_loading_text}</h2>
             </motion.div>
           ) : submitted ? (
-            <motion.div key="success" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center space-y-6 p-8" style={cardStyle}>
+            <motion.div
+              key="success"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center space-y-6 p-8"
+              style={getCardStyle("glassmorphism")}
+            >
               <div className="w-20 h-20 bg-green-500/20 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
                 <CheckCircle2 className="w-10 h-10" />
               </div>
@@ -197,62 +268,158 @@ const QuizPreview = ({
               <p className="opacity-80">Recebemos suas informações. Em breve entraremos em contato.</p>
             </motion.div>
           ) : currentStepId === "start" ? (
-            <motion.div key="start" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center space-y-6 p-8" style={cardStyle}>
-              <h1 className="text-3xl font-black leading-tight">{pipeText(title)}</h1>
+            <motion.div
+              key="start"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="text-center space-y-6 p-8"
+              style={getCardStyle("glassmorphism")}
+            >
+              <h1 className="text-4xl font-black leading-tight">{pipeText(title)}</h1>
               <p className="text-lg opacity-80">{pipeText(description)}</p>
-              <Button size="lg" onClick={() => handleNext(questions[0]?.id || "end")} className="w-full h-14 text-lg font-bold" style={{ backgroundColor: theme.buttonColor, color: theme.buttonTextColor, borderRadius: `${theme.buttonBorderRadius || 8}px`, boxShadow: theme.buttonShadow }}>
-                Começar Agora <ChevronRight className="ml-2 w-5 h-5" />
-              </Button>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => handleNext(questions[0]?.id || "end")}
+                className="w-full py-5 rounded-2xl text-lg font-bold transition-all shadow-xl"
+                style={{
+                  backgroundColor: theme.buttonColor,
+                  color: theme.buttonTextColor,
+                }}
+              >
+                Começar Agora <ChevronRight className="inline ml-2 w-5 h-5" />
+              </motion.button>
             </motion.div>
           ) : currentStepId === "lead_capture" ? (
-            <motion.div key="lead" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6 p-8" style={cardStyle}>
+            <motion.div
+              key="lead"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="space-y-6 p-8"
+              style={getCardStyle("glassmorphism")}
+            >
               <h2 className="text-2xl font-black text-center">Quase lá! Deixe seu contato para ver o resultado.</h2>
               <div className="space-y-4">
-                <input type="text" placeholder="Seu Nome" className="w-full p-4 border-2 outline-none transition-all" style={{ backgroundColor: theme.inputBgColor || 'rgba(255,255,255,0.05)', borderColor: theme.inputBorderColor || 'rgba(255,255,255,0.1)', borderRadius: `${theme.inputBorderRadius || 8}px` }} />
-                <input type="email" placeholder="Seu E-mail" className="w-full p-4 border-2 outline-none transition-all" style={{ backgroundColor: theme.inputBgColor || 'rgba(255,255,255,0.05)', borderColor: theme.inputBorderColor || 'rgba(255,255,255,0.1)', borderRadius: `${theme.inputBorderRadius || 8}px` }} />
-                <Button onClick={startFakeLoading} className="w-full h-14 font-black text-lg" style={{ backgroundColor: theme.buttonColor, color: theme.buttonTextColor, borderRadius: `${theme.buttonBorderRadius || 8}px` }}>VER RESULTADO</Button>
+                <input
+                  type="text"
+                  placeholder="Seu Nome"
+                  className="w-full p-4 border-2 outline-none transition-all rounded-xl font-medium"
+                  style={{
+                    backgroundColor: 'rgba(255,255,255,0.05)',
+                    borderColor: 'rgba(255,255,255,0.1)',
+                    color: theme.textColor,
+                  }}
+                />
+                <input
+                  type="email"
+                  placeholder="Seu E-mail"
+                  className="w-full p-4 border-2 outline-none transition-all rounded-xl font-medium"
+                  style={{
+                    backgroundColor: 'rgba(255,255,255,0.05)',
+                    borderColor: 'rgba(255,255,255,0.1)',
+                    color: theme.textColor,
+                  }}
+                />
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => startFakeLoading()}
+                  className="w-full py-5 rounded-2xl font-black text-lg transition-all shadow-xl"
+                  style={{
+                    backgroundColor: theme.buttonColor,
+                    color: theme.buttonTextColor,
+                  }}
+                >
+                  VER RESULTADO ✨
+                </motion.button>
               </div>
             </motion.div>
           ) : currentQuestion && (
-            <motion.div key={currentQuestion.id} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6 p-8" style={cardStyle}>
-              <h2 className="text-2xl font-black mb-8 leading-tight">{pipeText(currentQuestion.title)}</h2>
-              <div className="space-y-3">
-                {currentQuestion.type === "multiple_choice" && currentQuestion.options?.map((opt, i) => {
-                  const isSelected = answers[currentQuestion.id] === opt;
-                  return (
-                    <button key={i} onClick={() => handleAnswer(currentQuestion.id, opt)} className="w-full p-5 text-left font-medium border-2 transition-all flex items-center justify-between" style={{ 
-                      borderRadius: `${theme.inputBorderRadius || 12}px`,
-                      borderColor: isSelected ? (theme.optionSelectedBorderColor || theme.buttonColor) : (theme.inputBorderColor || 'rgba(255,255,255,0.05)'),
-                      backgroundColor: isSelected ? (theme.optionSelectedBgColor || `${theme.buttonColor}20`) : (theme.inputBgColor || 'rgba(255,255,255,0.05)')
-                    }}>
-                      <span className="text-lg">{opt}</span>
-                      <div className="w-6 h-6 rounded-full border-2 flex items-center justify-center" style={{ backgroundColor: isSelected ? theme.buttonColor : 'transparent', borderColor: isSelected ? theme.buttonColor : 'rgba(255,255,255,0.2)' }}>
-                        {isSelected && <CheckCircle2 className="w-4 h-4 text-black" />}
-                      </div>
-                    </button>
-                  );
-                })}
+            <motion.div
+              key={currentQuestion.id}
+              initial={{ opacity: 0, x: 30 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -30 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+              className="space-y-8 p-8"
+              style={getCardStyle(currentQuestion.card_style || "glassmorphism")}
+            >
+              <h2 className="text-3xl font-black leading-tight">{pipeText(currentQuestion.title)}</h2>
+
+              <div className={currentQuestion.option_style === "pills" ? "flex flex-wrap gap-3" : "space-y-3"}>
+                {currentQuestion.type === "multiple_choice" && currentQuestion.options?.map((opt, i) => (
+                  <PremiumQuizOption
+                    key={i}
+                    label={opt}
+                    isSelected={answers[currentQuestion.id] === opt}
+                    onClick={() => handleAnswer(currentQuestion.id, opt, currentQuestion.auto_advance)}
+                    style={currentQuestion.option_style || "cards"}
+                    theme={{ buttonColor: theme.buttonColor, buttonTextColor: theme.buttonTextColor }}
+                  />
+                ))}
+
                 {currentQuestion.type === "image_grid" && (
                   <div className="grid grid-cols-2 gap-4">
-                    {currentQuestion.image_options?.map((opt, i) => {
-                      const isSelected = answers[currentQuestion.id] === opt.label;
-                      return (
-                        <button key={i} onClick={() => handleAnswer(currentQuestion.id, opt.label)} className="group relative aspect-square overflow-hidden border-4 transition-all" style={{ borderRadius: `${theme.inputBorderRadius || 24}px`, borderColor: isSelected ? theme.buttonColor : 'transparent' }}>
-                          <img src={opt.url} className="w-full h-full object-cover transition-transform group-hover:scale-110" alt={opt.label} />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-4"><span className="font-bold text-sm">{opt.label}</span></div>
-                        </button>
-                      );
-                    })}
+                    {currentQuestion.image_options?.map((opt, i) => (
+                      <PremiumQuizOption
+                        key={i}
+                        label={opt.label}
+                        isSelected={answers[currentQuestion.id] === opt.label}
+                        onClick={() => handleAnswer(currentQuestion.id, opt.label, currentQuestion.auto_advance)}
+                        style="bento-grid"
+                        theme={{ buttonColor: theme.buttonColor, buttonTextColor: theme.buttonTextColor }}
+                        imageUrl={opt.url}
+                      />
+                    ))}
                   </div>
                 )}
+
                 {(currentQuestion.type === "text" || currentQuestion.type === "email" || currentQuestion.type === "phone") && (
                   <div className="space-y-6">
-                    <input type={currentQuestion.type === "text" ? "text" : currentQuestion.type} value={answers[currentQuestion.id] || ""} onChange={e => handleAnswer(currentQuestion.id, e.target.value)} placeholder="Sua resposta aqui..." className="w-full p-6 border-2 outline-none text-xl font-medium transition-all" style={{ backgroundColor: theme.inputBgColor || 'rgba(255,255,255,0.05)', borderColor: theme.inputBorderColor || 'rgba(255,255,255,0.1)', borderRadius: `${theme.inputBorderRadius || 12}px`, caretColor: theme.buttonColor }} />
-                    <Button onClick={() => { const idx = questions.findIndex(q => q.id === currentStepId); if (idx < questions.length - 1) handleNext(questions[idx + 1].id); else handleNext("lead_capture"); }} className="w-full h-14 font-black text-lg" style={{ backgroundColor: theme.buttonColor, color: theme.buttonTextColor, borderRadius: `${theme.buttonBorderRadius || 12}px` }}>CONTINUAR</Button>
+                    <input
+                      autoFocus
+                      type={currentQuestion.type === "text" ? "text" : currentQuestion.type}
+                      value={answers[currentQuestion.id] || ""}
+                      onChange={e => handleAnswer(currentQuestion.id, e.target.value)}
+                      placeholder="Sua resposta aqui..."
+                      className="w-full p-6 border-2 outline-none text-xl font-medium transition-all rounded-2xl"
+                      style={{
+                        backgroundColor: 'rgba(255,255,255,0.05)',
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        color: theme.textColor,
+                        caretColor: theme.buttonColor,
+                      }}
+                    />
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        const idx = questions.findIndex(q => q.id === currentStepId);
+                        if (idx < questions.length - 1) handleNext(questions[idx + 1].id);
+                        else handleNext("lead_capture");
+                      }}
+                      className="w-full py-5 rounded-2xl font-black text-lg transition-all shadow-xl"
+                      style={{
+                        backgroundColor: theme.buttonColor,
+                        color: theme.buttonTextColor,
+                      }}
+                    >
+                      {currentQuestion.button_text || "CONTINUAR"}
+                    </motion.button>
                   </div>
                 )}
               </div>
-              {history.length > 0 && <button onClick={handleBack} className="text-sm font-bold opacity-40 hover:opacity-100 transition-opacity uppercase tracking-widest">← Voltar</button>}
+
+              {history.length > 0 && (
+                <button
+                  onClick={handleBack}
+                  className="text-sm font-bold opacity-40 hover:opacity-100 transition-opacity uppercase tracking-widest"
+                >
+                  ← Voltar
+                </button>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
