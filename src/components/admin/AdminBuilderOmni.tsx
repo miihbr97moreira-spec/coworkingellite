@@ -277,29 +277,20 @@ const AdminBuilderOmni = () => {
   const handleLPIframeLoad = useCallback(async () => {
     if (mode !== "edit-lp") return;
     
-    // Tentar carregar HTML customizado do banco primeiro
-    const { data } = await supabase
-      .from('landing_page_config')
-      .select('value')
-      .eq('key', 'custom_html')
-      .maybeSingle();
-    
-    if (data?.value) {
-      const injected = injectScript(data.value);
+    try {
+      const doc = iframeRef.current?.contentDocument;
+      if (!doc) return;
+
+      // Capturar o HTML atual do iframe (que é a página real)
+      const html = doc.documentElement.outerHTML;
+      
+      // Se o HTML capturado for muito curto ou inválido, não injetar
+      if (html.length < 100) return;
+
+      const injected = injectScript(html);
       setLpHtml(injected);
       setHtmlHistory([injected]);
       setHistoryIdx(0);
-      return;
-    }
-
-    try {
-      const doc = iframeRef.current?.contentDocument;
-      if (doc && !doc.querySelector('[data-builder-script]')) {
-        const script = doc.createElement("script");
-        script.setAttribute("data-builder-script", "1");
-        script.textContent = CANVAS_SCRIPT_RAW;
-        doc.body.appendChild(script);
-      }
     } catch (err) {
       console.warn("Cannot inject into LP iframe (cross-origin?):", err);
     }
@@ -946,7 +937,12 @@ Gere o HTML COMPLETO atualizado da landing page com as modificações solicitada
                   <Sparkles className="w-12 h-12 opacity-20" />
                   <div className="text-center">
                     <p className="text-sm font-medium mb-1">Nenhuma página no canvas</p>
-                    <p className="text-xs opacity-70">Descreva no chat a página que deseja gerar</p>
+                    <p className="text-xs opacity-70 mb-4">Descreva no chat a página que deseja gerar</p>
+                    {mode === "edit-lp" && (
+                      <Button variant="outline" size="sm" onClick={() => setLpHtml(null)} className="gap-2">
+                        <RotateCcw className="w-3 h-3" /> Recarregar LP Original
+                      </Button>
+                    )}
                   </div>
                 </div>
               )}
