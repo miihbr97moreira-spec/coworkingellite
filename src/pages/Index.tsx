@@ -1,79 +1,50 @@
-import { useEffect } from "react";
-import Navbar from "@/components/landing/Navbar";
-import HeroSection from "@/components/landing/HeroSection";
-import LogoTrust from "@/components/landing/LogoTrust";
-import SocialProof from "@/components/landing/SocialProof";
-import StatsCounter from "@/components/landing/StatsCounter";
-import TargetAudience from "@/components/landing/TargetAudience";
-import Gallery from "@/components/landing/Gallery";
-import Features from "@/components/landing/Features";
-import ROICalculator from "@/components/landing/ROICalculator";
-import CTABanner from "@/components/landing/CTABanner";
-import Pricing from "@/components/landing/Pricing";
-import Footer from "@/components/landing/Footer";
-import FloatingWhatsApp from "@/components/landing/FloatingWhatsApp";
-import NoiseOverlay from "@/components/landing/NoiseOverlay";
-import { useLPConfig, trackEvent } from "@/hooks/useSupabaseQuery";
-import { useAnalyticsTracking } from "@/hooks/useAnalyticsTracking";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
+import { ShieldCheck, ArrowRight } from "lucide-react";
 
 const Index = () => {
-  const { data: config } = useLPConfig();
-  const { trackEvent: trackAnalytics } = useAnalyticsTracking();
-
-  useEffect(() => {
-    trackEvent("page_view", { path: "/" });
-    trackAnalytics({
-      event_type: "page_view",
-      path: "/",
-    });
-  }, [trackAnalytics]);
-
-  useEffect(() => {
-    const pixels = config?.pixels as { metaPixelId?: string; googleAnalyticsId?: string } | undefined;
-    if (pixels?.metaPixelId) {
-      const existing = document.getElementById("meta-pixel");
-      if (!existing) {
-        const script = document.createElement("script");
-        script.id = "meta-pixel";
-        script.innerHTML = `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${pixels.metaPixelId}');fbq('track','PageView');`;
-        document.head.appendChild(script);
-      }
-    }
-    if (pixels?.googleAnalyticsId) {
-      const existing = document.getElementById("ga-script");
-      if (!existing) {
-        const script = document.createElement("script");
-        script.id = "ga-script";
-        script.async = true;
-        script.src = `https://www.googletagmanager.com/gtag/js?id=${pixels.googleAnalyticsId}`;
-        document.head.appendChild(script);
-        const script2 = document.createElement("script");
-        script2.innerHTML = `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${pixels.googleAnalyticsId}');`;
-        document.head.appendChild(script2);
-      }
-    }
-  }, [config]);
+  const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-background">
-      <NoiseOverlay />
-      <Navbar />
-      <HeroSection />
-      <LogoTrust />
-      <SocialProof />
-      <StatsCounter />
-      <TargetAudience />
-      <div id="espaco">
-        <Gallery />
-      </div>
-      <Features />
-      <ROICalculator />
-      <CTABanner />
-      <Pricing />
-      <div id="contato">
-        <Footer />
-      </div>
-      <FloatingWhatsApp />
+    <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col items-center justify-center p-4">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent opacity-50" />
+      
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="relative z-10 text-center max-w-2xl"
+      >
+        <div className="flex justify-center mb-6">
+          <div className="p-3 rounded-2xl bg-primary/10 border border-primary/20">
+            <ShieldCheck className="w-12 h-12 text-primary" />
+          </div>
+        </div>
+        
+        <h1 className="text-4xl md:text-6xl font-bold mb-4 tracking-tight">
+          Omni Builder <span className="text-primary">CRM</span>
+        </h1>
+        
+        <p className="text-xl text-muted-foreground mb-8">
+          Gerenciador de Acesso Multi-Tenant
+        </p>
+        
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <Button 
+            size="lg" 
+            onClick={() => navigate("/admin/login")}
+            className="text-lg px-8 py-6 rounded-xl gap-2 group"
+          >
+            Acessar Painel Admin
+            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+          </Button>
+        </div>
+        
+        <p className="mt-12 text-sm text-muted-foreground/50 font-mono">
+          SaaS Architecture v2.0 • White-label Ready
+        </p>
+      </motion.div>
     </div>
   );
 };

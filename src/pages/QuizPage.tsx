@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, ArrowRight, CheckCircle2, AlertCircle, Timer } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import PremiumQuizOption from "@/components/quiz/PremiumQuizOption";
+import WhiteLabelHelmet from "@/components/WhiteLabelHelmet";
 import { useQuizCheckoutFlow } from "@/hooks/useQuizCheckoutFlow";
 import { calculateLeadScore } from "@/utils/leadScoring";
 
@@ -289,8 +290,17 @@ const QuizPage = ({ overrideSlug }: { overrideSlug?: string }) => {
   };
 
   return (
-    <div style={{
-      minHeight: "100vh", background: theme.bgColor, color: theme.textColor,
+    <>
+      <WhiteLabelHelmet
+        title={quiz?.seo_title || quiz?.title}
+        description={quiz?.seo_description}
+        faviconUrl={quiz?.favicon_url}
+        logoUrl={quiz?.logo_url}
+        brandColor={quiz?.brand_color}
+        customDomain={quiz?.custom_domain}
+      />
+      <div style={{
+        minHeight: "100vh", background: theme.bgColor, color: theme.textColor,
       fontFamily: `'${theme.fontFamily}', sans-serif`,
     }} className="flex flex-col items-center justify-center relative overflow-hidden">
       <link href={`https://fonts.googleapis.com/css2?family=${theme.fontFamily.replace(/ /g, "+")}&display=swap`} rel="stylesheet" />
@@ -541,6 +551,7 @@ const QuizPage = ({ overrideSlug }: { overrideSlug?: string }) => {
         .border-primary { border-color: ${theme.buttonColor} !important; }
       `}</style>
     </div>
+    </>
   );
 };
 

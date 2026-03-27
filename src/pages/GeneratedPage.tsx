@@ -1,11 +1,27 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import WhiteLabelHelmet from "@/components/WhiteLabelHelmet";
+
+interface PageData {
+  html_content: string;
+  status: string;
+  meta_pixel_id?: string;
+  ga_id?: string;
+  seo_title?: string;
+  seo_description?: string;
+  favicon_url?: string;
+  logo_url?: string;
+  brand_color?: string;
+  custom_domain?: string;
+  title?: string;
+}
 
 const GeneratedPage = ({ overrideSlug }: { overrideSlug?: string }) => {
   const { slug: paramSlug } = useParams<{ slug: string }>();
   const slug = overrideSlug || paramSlug;
   const [html, setHtml] = useState<string | null>(null);
+  const [pageData, setPageData] = useState<PageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -14,7 +30,7 @@ const GeneratedPage = ({ overrideSlug }: { overrideSlug?: string }) => {
       if (!slug) return;
       const { data, error: err } = await supabase
         .from("generated_pages")
-        .select("html_content, status, meta_pixel_id, ga_id")
+        .select("*")
         .eq("slug", slug)
         .eq("status", "published")
         .maybeSingle();
@@ -22,6 +38,7 @@ const GeneratedPage = ({ overrideSlug }: { overrideSlug?: string }) => {
       if (err || !data) {
         setError(true);
       } else {
+        setPageData(data);
         let finalHtml = data.html_content;
 
         // Inject pixels into <head>
@@ -80,7 +97,19 @@ const GeneratedPage = ({ overrideSlug }: { overrideSlug?: string }) => {
     );
   }
 
-  return <iframe srcDoc={html} className="w-full h-screen border-0" title="Generated Page" />;
+  return (
+    <>
+      <WhiteLabelHelmet
+        title={pageData?.seo_title || pageData?.title}
+        description={pageData?.seo_description}
+        faviconUrl={pageData?.favicon_url}
+        logoUrl={pageData?.logo_url}
+        brandColor={pageData?.brand_color}
+        customDomain={pageData?.custom_domain}
+      />
+      <iframe srcDoc={html} className="w-full h-screen border-0" title="Generated Page" />
+    </>
+  );
 };
 
 export default GeneratedPage;
