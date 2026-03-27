@@ -20,7 +20,7 @@ import Settings from "./pages/Settings";
 
 // Páginas Ultra-Privadas (Super Admin) - Lazy Loaded
 const SuperAdmin = lazy(() => import("./pages/SuperAdmin"));
-const LegacyLandingPage = lazy(() => import("./pages/super-admin/LegacyLandingPage"));
+const AdminBuilderOmni = lazy(() => import("./components/admin/AdminBuilderOmni").then(m => ({ default: (props: any) => <m.default {...props} isLegacyLP={true} /> })));
 
 import DomainRouter from "./components/DomainRouter";
 
@@ -72,7 +72,7 @@ const App = () => (
 
                 {/* Rotas Super Admin (Isoladas e Seguras) */}
                 <Route path="/admin/super" element={<SuperAdminRoute><SuperAdmin /></SuperAdminRoute>} />
-                <Route path="/admin/super/legacy-lp" element={<SuperAdminRoute><LegacyLandingPage /></SuperAdminRoute>} />
+                <Route path="/admin/super/legacy-lp" element={<SuperAdminRoute><Suspense fallback={<div className="min-h-screen bg-black flex items-center justify-center"><div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>}><AdminBuilderOmni isLegacyLP={true} /></Suspense></SuperAdminRoute>} />
 
                 {/* 404 */}
                 <Route path="*" element={<NotFound />} />

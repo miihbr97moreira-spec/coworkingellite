@@ -37,7 +37,7 @@ export const useAIBuilder = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const processPrompt = useCallback(
-    async (prompt: string, currentConfig: Record<string, any>): Promise<string> => {
+    async (prompt: string, currentHtml: string): Promise<string> => {
       setIsLoading(true);
       try {
         const byok = loadBYOK();
@@ -58,7 +58,7 @@ export const useAIBuilder = () => {
           body: JSON.stringify({
             prompt,
             mode: "edit",
-            currentConfig,
+            currentHtml: currentHtml || "",
             byok: byok.enabled ? {
               enabled: true,
               provider: byok.provider,
