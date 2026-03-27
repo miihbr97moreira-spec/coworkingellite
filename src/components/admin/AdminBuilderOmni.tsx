@@ -91,7 +91,8 @@ const CANVAS_SCRIPT_RAW = `
       classes:t.className||'',
       xpath:xpath(t),
       isImage:t.tagName==='IMG'||!!t.querySelector('img'),
-      isLink:t.tagName==='A'||t.tagName==='BUTTON'||!!t.closest('a')
+      isLink:t.tagName==='A'||t.tagName==='BUTTON'||!!t.closest('a'),
+      configPath: t.getAttribute('data-path') || t.closest('[data-path]')?.getAttribute('data-path') || ''
     };
     window.parent.postMessage({type:'BUILDER_SELECT',payload:info},'*');
   }, true);
@@ -241,7 +242,7 @@ const AdminBuilderOmni = () => {
     const handler = (e: MessageEvent) => {
       if (!e.data?.type) return;
       if (e.data.type === "BUILDER_SELECT") {
-        const p = e.data.payload as SelectedElement;
+        const p = e.data.payload as SelectedElement & { configPath?: string };
         setSelectedEl(p);
         setEditText(p.text || "");
         setEditSrc(p.src || "");
@@ -273,8 +274,24 @@ const AdminBuilderOmni = () => {
   }, [mode]);
 
   /* ── inject canvas script into LP iframe on load ── */
-  const handleLPIframeLoad = useCallback(() => {
+  const handleLPIframeLoad = useCallback(async () => {
     if (mode !== "edit-lp") return;
+    
+    // Tentar carregar HTML customizado do banco primeiro
+    const { data } = await supabase
+      .from('landing_page_config')
+      .select('value')
+      .eq('key', 'custom_html')
+      .maybeSingle();
+    
+    if (data?.value) {
+      const injected = injectScript(data.value);
+      setLpHtml(injected);
+      setHtmlHistory([injected]);
+      setHistoryIdx(0);
+      return;
+    }
+
     try {
       const doc = iframeRef.current?.contentDocument;
       if (doc && !doc.querySelector('[data-builder-script]')) {
@@ -444,19 +461,65 @@ const AdminBuilderOmni = () => {
   const saveLP = async () => {
     setIsSaving(true);
     try {
-      for (const key of Object.keys(localConfig)) {
-        await updateConfig.mutateAsync({ key, value: localConfig[key] });
+      // 1. Request latest HTML from canvas to ensure we have the most recent edits
+      sendToCanvas({ type: 'BUILDER_GET_HTML' });
+      
+      // 2. Wait for the message to return and update lpHtml
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      // 3. Save structured config (for components like HeroSection)
+      const keys = Object.keys(localConfig);
+      for (const key of keys) {
+        const { error } = await supabase
+          .from('landing_page_config')
+          .update({ value: localConfig[key] })
+          .eq('key', key);
+        
+        if (error) throw error;
       }
-      toast.success("Landing Page publicada!");
-    } catch { toast.error("Erro ao salvar."); }
-    finally { setIsSaving(false); }
+
+      // 4. Also save the full HTML as a fallback/override if needed
+      if (lpHtml) {
+        await supabase
+          .from('landing_page_config')
+          .upsert({ key: 'custom_html', value: lpHtml }, { onConflict: 'key' });
+      }
+
+      toast.success("Landing Page publicada com sucesso!");
+    } catch (err) { 
+      console.error("Erro ao salvar LP:", err);
+      toast.error("Erro ao salvar as alterações."); 
+    } finally { setIsSaving(false); }
   };
 
   /* ── canvas mutations ── */
   const sendToCanvas = (msg: any) => iframeRef.current?.contentWindow?.postMessage(msg, "*");
 
-  const applyText = () => { sendToCanvas({ type: "BUILDER_UPDATE_TEXT", value: editText }); };
-  const applySrc = () => { sendToCanvas({ type: "BUILDER_UPDATE_SRC", value: editSrc }); };
+  const updateLocalConfigByPath = (path: string, value: any) => {
+    const keys = path.split('.');
+    const newConfig = { ...localConfig };
+    let current = newConfig;
+    for (let i = 0; i < keys.length - 1; i++) {
+      if (!current[keys[i]]) current[keys[i]] = {};
+      current[keys[i]] = { ...current[keys[i]] };
+      current = current[keys[i]];
+    }
+    current[keys[keys.length - 1]] = value;
+    setLocalConfig(newConfig);
+  };
+
+  const applyText = () => { 
+    sendToCanvas({ type: "BUILDER_UPDATE_TEXT", value: editText });
+    if ((selectedEl as any)?.configPath) {
+      updateLocalConfigByPath((selectedEl as any).configPath, editText);
+    }
+  };
+  const applySrc = () => { 
+    sendToCanvas({ type: "BUILDER_UPDATE_SRC", value: editSrc });
+    if ((selectedEl as any)?.configPath) {
+      updateLocalConfigByPath((selectedEl as any).configPath, editSrc);
+    }
+  };
   const applyHref = () => {
     let href = editHref;
     if (linkAction === "whatsapp") {
@@ -465,6 +528,9 @@ const AdminBuilderOmni = () => {
       href = editHref.startsWith("#") ? editHref : `#${editHref}`;
     }
     sendToCanvas({ type: "BUILDER_UPDATE_HREF", value: href });
+    if ((selectedEl as any)?.configPath) {
+      updateLocalConfigByPath((selectedEl as any).configPath, href);
+    }
   };
   const applyStyle = (prop: string, value: string) => sendToCanvas({ type: "BUILDER_SET_STYLE", prop, value });
   const deleteEl = () => { sendToCanvas({ type: "BUILDER_DELETE" }); setSelectedEl(null); };
