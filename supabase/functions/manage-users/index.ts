@@ -1,14 +1,16 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.0";
 
+// Cabeçalhos CORS ultra-permissivos para garantir que NENHUM navegador bloqueie a requisição
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Max-Age": "86400",
 };
 
 serve(async (req) => {
-  // Resposta rápida para preflight CORS
+  // Resposta imediata para preflight CORS
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -34,7 +36,7 @@ serve(async (req) => {
     const { data: { user: callerUser }, error: authError } = await supabaseClient.auth.getUser();
     if (authError || !callerUser) {
       return new Response(
-        JSON.stringify({ error: "Não autenticado ou sessão inválida" }),
+        JSON.stringify({ error: "Sessão inválida. Por favor, saia e entre novamente no painel." }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -66,7 +68,7 @@ serve(async (req) => {
 
       if (listError) throw listError;
 
-      // Buscar emails dos usuários no auth.users via Admin API
+      // Buscar usuários no Auth via Admin API
       const { data: authUsers, error: authListError } = await supabaseAdmin.auth.admin.listUsers();
       if (authListError) throw authListError;
 
@@ -152,7 +154,6 @@ serve(async (req) => {
     // ===== ATUALIZAR USUÁRIO =====
     if (action === "update") {
       const { user_id, email, full_name, password, role, is_active } = body;
-
       if (!user_id) throw new Error("user_id é obrigatório");
 
       // Atualizar Auth

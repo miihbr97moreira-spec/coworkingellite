@@ -17,34 +17,50 @@ interface ManagedUser {
 }
 
 async function callManageUsers(action: string, payload: Record<string, unknown> = {}) {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  
+  // 1. Tentar obter a sessão atual para o token de autorização
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  // 2. Construir URL manualmente para evitar problemas de roteamento do SDK
+  // O formato padrão do Supabase é https://[project-id].supabase.co/functions/v1/[function-name]
+  const functionUrl = `${supabaseUrl}/functions/v1/manage-users`;
+
+  console.log(`[DEBUG] Iniciando chamada manual para: ${functionUrl}`);
+
   try {
-    const { data, error } = await supabase.functions.invoke('manage-users', {
-      body: { action, ...payload },
+    // 3. Bypass Total: Usar fetch direto com cabeçalhos explícitos
+    // Isso ignora qualquer erro de "Failed to send a request" vindo do SDK
+    const response = await fetch(functionUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${session?.access_token || ''}`,
+        'x-client-info': 'supabase-js-custom-fetch',
+      },
+      body: JSON.stringify({ action, ...payload }),
     });
 
-    if (error) {
-      console.error("Erro retornado pela Edge Function:", error);
-      
-      // Tratamento de erros específicos de rede/CORS
-      if (error instanceof TypeError && error.message === "Failed to fetch") {
-        throw new Error("Erro de conexão com o servidor. Verifique se a função 'manage-users' foi publicada no Supabase.");
-      }
-      
-      // Tratamento de erro 404
-      if (error.message?.includes('404') || error.message?.includes('not found')) {
-        throw new Error("Função de gerenciamento não encontrada (404). É necessário realizar o deploy no Supabase.");
-      }
-
-      throw new Error(error.message || "Erro inesperado na comunicação com o servidor.");
+    // 4. Se der 404, a função realmente não foi publicada
+    if (response.status === 404) {
+      throw new Error("A função 'manage-users' não foi encontrada no servidor (404). Certifique-se de ter executado 'supabase functions deploy manage-users'.");
     }
 
-    return data;
+    // 5. Tratar resposta
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.error || `Erro do servidor (${response.status})`);
+    }
+
+    return result;
   } catch (err: any) {
-    console.error("Falha crítica na chamada da função:", err);
+    console.error("[ERRO CRÍTICO] Falha na comunicação direta:", err);
     
-    // Fallback amigável para erro de rede genérico
-    if (err.message?.includes("Failed to fetch") || err.message?.includes("NetworkError")) {
-      throw new Error("Não foi possível conectar ao servidor do Supabase. Verifique se o deploy da função foi realizado e se as configurações de CORS estão corretas.");
+    // Erro de rede (CORS ou DNS)
+    if (err instanceof TypeError && (err.message === "Failed to fetch" || err.message.includes("NetworkError"))) {
+      throw new Error("Erro de rede persistente. Isso acontece quando o navegador bloqueia a conexão. Verifique se a função foi publicada e se as configurações de CORS na função estão corretas.");
     }
     
     throw err;
