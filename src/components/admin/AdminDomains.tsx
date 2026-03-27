@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Globe2, Plus, Copy, Check, ExternalLink, AlertTriangle, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
