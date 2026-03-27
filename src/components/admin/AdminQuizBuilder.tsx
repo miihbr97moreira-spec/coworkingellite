@@ -360,6 +360,7 @@ Retorne APENAS o JSON puro.`;
               { id: "theme", label: "Design", icon: Palette },
               { id: "settings", label: "Configurações", icon: Settings },
               { id: "analytics", label: "Analytics", icon: BarChart3 },
+              { id: "integrations", label: "Integrações", icon: Settings },
             ].map(t => (
               <button key={t.id} onClick={() => setTab(t.id as any)}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${tab === t.id ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"}`}>
@@ -591,6 +592,44 @@ Retorne APENAS o JSON puro.`;
                       <p className="text-xs text-muted-foreground">Mostra tela de processamento antes dos resultados</p>
                     </div>
                   </label>
+                </div>
+              </div>
+            )}
+
+            {tab === "integrations" && (
+              <div className="space-y-6">
+                <h3 className="text-xl font-black">Publicação & Integrações</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs font-bold uppercase block mb-2">Slug (URL)</label>
+                    <input type="text" value={slug} onChange={e => setSlug(e.target.value)} placeholder="meu-quiz" className="w-full bg-background/50 border border-border/40 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-primary/30" />
+                    <p className="text-[10px] text-muted-foreground mt-1">Link: {window.location.origin}/quiz/{slug}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold uppercase block mb-2">Domínio</label>
+                    <select className="w-full bg-background/50 border border-border/40 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-primary/30">
+                      <option>Sistema Nativo</option>
+                      <option>Meu Domínio 1</option>
+                      <option>Meu Domínio 2</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold uppercase block mb-2">Meta Pixel ID</label>
+                    <input type="text" placeholder="123456789" className="w-full bg-background/50 border border-border/40 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-primary/30" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold uppercase block mb-2">Google Analytics ID</label>
+                    <input type="text" placeholder="G-XXXXXXXXXX" className="w-full bg-background/50 border border-border/40 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-primary/30" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold uppercase block mb-2">Webhook URL</label>
+                    <input type="text" placeholder="https://seu-servidor.com/webhook" className="w-full bg-background/50 border border-border/40 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-primary/30" />
+                    <p className="text-[10px] text-muted-foreground mt-1">Recebe POST JSON com respostas ao finalizar</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold uppercase block mb-2">Scripts Customizados</label>
+                    <textarea placeholder="&lt;script&gt;...&lt;/script&gt;" rows={4} className="w-full bg-background/50 border border-border/40 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-primary/30 font-mono resize-none" />
+                  </div>
                 </div>
               </div>
             )}
