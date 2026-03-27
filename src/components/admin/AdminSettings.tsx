@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Loader2, Shield, Plus, Edit2, Trash2, Eye, EyeOff, RefreshCw, Clock } from "lucide-react";
+import { Loader2, Shield, Plus, Edit2, Trash2, Eye, EyeOff, RefreshCw, Clock, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 interface ManagedUser {
@@ -35,22 +35,17 @@ const AdminSettings = () => {
   const [newUserOpen, setNewUserOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<ManagedUser | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-
-  const [formData, setFormData] = useState({
-    email: "",
-    full_name: "",
-    password: "",
-    role: "editor" as "super_admin" | "editor",
-  });
+  const [schemaError, setSchemaError] = useState(false);
 
   const isSuperAdmin = role === "super_admin";
 
   useEffect(() => {
     if (isSuperAdmin) {
       loadData();
-      // Inscrever para atualizações em tempo real
+      
+      // Inscrição Realtime (opcional, mas melhora a UX)
       const channel = supabase
-        .channel('admin_users_changes')
+        .channel('admin_users_sync')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'user_management' }, () => loadData())
         .on('postgres_changes', { event: '*', schema: 'public', table: 'user_creation_queue' }, () => loadData())
         .subscribe();
@@ -61,48 +56,56 @@ const AdminSettings = () => {
 
   const loadData = async () => {
     setLoading(true);
+    setSchemaError(false);
     try {
-      // 1. Carregar usuários reais da tabela user_management
+      // 1. Tentar carregar usuários reais
       const { data: userData, error: userError } = await supabase
         .from('user_management')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (userError) throw userError;
+      if (userError) {
+        if (userError.message.includes('not found') || userError.code === 'PGRST116') {
+          setSchemaError(true);
+          return;
+        }
+        throw userError;
+      }
       setUsers(userData || []);
 
-      // 2. Carregar fila de criação pendente
+      // 2. Tentar carregar fila pendente
       const { data: queueData, error: queueError } = await supabase
         .from('user_creation_queue')
         .select('*')
         .neq('status', 'completed')
         .order('created_at', { ascending: false });
 
-      if (queueError) throw queueError;
-      setQueue(queueData || []);
+      if (!queueError) setQueue(queueData || []);
 
     } catch (error: any) {
       console.error("Erro ao carregar dados:", error);
-      toast.error("Erro ao carregar usuários: " + error.message);
+      toast.error("Erro de conexão: " + error.message);
     } finally {
       setLoading(false);
     }
   };
+
+  const [formData, setFormData] = useState({
+    email: "",
+    full_name: "",
+    password: "",
+    role: "editor" as "super_admin" | "editor",
+  });
 
   const handleAddUser = async () => {
     if (!formData.email.trim() || !formData.full_name.trim() || !formData.password.trim()) {
       toast.error("Preencha todos os campos obrigatórios");
       return;
     }
-    if (formData.password.length < 6) {
-      toast.error("A senha deve ter no mínimo 6 caracteres");
-      return;
-    }
-
+    
     setSaving(true);
     try {
-      // Inserir na fila de criação (Queue)
-      // Isso é puramente banco de dados, SEM chamadas HTTP de Edge Functions
+      // Inserção na Fila (Database Queue)
       const { error } = await supabase
         .from('user_creation_queue')
         .insert({
@@ -115,12 +118,12 @@ const AdminSettings = () => {
 
       if (error) throw error;
 
-      toast.success("Solicitação enviada! O usuário será criado em instantes.");
+      toast.success("Solicitação enviada para o banco de dados!");
       setFormData({ email: "", full_name: "", password: "", role: "editor" });
       setNewUserOpen(false);
       await loadData();
     } catch (error: any) {
-      toast.error("Erro ao solicitar criação: " + error.message);
+      toast.error("Erro ao enviar: " + error.message);
     } finally {
       setSaving(false);
     }
@@ -130,7 +133,6 @@ const AdminSettings = () => {
     if (!editingUser) return;
     setSaving(true);
     try {
-      // Atualizar diretamente no banco (tabela user_management)
       const { error } = await supabase
         .from('user_management')
         .update({
@@ -140,8 +142,7 @@ const AdminSettings = () => {
         .eq('user_id', editingUser.user_id);
 
       if (error) throw error;
-
-      toast.success("Usuário atualizado com sucesso!");
+      toast.success("Dados atualizados!");
       setEditingUser(null);
       await loadData();
     } catch (error: any) {
@@ -156,31 +157,24 @@ const AdminSettings = () => {
       toast.error("Você não pode desativar sua própria conta");
       return;
     }
-
-    const newStatus = !managedUser.is_active;
     try {
       const { error } = await supabase
         .from('user_management')
-        .update({ is_active: newStatus })
+        .update({ is_active: !managedUser.is_active })
         .eq('user_id', managedUser.user_id);
 
       if (error) throw error;
-      toast.success(newStatus ? "Usuário ativado!" : "Usuário desativado!");
+      toast.success("Status atualizado!");
       await loadData();
     } catch (error: any) {
-      toast.error("Erro ao alterar status: " + error.message);
+      toast.error("Erro: " + error.message);
     }
   };
 
   const handleDeleteUser = async (managedUser: ManagedUser) => {
-    if (managedUser.user_id === user?.id) {
-      toast.error("Você não pode deletar sua própria conta");
-      return;
-    }
-    if (!confirm(`Remover "${managedUser.full_name}"?`)) return;
-
+    if (managedUser.user_id === user?.id) return;
+    if (!confirm(`Excluir permanentemente "${managedUser.full_name}"?`)) return;
     try {
-      // Deletar da tabela (RLS deve estar configurado)
       const { error } = await supabase
         .from('user_management')
         .delete()
@@ -196,9 +190,32 @@ const AdminSettings = () => {
 
   if (!isSuperAdmin) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 gap-4 text-center">
-        <Shield className="w-12 h-12 text-muted-foreground/50" />
-        <p className="font-semibold text-lg">Acesso Restrito ao Super Admin</p>
+      <div className="flex flex-col items-center justify-center h-64 text-center">
+        <Shield className="w-12 h-12 text-muted-foreground/30 mb-4" />
+        <p className="font-bold text-lg">Acesso Restrito</p>
+        <p className="text-muted-foreground text-sm">Apenas o Super Admin pode gerenciar usuários.</p>
+      </div>
+    );
+  }
+
+  if (schemaError) {
+    return (
+      <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-8 text-center max-w-2xl mx-auto mt-12">
+        <AlertTriangle className="w-12 h-12 text-destructive mx-auto mb-4" />
+        <h3 className="text-lg font-bold text-destructive mb-2">Tabelas de Gestão não Encontradas</h3>
+        <p className="text-sm text-muted-foreground mb-6">
+          O banco de dados do Supabase ainda não reconhece as tabelas de gestão de usuários. 
+          Isso acontece porque as migrations ainda não foram executadas no painel.
+        </p>
+        <div className="bg-background/50 p-4 rounded-lg text-left text-xs font-mono mb-6 border border-border">
+          <p className="text-primary mb-2"># Instrução de Urgência:</p>
+          <p>1. Vá ao SQL Editor no seu Supabase Dashboard.</p>
+          <p>2. Copie o conteúdo do arquivo de migration mais recente.</p>
+          <p>3. Cole e clique em 'RUN'.</p>
+        </div>
+        <Button onClick={loadData} variant="outline" className="gap-2">
+          <RefreshCw className="w-4 h-4" /> Tentar novamente
+        </Button>
       </div>
     );
   }
@@ -208,10 +225,10 @@ const AdminSettings = () => {
       <div className="flex justify-between items-end">
         <div>
           <h2 className="text-2xl font-bold mb-2">Configurações</h2>
-          <p className="text-muted-foreground text-sm">Gerencie usuários via Banco de Dados (Arquitetura Resiliente)</p>
+          <p className="text-muted-foreground text-sm">Gerencie usuários e permissões do sistema</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={loadData} className="p-2 hover:bg-secondary rounded-lg transition-colors" title="Atualizar">
+          <button onClick={loadData} className="p-2 hover:bg-secondary rounded-lg transition-colors">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
           <Button onClick={() => { setEditingUser(null); setFormData({ email: "", full_name: "", password: "", role: "editor" }); setNewUserOpen(true); }} className="gap-2">
@@ -220,7 +237,7 @@ const AdminSettings = () => {
         </div>
       </div>
 
-      {/* Fila de Processamento (Queue) */}
+      {/* Fila de Criação Pendente */}
       {queue.length > 0 && (
         <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-3">
           <h3 className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-2">
@@ -235,12 +252,10 @@ const AdminSettings = () => {
                 </div>
                 <div className="flex items-center gap-3">
                   {item.status === 'error' ? (
-                    <span className="text-destructive text-xs flex items-center gap-1" title={item.error_message}>
-                      Erro no servidor
-                    </span>
+                    <span className="text-destructive text-xs" title={item.error_message}>Falha no processamento</span>
                   ) : (
                     <span className="text-primary text-xs flex items-center gap-2">
-                      <Loader2 className="w-3 h-3 animate-spin" /> Aguardando Supabase...
+                      <Loader2 className="w-3 h-3 animate-spin" /> Criando no Supabase...
                     </span>
                   )}
                 </div>
@@ -250,7 +265,7 @@ const AdminSettings = () => {
         </div>
       )}
 
-      {/* Tabela de Usuários Reais */}
+      {/* Tabela Principal */}
       <div className="bg-secondary/30 rounded-xl border border-border/30 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -265,7 +280,7 @@ const AdminSettings = () => {
             </thead>
             <tbody>
               {users.length === 0 && !loading ? (
-                <tr><td colSpan={5} className="p-12 text-center text-muted-foreground">Nenhum usuário ativo.</td></tr>
+                <tr><td colSpan={5} className="p-12 text-center text-muted-foreground">Nenhum usuário cadastrado.</td></tr>
               ) : (
                 users.map((u) => (
                   <tr key={u.id} className="border-b border-border/10 hover:bg-secondary/20 transition-colors">
@@ -300,13 +315,13 @@ const AdminSettings = () => {
           <DialogHeader>
             <DialogTitle>{editingUser ? "Editar Usuário" : "Novo Usuário"}</DialogTitle>
             <DialogDescription>
-              {editingUser ? "Atualize os dados básicos do usuário." : "O usuário será criado via fila de processamento automática."}
+              {editingUser ? "Atualize os dados básicos." : "O usuário será criado via fila automática no servidor."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
               <label className="text-xs text-muted-foreground block mb-1.5 font-medium">Nome Completo *</label>
-              <input type="text" value={formData.full_name} onChange={(e) => setFormData(p => ({ ...p, full_name: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm outline-none focus:ring-1 focus:ring-primary/30" placeholder="Ex: João Silva" />
+              <input type="text" value={formData.full_name} onChange={(e) => setFormData(p => ({ ...p, full_name: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm outline-none focus:ring-1 focus:ring-primary/30" placeholder="João Silva" />
             </div>
             {!editingUser && (
               <>
@@ -342,17 +357,6 @@ const AdminSettings = () => {
           </div>
         </DialogContent>
       </Dialog>
-
-      <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 flex gap-3 items-start">
-        <Shield className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
-        <div>
-          <p className="text-sm font-bold text-blue-700">Arquitetura Resiliente Ativada</p>
-          <p className="text-xs text-blue-600 mt-1">
-            Para evitar erros de rede do navegador, a criação de usuários agora é feita via <strong>Fila de Banco de Dados</strong>. 
-            Você solicita a criação e o Supabase processa em background. A lista atualiza automaticamente.
-          </p>
-        </div>
-      </div>
     </div>
   );
 };

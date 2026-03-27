@@ -7,24 +7,32 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  // Responder a preflight CORS
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     
+    // Cliente Admin para operações que o usuário comum não pode fazer
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // 1. Verificar se há itens pendentes na fila
+    // 1. Buscar itens pendentes na fila 'user_creation_queue'
     const { data: queueItems, error: queueError } = await supabaseAdmin
       .from('user_creation_queue')
       .select('*')
       .eq('status', 'pending')
-      .limit(5); // Processar em lotes pequenos
+      .limit(10);
 
-    if (queueError) throw queueError;
+    if (queueError) {
+      console.error("Erro ao ler fila:", queueError);
+      return new Response(JSON.stringify({ error: "Tabela de fila não encontrada. Execute o SQL de migration." }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const results = [];
 
@@ -33,7 +41,7 @@ serve(async (req) => {
         // Marcar como processando
         await supabaseAdmin.from('user_creation_queue').update({ status: 'processing' }).eq('id', item.id);
 
-        // Criar no Auth
+        // Criar usuário no Auth do Supabase
         const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
           email: item.email,
           password: item.password,
@@ -43,11 +51,13 @@ serve(async (req) => {
 
         if (authError) throw authError;
 
-        // Atribuir Role
-        await supabaseAdmin.from('user_roles').insert({
+        // Atribuir Role na tabela user_roles
+        const { error: roleError } = await supabaseAdmin.from('user_roles').insert({
           user_id: authUser.user.id,
           role: item.role
         });
+
+        if (roleError) throw roleError;
 
         // Marcar como concluído
         await supabaseAdmin.from('user_creation_queue').update({ 
@@ -57,7 +67,7 @@ serve(async (req) => {
 
         results.push({ email: item.email, status: 'success' });
       } catch (e: any) {
-        console.error(`Erro ao processar item ${item.id}:`, e);
+        console.error(`Erro no item ${item.id}:`, e);
         await supabaseAdmin.from('user_creation_queue').update({ 
           status: 'error', 
           error_message: e.message 
@@ -66,10 +76,11 @@ serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ results }), {
+    return new Response(JSON.stringify({ processed: results.length, results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e: any) {
+    console.error("Erro crítico na função:", e);
     return new Response(JSON.stringify({ error: e.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
