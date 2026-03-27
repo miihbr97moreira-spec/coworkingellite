@@ -19,8 +19,9 @@ interface QuizTheme {
   fontFamily: string;
 }
 
-const QuizPage = () => {
-  const { slug } = useParams();
+const QuizPage = ({ overrideSlug }: { overrideSlug?: string }) => {
+  const { slug: paramSlug } = useParams();
+  const slug = overrideSlug || paramSlug;
   const [quiz, setQuiz] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [currentQ, setCurrentQ] = useState(0);

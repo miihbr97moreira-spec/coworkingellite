@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
-const GeneratedPage = () => {
-  const { slug } = useParams<{ slug: string }>();
+const GeneratedPage = ({ overrideSlug }: { overrideSlug?: string }) => {
+  const { slug: paramSlug } = useParams<{ slug: string }>();
+  const slug = overrideSlug || paramSlug;
   const [html, setHtml] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);

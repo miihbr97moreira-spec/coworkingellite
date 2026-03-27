@@ -10,6 +10,7 @@ import AdminLogin from "./pages/AdminLogin";
 import GeneratedPage from "./pages/GeneratedPage";
 import QuizPage from "./pages/QuizPage";
 import NotFound from "./pages/NotFound";
+import DomainRouter from "./components/DomainRouter";
 
 const queryClient = new QueryClient();
 
@@ -20,14 +21,16 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/admin/login" element={<AdminLogin />} />
-            <Route path="/admin" element={<Admin />} />
-            <Route path="/p/:slug" element={<GeneratedPage />} />
-            <Route path="/quiz/:slug" element={<QuizPage />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <DomainRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/admin/login" element={<AdminLogin />} />
+              <Route path="/admin" element={<Admin />} />
+              <Route path="/p/:slug" element={<GeneratedPage />} />
+              <Route path="/quiz/:slug" element={<QuizPage />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </DomainRouter>
         </BrowserRouter>
       </AuthProvider>
     </TooltipProvider>
