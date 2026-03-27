@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
-  BarChart3, Type, ListChecks, LogOut,
+  BarChart3, Type, ListChecks, LogOut, Menu, X,
   Settings, Kanban, Zap, PanelLeftClose, PanelLeft, ShieldAlert,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import AdminDashboardExpanded from "@/components/admin/AdminDashboardExpanded";
 import AdminBuilderOmni from "@/components/admin/AdminBuilderOmni";
 import AdminCRM from "@/components/admin/AdminCRM";
@@ -23,6 +24,7 @@ const mainTabs = [
 ];
 
 const SIDEBAR_KEY = "omni_sidebar_collapsed";
+const MOBILE_MENU_KEY = "omni_mobile_menu_open";
 const SUPER_ADMIN_EMAIL = "jpm19990@gmail.com";
 
 const Admin = () => {
@@ -32,6 +34,7 @@ const Admin = () => {
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(SIDEBAR_KEY) === "true"; } catch { return false; }
   });
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const isSuperAdmin = user?.email === SUPER_ADMIN_EMAIL;
 
@@ -40,6 +43,11 @@ const Admin = () => {
       localStorage.setItem(SIDEBAR_KEY, String(!p));
       return !p;
     });
+  };
+
+  const handleTabChange = (tabId: string) => {
+    setActiveTab(tabId);
+    setMobileMenuOpen(false); // Close mobile menu on tab change
   };
 
   useEffect(() => {
@@ -62,8 +70,9 @@ const Admin = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex admin-theme">
-      <aside className={`border-r border-border bg-secondary/30 flex flex-col shrink-0 transition-all duration-300 ${collapsed ? "w-16" : "w-64"}`}>
+    <div className="min-h-screen bg-background flex admin-theme overflow-x-hidden">
+      {/* Desktop Sidebar */}
+      <aside className={`hidden md:flex border-r border-border bg-secondary/30 flex-col shrink-0 transition-all duration-300 ${collapsed ? "w-16" : "w-64"}`}>
         {/* Header */}
         <div className="p-4 border-b border-border flex items-center justify-between">
           {!collapsed && (
@@ -89,7 +98,7 @@ const Admin = () => {
           {mainTabs.map((t) => (
             <button
               key={t.id}
-              onClick={() => setActiveTab(t.id)}
+              onClick={() => handleTabChange(t.id)}
               title={collapsed ? t.label : undefined}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
                 activeTab === t.id
@@ -114,9 +123,14 @@ const Admin = () => {
 
         {/* Bottom Actions */}
         <div className="p-3 border-t border-border space-y-1">
+          {/* Theme Toggle */}
+          <div className="flex justify-center mb-2">
+            <ThemeToggle />
+          </div>
+
           {/* Settings - Always visible */}
           <button
-            onClick={() => setActiveTab("settings")}
+            onClick={() => handleTabChange("settings")}
             title={collapsed ? "Configurações" : undefined}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
               activeTab === "settings"
@@ -131,7 +145,7 @@ const Admin = () => {
           {/* Super Admin - Conditional */}
           {isSuperAdmin && (
             <button
-              onClick={() => setActiveTab("super_admin")}
+              onClick={() => handleTabChange("super_admin")}
               title={collapsed ? "Super Admin" : undefined}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
                 activeTab === "super_admin"
@@ -156,14 +170,98 @@ const Admin = () => {
         </div>
       </aside>
 
+      {/* Mobile Header */}
+      <div className="md:hidden fixed top-0 left-0 right-0 bg-secondary/30 border-b border-border z-50 h-16 flex items-center justify-between px-4">
+        <span className="font-display text-lg font-bold text-gradient-terracota">Omni</span>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground"
+          >
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Menu */}
+      {mobileMenuOpen && (
+        <motion.div
+          initial={{ opacity: 0, x: -100 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -100 }}
+          className="md:hidden fixed top-16 left-0 right-0 bg-secondary/30 border-b border-border z-40 max-h-[calc(100vh-64px)] overflow-y-auto"
+        >
+          <nav className="p-2 space-y-1">
+            {mainTabs.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => handleTabChange(t.id)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-colors ${
+                  activeTab === t.id
+                    ? "bg-primary/10 text-primary font-medium"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                }`}
+              >
+                <t.icon className="w-4 h-4 shrink-0" />
+                <span className="flex items-center gap-2 flex-1">
+                  {t.label}
+                  {t.badge && (
+                    <span className="ml-auto px-1.5 py-0.5 text-[9px] font-bold uppercase rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                      {t.badge}
+                    </span>
+                  )}
+                </span>
+              </button>
+            ))}
+
+            <div className="border-t border-border my-2 pt-2 space-y-1">
+              <button
+                onClick={() => handleTabChange("settings")}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-colors ${
+                  activeTab === "settings"
+                    ? "bg-primary/10 text-primary font-medium"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                }`}
+              >
+                <Settings className="w-4 h-4 shrink-0" />
+                Configurações
+              </button>
+
+              {isSuperAdmin && (
+                <button
+                  onClick={() => handleTabChange("super_admin")}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-colors ${
+                    activeTab === "super_admin"
+                      ? "bg-red-500/10 text-red-400 font-medium"
+                      : "text-muted-foreground hover:text-red-400 hover:bg-red-950/20"
+                  }`}
+                >
+                  <ShieldAlert className="w-4 h-4 shrink-0" />
+                  Super Admin
+                </button>
+              )}
+
+              <button
+                onClick={logout}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm text-muted-foreground hover:text-destructive transition-colors"
+              >
+                <LogOut className="w-4 h-4 shrink-0" />
+                Sair
+              </button>
+            </div>
+          </nav>
+        </motion.div>
+      )}
+
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto mt-16 md:mt-0">
         <motion.div
           key={activeTab}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
-          className="p-8"
+          className="p-4 md:p-8"
         >
           {activeTab === "dashboard" && <AdminDashboardExpanded />}
           {activeTab === "crm" && <AdminCRM />}
