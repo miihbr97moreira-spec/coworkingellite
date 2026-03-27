@@ -22,18 +22,30 @@ async function callManageUsers(action: string, payload: Record<string, unknown> 
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error("Sessão expirada. Faça login novamente.");
 
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/manage-users`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${session.access_token}`,
-    },
-    body: JSON.stringify({ action, ...payload }),
-  });
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/manage-users`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+        "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string,
+      },
+      body: JSON.stringify({ action, ...payload }),
+    });
 
-  const json = await res.json();
-  if (!res.ok || json.error) throw new Error(json.error ?? "Erro desconhecido");
-  return json;
+    if (res.status === 404) {
+      throw new Error("A função 'manage-users' não foi encontrada. Verifique se o deploy foi realizado no Supabase.");
+    }
+
+    const json = await res.json();
+    if (!res.ok || json.error) throw new Error(json.error ?? `Erro do servidor (${res.status})`);
+    return json;
+  } catch (err) {
+    if (err instanceof TypeError && err.message === "Failed to fetch") {
+      throw new Error("Erro de rede (Failed to fetch). Verifique se a Edge Function foi publicada no Supabase e se as configurações de CORS estão corretas.");
+    }
+    throw err;
+  }
 }
 
 const AdminSettings = () => {
