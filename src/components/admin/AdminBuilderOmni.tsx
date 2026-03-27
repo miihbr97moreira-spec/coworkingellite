@@ -274,23 +274,16 @@ const AdminBuilderOmni = () => {
   }, [mode]);
 
   /* ── inject canvas script into LP iframe on load ── */
-  const handleLPIframeLoad = useCallback(async () => {
+  const handleLPIframeLoad = useCallback(() => {
     if (mode !== "edit-lp") return;
-    
     try {
       const doc = iframeRef.current?.contentDocument;
-      if (!doc) return;
-
-      // Capturar o HTML atual do iframe (que é a página real)
-      const html = doc.documentElement.outerHTML;
-      
-      // Se o HTML capturado for muito curto ou inválido, não injetar
-      if (html.length < 100) return;
-
-      const injected = injectScript(html);
-      setLpHtml(injected);
-      setHtmlHistory([injected]);
-      setHistoryIdx(0);
+      if (doc && !doc.querySelector('[data-builder-script]')) {
+        const script = doc.createElement("script");
+        script.setAttribute("data-builder-script", "1");
+        script.textContent = CANVAS_SCRIPT_RAW;
+        doc.body.appendChild(script);
+      }
     } catch (err) {
       console.warn("Cannot inject into LP iframe (cross-origin?):", err);
     }
