@@ -12,7 +12,7 @@ import { useFunnels, useStages } from "@/hooks/useSupabaseQuery";
 import { useAIBuilder } from "@/hooks/useAIBuilder";
 import { Button } from "@/components/ui/button";
 import QuizPreview from "./QuizPreview";
-import ReactMarkdown from "react-markdown";
+// import ReactMarkdown from "react-markdown"; // Removido para evitar erro de className
 
 interface QuizQuestion {
   id: string;
@@ -458,7 +458,7 @@ Retorne APENAS o JSON puro, sem markdown.`;
             {chatMsgs.map(m => (
               <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[90%] p-3 rounded-2xl text-xs ${m.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
-                  {m.role === 'assistant' ? <ReactMarkdown className="prose prose-xs prose-invert">{m.content}</ReactMarkdown> : m.content}
+                  {m.role === 'assistant' ? <div className="text-xs whitespace-pre-wrap">{m.content}</div> : m.content}
                 </div>
               </div>
             ))}
