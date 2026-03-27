@@ -1,18 +1,19 @@
 import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
-  Plus, Trash2, Save, Globe, Loader2, Sparkles, Send, Eye, Copy, Check,
-  ExternalLink, GripVertical, Image, Palette, Settings, X, Bot, Code,
-  ListChecks, MessageSquare, Phone, Mail, ArrowUp, ArrowDown,
-  LayoutGrid, Timer, Zap, Webhook, BarChart3, ChevronRight, Split
+  Plus, Trash2, Save, Loader2, Sparkles, Send, Eye, Copy, Check,
+  ExternalLink, Settings, X, Bot, Code, ListChecks, MessageSquare,
+  Phone, Mail, LayoutGrid, Timer, Zap, Webhook, BarChart3, ChevronRight,
+  Split, Download, Share2, Globe
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useFunnels, useStages } from "@/hooks/useSupabaseQuery";
 import { useAIBuilder } from "@/hooks/useAIBuilder";
 import { Button } from "@/components/ui/button";
+import QuizPreview from "./QuizPreview";
 import ReactMarkdown from "react-markdown";
 
-/* ── types ── */
 interface QuizQuestion {
   id: string;
   type: "multiple_choice" | "text" | "phone" | "email" | "image_grid";
@@ -89,20 +90,16 @@ const QUESTION_TYPES = [
   { value: "email", label: "Email", icon: Mail },
 ];
 
-/* ═══════ COMPONENT ═══════ */
 const AdminQuizBuilder = () => {
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [activeQuiz, setActiveQuiz] = useState<Quiz | null>(null);
-  const [tab, setTab] = useState<"editor" | "theme" | "settings" | "analytics">("editor");
   const [isSaving, setIsSaving] = useState(false);
-  const [analytics, setAnalytics] = useState<any[]>([]);
   
   /* ── Quiz form state ── */
   const [title, setTitle] = useState("Novo Quiz");
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
-  const [logoPosition, setLogoPosition] = useState("center");
   const [theme, setTheme] = useState<QuizTheme>(DEFAULT_THEME);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [crmFunnelId, setCrmFunnelId] = useState<string | null>(null);
@@ -119,128 +116,6 @@ const AdminQuizBuilder = () => {
   const { generatePage, isLoading: aiLoading } = useAIBuilder();
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  const handleChat = async () => {
-    if (!chatInput.trim()) return;
-    const userMsg: ChatMsg = { id: Date.now().toString(), role: "user", content: chatInput };
-    setChatMsgs(prev => [...prev, userMsg]);
-    const input = chatInput;
-    setChatInput("");
-
-    const systemPrompt = `Você é um especialista em criação de quizzes de alta conversão (benchmark: Inlead).
-
-Gere um Quiz em formato JSON com suporte completo às seguintes funcionalidades:
-
-1. LÓGICA CONDICIONAL (Branching):
-   - Cada pergunta pode ter um array 'logic' com regras
-   - Formato: { "action": "go_to" | "finish", "destination": "id_da_proxima_pergunta", "condition_value": "valor_selecionado" }
-   - Exemplo: Se usuário responder "Sim", ir para pergunta q3; se "Não", finalizar (lead_capture)
-
-2. TIPOS DE PERGUNTAS SUPORTADOS:
-   - "multiple_choice": Opções de seleção única (com auto-advance)
-   - "image_grid": Grade de imagens (2-4 opções visuais com URLs)
-   - "text": Texto longo
-   - "email": Captura de email
-   - "phone": Captura de telefone
-
-3. GAMIFICAÇÃO:
-   - auto_advance: true (pula para próxima ao selecionar em múltipla escolha)
-   - enable_fake_loading: true (mostra "Analisando..." com barra de progresso)
-   - enable_timer: true/false (cronômetro de urgência)
-   - show_progress_bar: true (barra de progresso visual)
-
-4. VARIÁVEIS DINÂMICAS (Piping):
-   - Use {nome}, {email}, etc. nos títulos das perguntas
-   - Exemplo: "Ótimo, {nome}! Qual seu orçamento?"
-
-5. ESTRUTURA JSON ESPERADA:
-{
-  "title": "Nome do Quiz",
-  "description": "Descrição curta",
-  "questions": [
-    {
-      "id": "q1",
-      "type": "multiple_choice" | "image_grid" | "text" | "email" | "phone",
-      "title": "Pergunta aqui",
-      "options": ["Opção 1", "Opção 2"],
-      "image_options": [{"label": "Opção 1", "url": "https://..."}, ...],
-      "required": true,
-      "logic": [
-        {"action": "go_to", "destination": "q2", "condition_value": "Opção 1"},
-        {"action": "finish", "condition_value": "Opção 2"}
-      ]
-    },
-    ...
-  ]
-}
-
-Pedido do usuário: "${input}"
-
-Retorne APENAS o JSON puro, sem markdown ou explicações.`;
-
-    try {
-      let fullRaw = "";
-      await generatePage(systemPrompt, (delta) => { fullRaw += delta; }, () => {
-        if (!fullRaw.trim()) {
-          setChatMsgs(prev => [...prev, {
-            id: Date.now().toString(),
-            role: "assistant",
-            content: "❌ Erro: Nenhuma resposta recebida da IA. Tente novamente."
-          }]);
-          return;
-        }
-
-        try {
-          const cleaned = fullRaw.replace(/\`\`\`json?\s*/g, "").replace(/\`\`\`/g, "").trim();
-          const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-          
-          if (!jsonMatch) {
-            throw new Error("JSON não encontrado na resposta");
-          }
-
-          const parsed = JSON.parse(jsonMatch[0]);
-          
-          if (!parsed.questions || !Array.isArray(parsed.questions)) {
-            throw new Error("Estrutura de perguntas inválida");
-          }
-
-          if (parsed.title) setTitle(parsed.title);
-          if (parsed.description) setDescription(parsed.description);
-          
-          setQuestions(parsed.questions.map((q: any, i: number) => ({
-            id: q.id || `q${i}`,
-            type: q.type || "multiple_choice",
-            title: q.title || "",
-            options: q.options || [],
-            image_options: q.image_options || [],
-            required: q.required !== false,
-            logic: q.logic || []
-          })));
-
-          setChatMsgs(prev => [...prev, {
-            id: Date.now().toString(),
-            role: "assistant",
-            content: `✅ **Quiz gerado com sucesso!**\n\n📊 ${parsed.questions?.length || 0} perguntas criadas com lógica condicional, gamificação e piping de variáveis.\n\nVocê pode agora:\n- Editar as perguntas e adicionar mais lógica\n- Configurar cores e tipografia na aba **Design**\n- Ativar Auto-Advance, Fake Loading e Timer na aba **Configurações**\n- Ver o funil de drop-off na aba **Analytics**`
-          }]);
-        } catch (err: any) {
-          console.error("Erro ao parsear JSON:", err, "Raw:", fullRaw);
-          setChatMsgs(prev => [...prev, {
-            id: Date.now().toString(),
-            role: "assistant",
-            content: "❌ Erro ao processar a resposta da IA. Tente descrever de forma mais clara.\n\nDicas:\n- Especifique o tipo de negócio\n- Mencione quantas perguntas deseja\n- Peça para usar lógica condicional, imagens ou fake loading"
-          }]);
-        }
-      });
-    } catch (err: any) {
-      console.error("Erro geral:", err);
-      setChatMsgs(prev => [...prev, {
-        id: Date.now().toString(),
-        role: "assistant",
-        content: "❌ Erro ao conectar com a IA. Verifique sua conexão e tente novamente."
-      }]);
-    }
-    setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
-  };
-
   const { data: funnels } = useFunnels();
   const { data: crmStages } = useStages(crmFunnelId);
 
@@ -252,22 +127,12 @@ Retorne APENAS o JSON puro, sem markdown ou explicações.`;
     if (data) setQuizzes(data as any as Quiz[]);
   };
 
-  const loadAnalytics = async (quizId: string) => {
-    const { data } = await supabase
-      .from("quiz_analytics")
-      .select("*")
-      .eq("quiz_id", quizId)
-      .order("created_at", { ascending: true });
-    if (data) setAnalytics(data);
-  };
-
   const openQuiz = (q: Quiz) => {
     setActiveQuiz(q);
     setTitle(q.title);
     setSlug(q.slug);
     setDescription(q.description || "");
     setLogoUrl(q.logo_url || "");
-    setLogoPosition(q.logo_position);
     setTheme(q.theme || DEFAULT_THEME);
     setQuestions(q.questions || []);
     setCrmFunnelId(q.crm_funnel_id);
@@ -277,15 +142,13 @@ Retorne APENAS o JSON puro, sem markdown ou explicações.`;
     setWebhookUrl(q.webhook_url || "");
     setCustomScripts(q.custom_scripts || "");
     setSettings(q.settings || DEFAULT_SETTINGS);
-    setTab("editor");
-    loadAnalytics(q.id);
   };
 
   const saveQuiz = async (publish = false) => {
     setIsSaving(true);
     try {
       const payload: any = {
-        title, slug, description, logo_url: logoUrl, logo_position: logoPosition,
+        title, slug, description, logo_url: logoUrl,
         theme, questions, status: publish ? "published" : (activeQuiz?.status || "draft"),
         crm_funnel_id: crmFunnelId, crm_stage_id: crmStageId,
         meta_pixel_id: metaPixel, ga_id: gaId,
@@ -330,75 +193,157 @@ Retorne APENAS o JSON puro, sem markdown ou explicações.`;
     setQuestions(questions.filter(q => q.id !== id));
   };
 
-  const renderAnalytics = () => {
-    // Basic drop-off calculation
-    const viewsByStep = analytics.reduce((acc: any, curr) => {
-      if (curr.event_type === 'view') {
-        acc[curr.step_id] = (acc[curr.step_id] || 0) + 1;
-      }
-      return acc;
-    }, {});
+  const handleChat = async () => {
+    if (!chatInput.trim()) return;
+    const userMsg: ChatMsg = { id: Date.now().toString(), role: "user", content: chatInput };
+    setChatMsgs(prev => [...prev, userMsg]);
+    const input = chatInput;
+    setChatInput("");
 
-    const totalViews = viewsByStep['start'] || 0;
+    const systemPrompt = `Você é um especialista em criação de quizzes de alta conversão (benchmark: Inlead).
 
+Gere um Quiz em formato JSON com suporte completo às seguintes funcionalidades:
+
+1. LÓGICA CONDICIONAL (Branching):
+   - Cada pergunta pode ter um array 'logic' com regras
+   - Formato: { "action": "go_to" | "finish", "destination": "id_da_proxima_pergunta", "condition_value": "valor_selecionado" }
+
+2. TIPOS DE PERGUNTAS SUPORTADOS:
+   - "multiple_choice": Opções de seleção única
+   - "image_grid": Grade de imagens (2-4 opções visuais com URLs)
+   - "text": Texto longo
+   - "email": Captura de email
+   - "phone": Captura de telefone
+
+3. ESTRUTURA JSON ESPERADA:
+{
+  "title": "Nome do Quiz",
+  "description": "Descrição curta",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "multiple_choice" | "image_grid" | "text" | "email" | "phone",
+      "title": "Pergunta aqui",
+      "options": ["Opção 1", "Opção 2"],
+      "image_options": [{"label": "Opção 1", "url": "https://..."}, ...],
+      "required": true,
+      "logic": [
+        {"action": "go_to", "destination": "q2", "condition_value": "Opção 1"},
+        {"action": "finish", "condition_value": "Opção 2"}
+      ]
+    }
+  ]
+}
+
+Pedido do usuário: "${input}"
+
+Retorne APENAS o JSON puro, sem markdown.`;
+
+    try {
+      let fullRaw = "";
+      await generatePage(systemPrompt, (delta) => { fullRaw += delta; }, () => {
+        if (!fullRaw.trim()) {
+          setChatMsgs(prev => [...prev, {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: "❌ Erro: Nenhuma resposta recebida da IA. Tente novamente."
+          }]);
+          return;
+        }
+
+        try {
+          const cleaned = fullRaw.replace(/\`\`\`json?\s*/g, "").replace(/\`\`\`/g, "").trim();
+          const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+          
+          if (!jsonMatch) throw new Error("JSON não encontrado");
+
+          const parsed = JSON.parse(jsonMatch[0]);
+          
+          if (!parsed.questions || !Array.isArray(parsed.questions)) {
+            throw new Error("Estrutura inválida");
+          }
+
+          if (parsed.title) setTitle(parsed.title);
+          if (parsed.description) setDescription(parsed.description);
+          
+          setQuestions(parsed.questions.map((q: any, i: number) => ({
+            id: q.id || `q${i}`,
+            type: q.type || "multiple_choice",
+            title: q.title || "",
+            options: q.options || [],
+            image_options: q.image_options || [],
+            required: q.required !== false,
+            logic: q.logic || []
+          })));
+
+          setChatMsgs(prev => [...prev, {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: `✅ Quiz gerado! ${parsed.questions?.length || 0} perguntas criadas. Veja o preview ao lado!`
+          }]);
+        } catch (err: any) {
+          console.error("Erro ao parsear:", err);
+          setChatMsgs(prev => [...prev, {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: "❌ Erro ao processar. Tente descrever de forma mais clara."
+          }]);
+        }
+      });
+    } catch (err: any) {
+      console.error("Erro geral:", err);
+      setChatMsgs(prev => [...prev, {
+        id: Date.now().toString(),
+        role: "assistant",
+        content: "❌ Erro ao conectar com a IA."
+      }]);
+    }
+    
+    setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+  };
+
+  if (!activeQuiz) {
     return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-3 gap-4">
-          <div className="p-4 rounded-xl bg-secondary/30 border border-border/40">
-            <p className="text-xs text-muted-foreground mb-1 uppercase font-bold">Total de Inícios</p>
-            <p className="text-2xl font-black">{totalViews}</p>
-          </div>
-          <div className="p-4 rounded-xl bg-secondary/30 border border-border/40">
-            <p className="text-xs text-muted-foreground mb-1 uppercase font-bold">Leads Gerados</p>
-            <p className="text-2xl font-black text-primary">{viewsByStep['lead_capture'] || 0}</p>
-          </div>
-          <div className="p-4 rounded-xl bg-secondary/30 border border-border/40">
-            <p className="text-xs text-muted-foreground mb-1 uppercase font-bold">Taxa de Conversão</p>
-            <p className="text-2xl font-black">{totalViews > 0 ? ((viewsByStep['lead_capture'] || 0) / totalViews * 100).toFixed(1) : 0}%</p>
-          </div>
-        </div>
+      <div className="h-[calc(100vh-120px)] flex flex-col -m-6 bg-background">
+        <div className="flex-1 overflow-y-auto p-8">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-2xl font-black">Meus Quizzes</h2>
+              <Button onClick={() => { setActiveQuiz({} as any); setTitle("Novo Quiz"); setQuestions([]); }} className="gap-2">
+                <Plus className="w-4 h-4" /> Novo Quiz
+              </Button>
+            </div>
 
-        <div className="space-y-4">
-          <h4 className="font-bold text-sm flex items-center gap-2"><BarChart3 className="w-4 h-4" /> Funil de Drop-off</h4>
-          <div className="space-y-2">
-            {['start', ...questions.map(q => q.id), 'lead_capture'].map((step, i) => {
-              const count = viewsByStep[step] || 0;
-              const percent = totalViews > 0 ? (count / totalViews * 100) : 0;
-              const stepLabel = step === 'start' ? 'Início' : step === 'lead_capture' ? 'Captura Lead' : questions.find(q => q.id === step)?.title || step;
-              
-              return (
-                <div key={step} className="relative h-12 flex items-center px-4 rounded-lg bg-secondary/20 overflow-hidden">
-                  <div className="absolute left-0 top-0 h-full bg-primary/10 transition-all" style={{ width: `${percent}%` }} />
-                  <div className="flex-1 flex justify-between items-center z-10">
-                    <span className="text-xs font-medium truncate max-w-[70%]">{i + 1}. {stepLabel}</span>
-                    <span className="text-xs font-bold">{count} ({percent.toFixed(0)}%)</span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {quizzes.map(q => (
+                <div key={q.id} onClick={() => openQuiz(q)} className="p-6 rounded-2xl border border-border/40 hover:border-border cursor-pointer transition-all space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="font-bold text-lg mb-1">{q.title}</h3>
+                      <p className="text-xs text-muted-foreground">{q.questions?.length || 0} perguntas</p>
+                    </div>
+                    <span className={`px-2 py-1 rounded text-[10px] font-bold ${q.status === "published" ? "bg-emerald-500/10 text-emerald-500" : "bg-muted text-muted-foreground"}`}>
+                      {q.status === "published" ? "LIVE" : "DRAFT"}
+                    </span>
                   </div>
+                  <p className="text-sm opacity-70 line-clamp-2">{q.description}</p>
                 </div>
-              );
-            })}
+              ))}
+            </div>
           </div>
         </div>
       </div>
     );
-  };
+  }
 
   return (
-    <div className="h-[calc(100vh-120px)] flex flex-col -m-6 bg-background">
-      {/* Top Toolbar */}
+    <div className="h-[calc(100vh-120px)] flex flex-col -m-6 bg-background overflow-hidden">
+      {/* Top Bar */}
       <div className="h-14 border-b border-border flex items-center justify-between px-6 bg-background z-20">
         <div className="flex items-center gap-4">
-          <div className="flex bg-secondary/50 p-1 rounded-lg border border-border/40">
-            {[
-              { id: "editor", label: "Perguntas", icon: ListChecks },
-              { id: "theme", label: "Design", icon: Palette },
-              { id: "settings", label: "Configurações", icon: Settings },
-              { id: "analytics", label: "Analytics", icon: BarChart3 },
-            ].map(t => (
-              <button key={t.id} onClick={() => setTab(t.id as any)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${tab === t.id ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"}`}>
-                <t.icon className="w-3.5 h-3.5" /> {t.label}
-              </button>
-            ))}
+          <button onClick={() => setActiveQuiz(null)} className="text-sm font-bold opacity-60 hover:opacity-100">← Voltar</button>
+          <div className="flex-1 flex items-center gap-2">
+            <input value={title} onChange={e => setTitle(e.target.value)} className="text-lg font-bold bg-transparent outline-none border-b border-transparent focus:border-primary/30 pb-1" />
           </div>
         </div>
 
@@ -407,278 +352,80 @@ Retorne APENAS o JSON puro, sem markdown ou explicações.`;
             <Eye className="w-4 h-4" /> Visualizar
           </Button>
           <Button size="sm" onClick={() => saveQuiz(true)} disabled={isSaving} className="gap-2 h-9 font-bold bg-primary text-primary-foreground">
-            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Publicar Quiz
+            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Publicar
           </Button>
         </div>
       </div>
 
+      {/* Main Layout: Editor (Left) + Preview (Right) */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Main Content Area */}
-        <div className="flex-1 overflow-y-auto p-8 bg-secondary/10">
-          <div className="max-w-3xl mx-auto">
-            {tab === "editor" && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xl font-black">Estrutura do Quiz</h3>
-                  <div className="flex gap-2">
-                    {QUESTION_TYPES.map(type => (
-                      <Button key={type.value} variant="outline" size="sm" onClick={() => addQuestion(type.value as any)} className="h-8 text-[10px] gap-1.5">
-                        <type.icon className="w-3 h-3" /> {type.label}
-                      </Button>
-                    ))}
+        {/* Editor Panel */}
+        <div className="w-1/2 flex flex-col border-r border-border overflow-hidden">
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            <div className="space-y-4">
+              <h3 className="text-lg font-black">Perguntas</h3>
+              <div className="flex gap-2 flex-wrap">
+                {QUESTION_TYPES.map(type => (
+                  <Button key={type.value} variant="outline" size="sm" onClick={() => addQuestion(type.value as any)} className="h-8 text-[10px] gap-1">
+                    <type.icon className="w-3 h-3" /> {type.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {questions.map((q, idx) => (
+                <div key={q.id} className="bg-secondary/20 border border-border/40 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <input 
+                      value={q.title} 
+                      onChange={e => updateQuestion(q.id, { title: e.target.value })}
+                      className="flex-1 bg-transparent font-bold outline-none border-b border-transparent focus:border-primary/30"
+                    />
+                    <button onClick={() => removeQuestion(q.id)} className="text-destructive hover:text-destructive/80">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
-                </div>
 
-                {questions.length === 0 && (
-                  <div className="p-12 border-2 border-dashed border-border/40 rounded-3xl text-center space-y-4">
-                    <Sparkles className="w-10 h-10 text-primary/40 mx-auto" />
-                    <p className="text-muted-foreground">Seu quiz está vazio. Use a IA ao lado ou adicione perguntas manualmente.</p>
-                  </div>
-                )}
-
-                <div className="space-y-4">
-                  {questions.map((q, idx) => (
-                    <div key={q.id} className="group bg-background border border-border/40 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all">
-                      <div className="flex items-start gap-4">
-                        <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-xs font-bold shrink-0">{idx + 1}</div>
-                        <div className="flex-1 space-y-4">
-                          <div className="flex items-center justify-between gap-4">
-                            <input 
-                              value={q.title} 
-                              onChange={e => updateQuestion(q.id, { title: e.target.value })}
-                              placeholder="Título da pergunta..."
-                              className="flex-1 bg-transparent text-lg font-bold outline-none border-b border-transparent focus:border-primary/30 pb-1"
-                            />
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeQuestion(q.id)}><Trash2 className="w-4 h-4" /></Button>
-                            </div>
-                          </div>
-
-                          {/* Options for Choice Types */}
-                          {(q.type === "multiple_choice" || q.type === "image_grid") && (
-                            <div className="space-y-3">
-                              <div className="grid grid-cols-2 gap-3">
-                                {q.type === "multiple_choice" && q.options?.map((opt, oIdx) => (
-                                  <div key={oIdx} className="flex items-center gap-2 bg-secondary/30 p-2 rounded-xl border border-border/20">
-                                    <input 
-                                      value={opt} 
-                                      onChange={e => {
-                                        const newOpts = [...(q.options || [])];
-                                        newOpts[oIdx] = e.target.value;
-                                        updateQuestion(q.id, { options: newOpts });
-                                      }}
-                                      className="flex-1 bg-transparent text-sm outline-none px-2"
-                                    />
-                                    <button onClick={() => {
-                                      const newOpts = q.options?.filter((_, i) => i !== oIdx);
-                                      updateQuestion(q.id, { options: newOpts });
-                                    }} className="text-muted-foreground hover:text-destructive"><X className="w-3.5 h-3.5" /></button>
-                                  </div>
-                                ))}
-                                {q.type === "image_grid" && q.image_options?.map((opt, oIdx) => (
-                                  <div key={oIdx} className="space-y-2 bg-secondary/30 p-3 rounded-xl border border-border/20">
-                                    <input 
-                                      value={opt.url} 
-                                      onChange={e => {
-                                        const newOpts = [...(q.image_options || [])];
-                                        newOpts[oIdx] = { ...opt, url: e.target.value };
-                                        updateQuestion(q.id, { image_options: newOpts });
-                                      }}
-                                      placeholder="URL da Imagem"
-                                      className="w-full bg-background/50 text-[10px] p-1.5 rounded border border-border/20 outline-none"
-                                    />
-                                    <div className="flex items-center gap-2">
-                                      <input 
-                                        value={opt.label} 
-                                        onChange={e => {
-                                          const newOpts = [...(q.image_options || [])];
-                                          newOpts[oIdx] = { ...opt, label: e.target.value };
-                                          updateQuestion(q.id, { image_options: newOpts });
-                                        }}
-                                        placeholder="Rótulo"
-                                        className="flex-1 bg-transparent text-xs outline-none"
-                                      />
-                                      <button onClick={() => {
-                                        const newOpts = q.image_options?.filter((_, i) => i !== oIdx);
-                                        updateQuestion(q.id, { image_options: newOpts });
-                                      }} className="text-muted-foreground hover:text-destructive"><X className="w-3.5 h-3.5" /></button>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                              <Button variant="ghost" size="sm" onClick={() => {
-                                if (q.type === "multiple_choice") updateQuestion(q.id, { options: [...(q.options || []), "Nova Opção"] });
-                                else updateQuestion(q.id, { image_options: [...(q.image_options || []), { label: "Nova Opção", url: "" }] });
-                              }} className="text-[10px] h-7 gap-1.5 opacity-60 hover:opacity-100">
-                                <Plus className="w-3 h-3" /> Adicionar Opção
-                              </Button>
-                            </div>
-                          )}
-
-                          {/* Logic Editor */}
-                          <div className="pt-4 border-t border-border/30">
-                            <h5 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2">
-                              <Split className="w-3 h-3" /> Lógica Condicional
-                            </h5>
-                            <div className="space-y-2">
-                              {q.logic?.map((l, lIdx) => (
-                                <div key={lIdx} className="flex items-center gap-2 text-xs bg-secondary/20 p-2 rounded-lg">
-                                  <span>Se responder</span>
-                                  <select 
-                                    value={l.condition_value} 
-                                    onChange={e => {
-                                      const newLogic = [...(q.logic || [])];
-                                      newLogic[lIdx].condition_value = e.target.value;
-                                      updateQuestion(q.id, { logic: newLogic });
-                                    }}
-                                    className="bg-background border border-border/40 rounded px-1.5 py-0.5 outline-none"
-                                  >
-                                    <option value="">Escolha...</option>
-                                    {q.options?.map(o => <option key={o} value={o}>{o}</option>)}
-                                    {q.image_options?.map(o => <option key={o.label} value={o.label}>{o.label}</option>)}
-                                  </select>
-                                  <span>então</span>
-                                  <select 
-                                    value={l.action} 
-                                    onChange={e => {
-                                      const newLogic = [...(q.logic || [])];
-                                      newLogic[lIdx].action = e.target.value as any;
-                                      updateQuestion(q.id, { logic: newLogic });
-                                    }}
-                                    className="bg-background border border-border/40 rounded px-1.5 py-0.5 outline-none"
-                                  >
-                                    <option value="go_to">Ir para</option>
-                                    <option value="finish">Finalizar (Lead)</option>
-                                  </select>
-                                  {l.action === "go_to" && (
-                                    <select 
-                                      value={l.destination} 
-                                      onChange={e => {
-                                        const newLogic = [...(q.logic || [])];
-                                        newLogic[lIdx].destination = e.target.value;
-                                        updateQuestion(q.id, { logic: newLogic });
-                                      }}
-                                      className="bg-background border border-border/40 rounded px-1.5 py-0.5 outline-none"
-                                    >
-                                      <option value="">Próxima Pergunta</option>
-                                      {questions.filter(qu => qu.id !== q.id).map(qu => <option key={qu.id} value={qu.id}>{qu.title}</option>)}
-                                      <option value="lead_capture">Captura de Lead</option>
-                                    </select>
-                                  )}
-                                  <button onClick={() => {
-                                    const newLogic = q.logic?.filter((_, i) => i !== lIdx);
-                                    updateQuestion(q.id, { logic: newLogic });
-                                  }} className="ml-auto text-muted-foreground hover:text-destructive"><X className="w-3 h-3" /></button>
-                                </div>
-                              ))}
-                              <Button variant="ghost" size="sm" onClick={() => {
-                                updateQuestion(q.id, { logic: [...(q.logic || []), { action: "go_to", condition_value: "" }] });
-                              }} className="text-[10px] h-6 gap-1 opacity-50">
-                                <Plus className="w-2.5 h-2.5" /> Adicionar Regra
-                              </Button>
-                            </div>
-                          </div>
+                  {q.type === "multiple_choice" && (
+                    <div className="space-y-2">
+                      {q.options?.map((opt, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                          <input value={opt} onChange={e => {
+                            const newOpts = [...(q.options || [])];
+                            newOpts[i] = e.target.value;
+                            updateQuestion(q.id, { options: newOpts });
+                          }} className="flex-1 bg-background/50 border border-border/40 rounded px-2 py-1 text-xs outline-none" />
+                          <button onClick={() => {
+                            const newOpts = q.options?.filter((_, idx) => idx !== i);
+                            updateQuestion(q.id, { options: newOpts });
+                          }} className="text-muted-foreground hover:text-destructive"><X className="w-3 h-3" /></button>
                         </div>
-                      </div>
+                      ))}
+                      <Button variant="ghost" size="sm" onClick={() => updateQuestion(q.id, { options: [...(q.options || []), "Nova Opção"] })} className="text-[10px] h-6 gap-1">
+                        <Plus className="w-3 h-3" /> Opção
+                      </Button>
                     </div>
-                  ))}
+                  )}
                 </div>
-              </div>
-            )}
+              ))}
+            </div>
+          </div>
+        </div>
 
-            {tab === "theme" && (
-              <div className="max-w-lg mx-auto space-y-8">
-                <div className="space-y-4">
-                  <h4 className="font-black text-sm uppercase tracking-widest flex items-center gap-2"><Palette className="w-4 h-4" /> Cores & Tipografia</h4>
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold opacity-60">Cor de Fundo</label>
-                      <div className="flex gap-2">
-                        <input type="color" value={theme.bgColor} onChange={e => setTheme({...theme, bgColor: e.target.value})} className="w-10 h-10 rounded-lg bg-transparent border-0" />
-                        <input value={theme.bgColor} onChange={e => setTheme({...theme, bgColor: e.target.value})} className="flex-1 bg-secondary/50 border border-border/40 rounded-lg px-3 text-xs outline-none" />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold opacity-60">Cor Primária (Botões)</label>
-                      <div className="flex gap-2">
-                        <input type="color" value={theme.buttonColor} onChange={e => setTheme({...theme, buttonColor: e.target.value})} className="w-10 h-10 rounded-lg bg-transparent border-0" />
-                        <input value={theme.buttonColor} onChange={e => setTheme({...theme, buttonColor: e.target.value})} className="flex-1 bg-secondary/50 border border-border/40 rounded-lg px-3 text-xs outline-none" />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold opacity-60">Família da Fonte (Google Fonts)</label>
-                    <select value={theme.fontFamily} onChange={e => setTheme({...theme, fontFamily: e.target.value})} className="w-full bg-secondary/50 border border-border/40 rounded-lg p-3 text-sm outline-none">
-                      {["Inter", "Space Grotesk", "Poppins", "Montserrat", "Outfit", "DM Sans"].map(f => <option key={f} value={f}>{f}</option>)}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="space-y-4 pt-8 border-t border-border/30">
-                  <h4 className="font-black text-sm uppercase tracking-widest flex items-center gap-2"><Image className="w-4 h-4" /> Identidade Visual</h4>
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold opacity-60">URL do Logo</label>
-                    <input value={logoUrl} onChange={e => setLogoUrl(e.target.value)} placeholder="https://..." className="w-full bg-secondary/50 border border-border/40 rounded-lg p-3 text-sm outline-none" />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {tab === "settings" && (
-              <div className="max-w-lg mx-auto space-y-8">
-                <div className="space-y-6">
-                  <h4 className="font-black text-sm uppercase tracking-widest flex items-center gap-2"><Zap className="w-4 h-4 text-yellow-500" /> Gamificação & UX</h4>
-                  <div className="space-y-4 bg-secondary/20 p-6 rounded-2xl border border-border/40">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-bold">Avanço Automático</p>
-                        <p className="text-[10px] text-muted-foreground">Pular para próxima pergunta ao selecionar opção</p>
-                      </div>
-                      <input type="checkbox" checked={settings.auto_advance} onChange={e => setSettings({...settings, auto_advance: e.target.checked})} className="w-5 h-5 accent-primary" />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-bold">Fake Loading (Processamento)</p>
-                        <p className="text-[10px] text-muted-foreground">Simular análise de dados antes do resultado</p>
-                      </div>
-                      <input type="checkbox" checked={settings.enable_fake_loading} onChange={e => setSettings({...settings, enable_fake_loading: e.target.checked})} className="w-5 h-5 accent-primary" />
-                    </div>
-                    {settings.enable_fake_loading && (
-                      <input value={settings.fake_loading_text} onChange={e => setSettings({...settings, fake_loading_text: e.target.value})} className="w-full bg-background/50 border border-border/40 rounded-lg px-3 py-2 text-xs outline-none" />
-                    )}
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-bold">Escassez: Cronômetro</p>
-                        <p className="text-[10px] text-muted-foreground">Exibir contagem regressiva de urgência</p>
-                      </div>
-                      <input type="checkbox" checked={settings.enable_timer} onChange={e => setSettings({...settings, enable_timer: e.target.checked})} className="w-5 h-5 accent-primary" />
-                    </div>
-                    {settings.enable_timer && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs opacity-60">Segundos:</span>
-                        <input type="number" value={settings.timer_seconds} onChange={e => setSettings({...settings, timer_seconds: parseInt(e.target.value)})} className="w-24 bg-background/50 border border-border/40 rounded-lg px-3 py-1.5 text-xs outline-none" />
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-6 pt-8 border-t border-border/30">
-                  <h4 className="font-black text-sm uppercase tracking-widest flex items-center gap-2"><Webhook className="w-4 h-4 text-primary" /> Integrações & Webhooks</h4>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold opacity-60">Webhook URL (POST JSON)</label>
-                      <input value={webhookUrl} onChange={e => setWebhookUrl(e.target.value)} placeholder="https://seu-crm.com/webhook" className="w-full bg-secondary/50 border border-border/40 rounded-lg p-3 text-sm outline-none" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold opacity-60">Scripts Customizados (Head)</label>
-                      <textarea value={customScripts} onChange={e => setCustomScripts(e.target.value)} placeholder="Insira seus pixels de TikTok, Facebook, etc..." rows={4} className="w-full bg-secondary/50 border border-border/40 rounded-lg p-3 text-xs font-mono outline-none resize-none" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {tab === "analytics" && renderAnalytics()}
+        {/* Preview Panel */}
+        <div className="w-1/2 flex flex-col border-r border-border bg-secondary/10 overflow-hidden">
+          <div className="flex-1 overflow-auto flex items-center justify-center p-6">
+            <div className="w-full h-full bg-background rounded-xl shadow-lg overflow-hidden border border-border/40">
+              <QuizPreview
+                title={title}
+                description={description}
+                logoUrl={logoUrl}
+                questions={questions}
+                theme={theme}
+                settings={settings}
+              />
+            </div>
           </div>
         </div>
 
@@ -693,12 +440,12 @@ Retorne APENAS o JSON puro, sem markdown ou explicações.`;
               <div className="text-center py-6 space-y-4">
                 <Sparkles className="w-10 h-10 mx-auto text-primary/40" />
                 <div className="space-y-2">
-                  <p className="text-xs font-black uppercase tracking-tighter">Templates Rapidos</p>
+                  <p className="text-xs font-black uppercase tracking-tighter">Templates Rápidos</p>
                   <div className="space-y-2">
                     {[
-                      { name: "Captacao Estetica", prompt: "Crie um quiz de captacao de leads para clinica de estetica com 4 perguntas sobre tipo de pele, tratamentos de interesse, faixa etaria e orcamento. Use logica condicional para rotear para diferentes resultados baseado no orcamento." },
-                      { name: "Qualificacao B2B", prompt: "Crie um quiz para qualificar leads B2B com perguntas sobre tamanho da empresa, orcamento mensal, principal dor e urgencia. Use imagens para as opcoes de tamanho de empresa." },
-                      { name: "Fitness", prompt: "Crie um quiz para personal trainer com perguntas sobre objetivo (imagens de corpos), frequencia de treino, experiencia e disponibilidade. Ative o fake loading e timer para gerar urgencia." },
+                      { name: "Estética", prompt: "Crie um quiz de captacao para clinica de estetica com 4 perguntas sobre tipo de pele, tratamentos e orcamento. Use logica condicional." },
+                      { name: "B2B", prompt: "Quiz para qualificar leads B2B com perguntas sobre tamanho da empresa, orcamento e urgencia. Use imagens para opcoes." },
+                      { name: "Fitness", prompt: "Quiz para personal trainer com 5 perguntas sobre objetivo, frequencia de treino e disponibilidade. Ative fake loading e timer." },
                     ].map((t, i) => (
                       <button key={i} onClick={() => { setChatInput(t.prompt); }} className="block w-full text-left px-3 py-2 rounded-lg bg-secondary/50 hover:bg-secondary text-[10px] font-bold transition-colors text-primary">
                         {t.name}
@@ -719,7 +466,7 @@ Retorne APENAS o JSON puro, sem markdown ou explicações.`;
               <div className="flex justify-start">
                 <div className="bg-secondary p-3 rounded-2xl flex items-center gap-2">
                   <Loader2 className="w-3 h-3 animate-spin text-primary" />
-                  <span className="text-[10px] font-bold">Gerando lógica...</span>
+                  <span className="text-[10px] font-bold">Gerando...</span>
                 </div>
               </div>
             )}
