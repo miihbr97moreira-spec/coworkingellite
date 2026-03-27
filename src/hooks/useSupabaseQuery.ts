@@ -65,6 +65,7 @@ export const useStages = (funnelId: string | null) =>
       if (error) throw error;
       return data;
     },
+    enabled: !!funnelId,
   });
 
 // Leads for a funnel (pass null for all leads)
@@ -78,6 +79,7 @@ export const useLeads = (funnelId: string | null) =>
       if (error) throw error;
       return data;
     },
+    enabled: !!funnelId,
   });
 
 // Lead notes

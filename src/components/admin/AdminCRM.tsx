@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Plus, Loader2, GripVertical, X, MessageSquare, DollarSign, Phone, Mail, MoreVertical, Search, LayoutGrid, List, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -194,7 +194,9 @@ const AdminCRM = () => {
   const qc = useQueryClient();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
-  if (funnels?.length && !selectedFunnel) setSelectedFunnel(funnels[0].id);
+  useEffect(() => {
+    if (funnels?.length && !selectedFunnel) setSelectedFunnel(funnels[0].id);
+  }, [funnels, selectedFunnel]);
 
   const filteredLeads = useMemo(() => {
     if (!leads) return [];

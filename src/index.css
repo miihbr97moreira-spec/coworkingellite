@@ -100,6 +100,13 @@
     @apply bg-gradient-to-r from-amber-300 via-yellow-300 to-amber-300 bg-clip-text text-transparent;
   }
 
+  .text-gradient-terracota {
+    background: linear-gradient(135deg, #D97757, #E8956F, #D97757);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
   .glow-gold {
     @apply shadow-lg shadow-amber-500/20;
   }
@@ -160,4 +167,13 @@
   .delay-200 {
     animation-delay: 200ms;
   }
+}
+
+/* Admin-only theme override: Terracota accent */
+.admin-theme {
+  --primary: 18 65% 60%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 18 65% 60%;
+  --accent-foreground: 0 0% 100%;
+  --ring: 18 65% 60%;
 }

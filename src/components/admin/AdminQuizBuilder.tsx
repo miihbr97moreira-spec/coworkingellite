@@ -140,35 +140,49 @@ const AdminQuizBuilder = () => {
 
   const saveQuiz = async (publish = false) => {
     if (!title.trim()) return toast.error("Título obrigatório");
+    if (questions.length === 0 && publish) return toast.error("Adicione pelo menos uma pergunta para publicar");
     setIsSaving(true);
     try {
       const finalSlug = slug.trim()
-        ? slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-")
-        : title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-") + "-" + Date.now().toString(36);
+        ? slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/^-|-$/g, "")
+        : title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + "-" + Date.now().toString(36);
 
-      const payload = {
+      const payload: any = {
         title, slug: finalSlug, description: description || null,
         logo_url: logoUrl || null, logo_position: logoPosition,
         theme: theme as any, questions: questions as any,
         status: publish ? "published" : (activeQuiz?.status || "draft"),
-        crm_funnel_id: crmFunnelId, crm_stage_id: crmStageId,
+        crm_funnel_id: crmFunnelId || null, crm_stage_id: crmStageId || null,
         meta_pixel_id: metaPixel, ga_id: gaId,
       };
 
       if (activeQuiz) {
-        await supabase.from("quizzes").update(payload).eq("id", activeQuiz.id);
+        const { error } = await supabase.from("quizzes").update(payload).eq("id", activeQuiz.id);
+        if (error) throw error;
         toast.success(publish ? "Quiz publicado!" : "Quiz salvo!");
       } else {
         const { data: user } = await supabase.auth.getUser();
-        const { error } = await supabase.from("quizzes").insert({ ...payload, created_by: user?.user?.id });
-        if (error) throw error;
+        payload.created_by = user?.user?.id;
+        const { data, error } = await supabase.from("quizzes").insert(payload).select().single();
+        if (error) {
+          if (error.message?.includes("duplicate") || error.code === "23505") {
+            payload.slug = finalSlug + "-" + Date.now().toString(36);
+            const { error: e2 } = await supabase.from("quizzes").insert(payload).select().single();
+            if (e2) throw e2;
+          } else throw error;
+        }
         toast.success(publish ? "Quiz criado e publicado!" : "Quiz salvo!");
       }
-      setSlug(finalSlug);
+      setSlug(payload.slug || finalSlug);
       await loadQuizzes();
-    } catch (err) {
+      // Re-open the quiz to set activeQuiz
+      if (!activeQuiz) {
+        const { data: latest } = await supabase.from("quizzes").select("*").eq("slug", payload.slug || finalSlug).single();
+        if (latest) openQuiz(latest as any);
+      }
+    } catch (err: any) {
       console.error(err);
-      toast.error("Erro ao salvar quiz");
+      toast.error(err?.message || "Erro ao salvar quiz");
     } finally {
       setIsSaving(false);
     }

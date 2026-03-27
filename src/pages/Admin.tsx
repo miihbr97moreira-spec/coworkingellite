@@ -1,18 +1,18 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
-  BarChart3, Type, Megaphone, MessageCircle, LogOut,
-  Settings, Users, Kanban, ListChecks, PanelLeftClose, PanelLeft,
+  BarChart3, Type, Megaphone, LogOut,
+  Settings, Users, Kanban, ListChecks, PanelLeftClose, PanelLeft, Globe2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import AdminDashboardExpanded from "@/components/admin/AdminDashboardExpanded";
 import AdminBuilderOmni from "@/components/admin/AdminBuilderOmni";
 import AdminPixelManager from "@/components/admin/AdminPixelManager";
-import AdminLinkRedirecionamento from "@/components/admin/AdminLinkRedirecionamento";
 import AdminCRM from "@/components/admin/AdminCRM";
 import AdminReviews from "@/components/admin/AdminReviews";
 import AdminQuizBuilder from "@/components/admin/AdminQuizBuilder";
+import AdminDomains from "@/components/admin/AdminDomains";
 
 const tabs = [
   { id: "dashboard", label: "Dashboard", icon: BarChart3 },
@@ -20,11 +20,11 @@ const tabs = [
   { id: "quiz", label: "Quiz Builder", icon: ListChecks },
   { id: "reviews", label: "Avaliações", icon: Users },
   { id: "pixels", label: "Pixels", icon: Megaphone },
-  { id: "cta", label: "Link Redir.", icon: MessageCircle },
   { id: "crm", label: "CRM", icon: Kanban },
+  { id: "domains", label: "Domínios", icon: Globe2 },
 ];
 
-const SIDEBAR_KEY = "ellite_sidebar_collapsed";
+const SIDEBAR_KEY = "omni_sidebar_collapsed";
 
 const Admin = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -61,12 +61,12 @@ const Admin = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-background flex admin-theme">
       <aside className={`border-r border-border bg-secondary/30 flex flex-col shrink-0 transition-all duration-300 ${collapsed ? "w-16" : "w-64"}`}>
         <div className="p-4 border-b border-border flex items-center justify-between">
           {!collapsed && (
             <div>
-              <span className="font-display text-xl font-bold text-gradient-gold">ELLITE</span>
+              <span className="font-display text-lg font-bold text-gradient-terracota">Omni Builder</span>
               <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                 <Settings className="w-3 h-3" /> Painel Admin
               </p>
@@ -101,7 +101,6 @@ const Admin = () => {
         </nav>
 
         <div className="p-3 border-t border-border">
-          {!collapsed && <p className="text-xs text-muted-foreground mb-2 truncate">{user.email}</p>}
           <button
             onClick={logout}
             title={collapsed ? "Sair" : undefined}
@@ -126,8 +125,8 @@ const Admin = () => {
           {activeTab === "quiz" && <AdminQuizBuilder />}
           {activeTab === "reviews" && <AdminReviews />}
           {activeTab === "pixels" && <AdminPixelManager />}
-          {activeTab === "cta" && <AdminLinkRedirecionamento />}
           {activeTab === "crm" && <AdminCRM />}
+          {activeTab === "domains" && <AdminDomains />}
         </motion.div>
       </main>
     </div>

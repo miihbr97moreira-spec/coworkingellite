@@ -69,8 +69,8 @@ const CANVAS_SCRIPT_RAW = `
   if(window.__builderInjected) return;
   window.__builderInjected = true;
   document.addEventListener('click', function(e){
-    var el = e.target.closest('a,button');
-    if(el && el.tagName==='A'){ e.preventDefault(); e.stopPropagation(); }
+    var el = e.target.closest('a,button,[onclick]');
+    if(el){ e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); }
     var t = e.target;
     document.querySelectorAll('[data-builder-selected]').forEach(function(s){
       s.style.outline=''; s.removeAttribute('data-builder-selected');

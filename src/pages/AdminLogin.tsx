@@ -26,7 +26,7 @@ const AdminLogin = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background grid-bg flex items-center justify-center px-4">
+    <div className="min-h-screen bg-background grid-bg flex items-center justify-center px-4 admin-theme">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -36,7 +36,7 @@ const AdminLogin = () => {
           <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
             <Lock className="w-8 h-8 text-primary" />
           </div>
-          <h1 className="font-display text-2xl font-bold text-gradient-gold">Admin Ellite</h1>
+          <h1 className="font-display text-2xl font-bold text-gradient-terracota">Omni Builder CRM</h1>
           <p className="text-sm text-muted-foreground mt-2">Acesse o painel de administração</p>
         </div>
 
@@ -75,10 +75,6 @@ const AdminLogin = () => {
             Entrar
           </motion.button>
         </form>
-
-        <p className="text-xs text-muted-foreground text-center mt-6">
-          Primeiro acesso? Crie sua conta com: ellitecoworking@gmail.com
-        </p>
       </motion.div>
     </div>
   );
