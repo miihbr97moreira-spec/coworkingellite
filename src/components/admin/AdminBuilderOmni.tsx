@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Save, Loader2, Monitor, Tablet, Smartphone, Layout,
@@ -100,42 +100,33 @@ const CANVAS_SCRIPT_RAW = `
       configPath: t.getAttribute('data-path') || t.closest('[data-path]')?.getAttribute('data-path') || ''
     };
     window.parent.postMessage({type:'BUILDER_SELECT',payload:info},'*');
-  }, true);
-  window.addEventListener('message', function(e){
-    if(!e.data||!e.data.type) return;
-    var d=e.data;
-    if(d.type==='BUILDER_UPDATE_TEXT'){
-      var el=document.querySelector('[data-builder-selected]');
-      if(el) el.innerText=d.value;
+  });
+  window.addEventListener('message',function(e){
+    if(!e.data.type) return;
+    if(e.data.type==='BUILDER_UPDATE_TEXT'){
+      var xpath=e.data.value.xpath;
+      var el=document.evaluate(xpath,document,null,XPathResult.FIRST_ORDERED_NODE_TYPE,null).singleNodeValue;
+      if(el) el.innerText=e.data.value.text;
     }
-    if(d.type==='BUILDER_UPDATE_SRC'){
-      var el=document.querySelector('[data-builder-selected]');
-      if(el){if(el.tagName==='IMG')el.src=d.value;else{var img=el.querySelector('img');if(img)img.src=d.value;}}
+    if(e.data.type==='BUILDER_UPDATE_SRC'){
+      var el=document.evaluate(e.data.value.xpath,document,null,XPathResult.FIRST_ORDERED_NODE_TYPE,null).singleNodeValue;
+      if(el&&el.tagName==='IMG') el.src=e.data.value.src;
+      else if(el) el.querySelector('img').src=e.data.value.src;
     }
-    if(d.type==='BUILDER_UPDATE_HREF'){
-      var el=document.querySelector('[data-builder-selected]');
-      if(el){if(el.tagName==='A')el.href=d.value;else{var a=el.closest('a');if(a)a.href=d.value;}}
+    if(e.data.type==='BUILDER_UPDATE_HREF'){
+      var el=document.evaluate(e.data.value.xpath,document,null,XPathResult.FIRST_ORDERED_NODE_TYPE,null).singleNodeValue;
+      if(el&&el.tagName==='A') el.href=e.data.value.href;
+      else if(el) el.closest('a').href=e.data.value.href;
     }
-    if(d.type==='BUILDER_ADD_CLASS'){
-      var el=document.querySelector('[data-builder-selected]');
-      if(el) el.classList.add(d.value);
+    if(e.data.type==='BUILDER_ADD_CLASS'){
+      var el=document.evaluate(e.data.value.xpath,document,null,XPathResult.FIRST_ORDERED_NODE_TYPE,null).singleNodeValue;
+      if(el) el.classList.add(e.data.value.cls);
     }
-    if(d.type==='BUILDER_REMOVE_CLASS'){
-      var el=document.querySelector('[data-builder-selected]');
-      if(el) el.classList.remove(d.value);
-    }
-    if(d.type==='BUILDER_SET_STYLE'){
-      var el=document.querySelector('[data-builder-selected]');
-      if(el) el.style[d.prop]=d.value;
-    }
-    if(d.type==='BUILDER_DELETE'){
-      var el=document.querySelector('[data-builder-selected]');
+    if(e.data.type==='BUILDER_DELETE'){
+      var el=document.evaluate(e.data.value.xpath,document,null,XPathResult.FIRST_ORDERED_NODE_TYPE,null).singleNodeValue;
       if(el) el.remove();
     }
-    if(d.type==='BUILDER_GET_HTML'){
-      document.querySelectorAll('[data-builder-selected]').forEach(function(s){
-        s.style.outline=''; s.removeAttribute('data-builder-selected');
-      });
+    if(e.data.type==='BUILDER_GET_HTML'){
       window.parent.postMessage({type:'BUILDER_HTML',html:document.documentElement.outerHTML},'*');
     }
   });
@@ -299,20 +290,41 @@ const AdminBuilderOmni = ({ isLegacyLP = false }: AdminBuilderOmniProps) => {
     if (!chatInput.trim() || aiLoading) return;
     const userMsg: Message = { id: Date.now().toString(), role: "user", content: chatInput, timestamp: new Date() };
     setChatMessages(p => [...p, userMsg]);
+    const userPrompt = chatInput;
     setChatInput("");
 
     try {
-      const res = await processPrompt(chatInput, generatedHtml);
-      const assistantMsg: Message = { id: (Date.now() + 1).toString(), role: "assistant", content: res, timestamp: new Date() };
-      setChatMessages(p => [...p, assistantMsg]);
-      const { html } = cleanAIPayload(res);
-      if (html && html.length > 100) {
-        const newHtml = injectScript(html);
-        setGeneratedHtml(newHtml);
-        setHtmlHistory(p => [...p.slice(0, historyIdx + 1), newHtml]);
-        setHistoryIdx(h => h + 1);
+      // Se não há HTML gerado ainda, cria uma página nova
+      if (!generatedHtml || generatedHtml.trim() === "") {
+        setIsGenerating(true);
+        const res = await generatePage(userPrompt);
+        const assistantMsg: Message = { id: (Date.now() + 1).toString(), role: "assistant", content: "Página criada com sucesso! Você pode fazer alterações agora.", timestamp: new Date() };
+        setChatMessages(p => [...p, assistantMsg]);
+        const { html } = cleanAIPayload(res);
+        if (html && html.length > 100) {
+          const newHtml = injectScript(html);
+          setGeneratedHtml(newHtml);
+          setHtmlHistory([newHtml]);
+          setHistoryIdx(0);
+          toast.success("Página gerada com sucesso!");
+        }
+        setIsGenerating(false);
+      } else {
+        // Se já existe HTML, faz alteração incremental
+        const res = await processPrompt(userPrompt, generatedHtml);
+        const assistantMsg: Message = { id: (Date.now() + 1).toString(), role: "assistant", content: res, timestamp: new Date() };
+        setChatMessages(p => [...p, assistantMsg]);
+        const { html } = cleanAIPayload(res);
+        if (html && html.length > 100) {
+          const newHtml = injectScript(html);
+          setGeneratedHtml(newHtml);
+          setHtmlHistory(p => [...p.slice(0, historyIdx + 1), newHtml]);
+          setHistoryIdx(h => h + 1);
+          toast.success("Alteração realizada!");
+        }
       }
     } catch (err) {
+      console.error(err);
       toast.error("Erro ao processar comando da IA");
     }
   };
@@ -603,7 +615,7 @@ const AdminBuilderOmni = ({ isLegacyLP = false }: AdminBuilderOmniProps) => {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent opacity-30" />
           <AnimatePresence mode="wait">
             {isGenerating ? (
-              <motion.div 
+              <motion.div
                 key="gen"
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                 className="flex flex-col items-center gap-6 z-10"
@@ -617,8 +629,8 @@ const AdminBuilderOmni = ({ isLegacyLP = false }: AdminBuilderOmniProps) => {
                   <p className="text-white/40 animate-pulse">A Inteligência Artificial está escrevendo o código agora.</p>
                 </div>
               </motion.div>
-            ) : mode === "generate" ? (
-              <motion.div 
+            ) : !generatedHtml ? (
+              <motion.div
                 key="empty"
                 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
                 className="max-w-xl w-full z-10 space-y-8"
@@ -647,7 +659,7 @@ const AdminBuilderOmni = ({ isLegacyLP = false }: AdminBuilderOmniProps) => {
                 </div>
               </motion.div>
             ) : (
-              <motion.div 
+              <motion.div
                 key="canvas"
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                 style={{ width: viewport === 'desktop' ? '100%' : viewport === 'tablet' ? '768px' : '375px' }}
@@ -685,7 +697,7 @@ const AdminBuilderOmni = ({ isLegacyLP = false }: AdminBuilderOmniProps) => {
               {chatMessages.map(m => (
                 <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[85%] p-3 rounded-2xl text-sm ${m.role === 'user' ? 'bg-primary text-black font-medium' : 'bg-white/10 text-white border border-white/10'}`}>
-                    <ReactMarkdown className="prose prose-invert prose-sm max-w-none">{m.content}</ReactMarkdown>
+                    <ReactMarkdown>{m.content}</ReactMarkdown>
                   </div>
                 </div>
               ))}
@@ -715,114 +727,114 @@ const AdminBuilderOmni = ({ isLegacyLP = false }: AdminBuilderOmniProps) => {
             </form>
           </div>
         )}
-      </main>
 
-      {/* ── Floating Editor (when element selected) ── */}
-      <AnimatePresence>
-        {selectedEl && (
-          <motion.div 
-            initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
-            className="w-80 border-l border-white/10 bg-[#050505] flex flex-col shrink-0 z-30"
-          >
-            <div className="p-4 border-b border-white/10 flex items-center justify-between bg-white/5">
-              <h3 className="font-bold text-xs uppercase tracking-widest text-white/60">Editor de Elemento</h3>
-              <Button variant="ghost" size="icon" onClick={() => setSelectedEl(null)} className="h-8 w-8 text-white/40 hover:text-white">
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-5 space-y-8 custom-scrollbar">
-              {/* Text Content */}
-              {!selectedEl.isImage && (
-                <div className="space-y-3">
-                  <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
-                    <Type className="w-3 h-3" /> Conteúdo do Texto
-                  </label>
-                  <textarea 
-                    value={editText}
-                    onChange={e => { setEditText(e.target.value); updateCanvas("BUILDER_UPDATE_TEXT", e.target.value); }}
-                    rows={4}
-                    className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm focus:border-primary/50 outline-none resize-none"
-                  />
-                </div>
-              )}
-
-              {/* Image Source */}
-              {selectedEl.isImage && (
-                <div className="space-y-4">
-                  <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
-                    <Image className="w-3 h-3" /> Fonte da Imagem
-                  </label>
-                  <div className="flex flex-col gap-3">
-                    <div className="w-full aspect-video bg-black/40 rounded-xl border border-white/10 overflow-hidden flex items-center justify-center group relative">
-                      <img src={editSrc} alt="Preview" className="w-full h-full object-contain p-2" />
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <Button size="sm" variant="secondary" onClick={() => fileInputRef.current?.click()}>Trocar Imagem</Button>
-                      </div>
-                    </div>
-                    <input type="text" value={editSrc} onChange={e => { setEditSrc(e.target.value); updateCanvas("BUILDER_UPDATE_SRC", e.target.value); }} className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs outline-none" placeholder="https://..." />
-                    <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
-                  </div>
-                </div>
-              )}
-
-              {/* Link Action */}
-              {selectedEl.isLink && (
-                <div className="space-y-4">
-                  <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
-                    <Link2 className="w-3 h-3" /> Ação do Link
-                  </label>
-                  <div className="grid grid-cols-3 gap-1 bg-white/5 p-1 rounded-lg border border-white/10">
-                    <button onClick={() => setLinkAction("url")} className={`text-[10px] py-2 rounded-md transition-all ${linkAction === 'url' ? 'bg-primary text-black font-bold' : 'text-white/40 hover:text-white'}`}>URL</button>
-                    <button onClick={() => setLinkAction("anchor")} className={`text-[10px] py-2 rounded-md transition-all ${linkAction === 'anchor' ? 'bg-primary text-black font-bold' : 'text-white/40 hover:text-white'}`}>Âncora</button>
-                    <button onClick={() => setLinkAction("whatsapp")} className={`text-[10px] py-2 rounded-md transition-all ${linkAction === 'whatsapp' ? 'bg-primary text-black font-bold' : 'text-white/40 hover:text-white'}`}>Whats</button>
-                  </div>
-
-                  {linkAction === "url" && (
-                    <Input value={editHref} onChange={e => { setEditHref(e.target.value); updateCanvas("BUILDER_UPDATE_HREF", e.target.value); }} placeholder="https://..." className="bg-black/40 border-white/10 rounded-xl" />
-                  )}
-                  {linkAction === "anchor" && (
-                    <Input value={editHref} onChange={e => { setEditHref(e.target.value); updateCanvas("BUILDER_UPDATE_HREF", e.target.value); }} placeholder="#secao" className="bg-black/40 border-white/10 rounded-xl" />
-                  )}
-                  {linkAction === "whatsapp" && (
-                    <div className="space-y-3">
-                      <Input placeholder="5511999999999" value={waNumber} onChange={e => {
-                        const n = e.target.value; setWaNumber(n);
-                        const url = `https://wa.me/${n}?text=${encodeURIComponent(waMessage)}`;
-                        setEditHref(url); updateCanvas("BUILDER_UPDATE_HREF", url);
-                      }} className="bg-black/40 border-white/10 rounded-xl" />
-                      <textarea placeholder="Olá, gostaria de saber mais..." value={waMessage} onChange={e => {
-                        const m = e.target.value; setWaMessage(m);
-                        const url = `https://wa.me/${waNumber}?text=${encodeURIComponent(m)}`;
-                        setEditHref(url); updateCanvas("BUILDER_UPDATE_HREF", url);
-                      }} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm focus:border-primary/50 outline-none resize-none" rows={3} />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Advanced Styling */}
-              <div className="space-y-4 pt-4 border-t border-white/10">
-                <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
-                  <Palette className="w-3 h-3" /> Estilização Rápida
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button variant="outline" size="sm" className="text-[10px] border-white/10 h-8" onClick={() => updateCanvas("BUILDER_ADD_CLASS", "rounded-full")}>Arredondar</Button>
-                  <Button variant="outline" size="sm" className="text-[10px] border-white/10 h-8" onClick={() => updateCanvas("BUILDER_ADD_CLASS", "shadow-2xl")}>Sombra</Button>
-                  <Button variant="outline" size="sm" className="text-[10px] border-white/10 h-8" onClick={() => updateCanvas("BUILDER_ADD_CLASS", "font-bold")}>Negrito</Button>
-                  <Button variant="outline" size="sm" className="text-[10px] border-white/10 h-8" onClick={() => updateCanvas("BUILDER_ADD_CLASS", "uppercase")}>Caixa Alta</Button>
-                </div>
-              </div>
-
-              {/* Danger Zone */}
-              <div className="pt-4 border-t border-white/10">
-                <Button variant="destructive" size="sm" className="w-full text-[10px] gap-2 h-9" onClick={() => { if(confirm('Excluir este elemento?')){ updateCanvas("BUILDER_DELETE", null); setSelectedEl(null); } }}>
-                  <Trash2 className="h-3 w-3" /> Excluir Elemento
+        {/* ── Right Sidebar: Element Editor ── */}
+        <AnimatePresence>
+          {selectedEl && (
+            <motion.div 
+              initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
+              className="w-80 border-l border-white/10 bg-[#050505] flex flex-col shrink-0 z-30"
+            >
+              <div className="p-4 border-b border-white/10 flex items-center justify-between bg-white/5">
+                <h3 className="font-bold text-xs uppercase tracking-widest text-white/60">Editor de Elemento</h3>
+                <Button variant="ghost" size="icon" onClick={() => setSelectedEl(null)} className="h-8 w-8 text-white/40 hover:text-white">
+                  <X className="h-4 w-4" />
                 </Button>
               </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              <div className="flex-1 overflow-y-auto p-5 space-y-8 custom-scrollbar">
+                {/* Text Content */}
+                {!selectedEl.isImage && (
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
+                      <Type className="w-3 h-3" /> Conteúdo do Texto
+                    </label>
+                    <textarea 
+                      value={editText}
+                      onChange={e => { setEditText(e.target.value); updateCanvas("BUILDER_UPDATE_TEXT", e.target.value); }}
+                      rows={4}
+                      className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm focus:border-primary/50 outline-none resize-none"
+                    />
+                  </div>
+                )}
+
+                {/* Image Source */}
+                {selectedEl.isImage && (
+                  <div className="space-y-4">
+                    <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
+                      <Image className="w-3 h-3" /> Fonte da Imagem
+                    </label>
+                    <div className="flex flex-col gap-3">
+                      <div className="w-full aspect-video bg-black/40 rounded-xl border border-white/10 overflow-hidden flex items-center justify-center group relative">
+                        <img src={editSrc} alt="Preview" className="w-full h-full object-contain p-2" />
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <Button size="sm" variant="secondary" onClick={() => fileInputRef.current?.click()}>Trocar Imagem</Button>
+                        </div>
+                      </div>
+                      <input type="text" value={editSrc} onChange={e => { setEditSrc(e.target.value); updateCanvas("BUILDER_UPDATE_SRC", e.target.value); }} className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs outline-none" placeholder="https://..." />
+                      <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
+                    </div>
+                  </div>
+                )}
+
+                {/* Link Action */}
+                {selectedEl.isLink && (
+                  <div className="space-y-4">
+                    <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
+                      <Link2 className="w-3 h-3" /> Ação do Link
+                    </label>
+                    <div className="grid grid-cols-3 gap-1 bg-white/5 p-1 rounded-lg border border-white/10">
+                      <button onClick={() => setLinkAction("url")} className={`text-[10px] py-2 rounded-md transition-all ${linkAction === 'url' ? 'bg-primary text-black font-bold' : 'text-white/40 hover:text-white'}`}>URL</button>
+                      <button onClick={() => setLinkAction("anchor")} className={`text-[10px] py-2 rounded-md transition-all ${linkAction === 'anchor' ? 'bg-primary text-black font-bold' : 'text-white/40 hover:text-white'}`}>Âncora</button>
+                      <button onClick={() => setLinkAction("whatsapp")} className={`text-[10px] py-2 rounded-md transition-all ${linkAction === 'whatsapp' ? 'bg-primary text-black font-bold' : 'text-white/40 hover:text-white'}`}>Whats</button>
+                    </div>
+
+                    {linkAction === "url" && (
+                      <Input value={editHref} onChange={e => { setEditHref(e.target.value); updateCanvas("BUILDER_UPDATE_HREF", e.target.value); }} placeholder="https://..." className="bg-black/40 border-white/10 rounded-xl" />
+                    )}
+                    {linkAction === "anchor" && (
+                      <Input value={editHref} onChange={e => { setEditHref(e.target.value); updateCanvas("BUILDER_UPDATE_HREF", e.target.value); }} placeholder="#secao" className="bg-black/40 border-white/10 rounded-xl" />
+                    )}
+                    {linkAction === "whatsapp" && (
+                      <div className="space-y-3">
+                        <Input placeholder="5511999999999" value={waNumber} onChange={e => {
+                          const n = e.target.value; setWaNumber(n);
+                          const url = `https://wa.me/${n}?text=${encodeURIComponent(waMessage)}`;
+                          setEditHref(url); updateCanvas("BUILDER_UPDATE_HREF", url);
+                        }} className="bg-black/40 border-white/10 rounded-xl" />
+                        <textarea placeholder="Olá, gostaria de saber mais..." value={waMessage} onChange={e => {
+                          const m = e.target.value; setWaMessage(m);
+                          const url = `https://wa.me/${waNumber}?text=${encodeURIComponent(m)}`;
+                          setEditHref(url); updateCanvas("BUILDER_UPDATE_HREF", url);
+                        }} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm focus:border-primary/50 outline-none resize-none" rows={3} />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Advanced Styling */}
+                <div className="space-y-4 pt-4 border-t border-white/10">
+                  <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
+                    <Palette className="w-3 h-3" /> Estilização Rápida
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button variant="outline" size="sm" className="text-[10px] border-white/10 h-8" onClick={() => updateCanvas("BUILDER_ADD_CLASS", "rounded-full")}>Arredondar</Button>
+                    <Button variant="outline" size="sm" className="text-[10px] border-white/10 h-8" onClick={() => updateCanvas("BUILDER_ADD_CLASS", "shadow-2xl")}>Sombra</Button>
+                    <Button variant="outline" size="sm" className="text-[10px] border-white/10 h-8" onClick={() => updateCanvas("BUILDER_ADD_CLASS", "font-bold")}>Negrito</Button>
+                    <Button variant="outline" size="sm" className="text-[10px] border-white/10 h-8" onClick={() => updateCanvas("BUILDER_ADD_CLASS", "uppercase")}>Caixa Alta</Button>
+                  </div>
+                </div>
+
+                {/* Danger Zone */}
+                <div className="pt-4 border-t border-white/10">
+                  <Button variant="destructive" size="sm" className="w-full text-[10px] gap-2 h-9" onClick={() => { if(confirm('Excluir este elemento?')){ updateCanvas("BUILDER_DELETE", null); setSelectedEl(null); } }}>
+                    <Trash2 className="h-3 w-3" /> Excluir Elemento
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </main>
 
       {/* ── Modals ── */}
       <Dialog open={byokOpen} onOpenChange={setBYOKOpen}>
@@ -837,7 +849,7 @@ const AdminBuilderOmni = ({ isLegacyLP = false }: AdminBuilderOmniProps) => {
               <select value={byok.provider} onChange={e => setBYOK(p => ({ ...p, provider: e.target.value }))} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-primary/50">
                 <option value="openai">OpenAI (GPT-4o)</option>
                 <option value="anthropic">Anthropic (Claude 3.5 Sonnet)</option>
-                <option value="groq">Groq (Llama 3 70B)</option>
+                <option value="groq">Groq (Mixtral 8x7b)</option>
               </select>
             </div>
             <div className="space-y-2">
