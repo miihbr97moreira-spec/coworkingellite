@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   MessageCircle, Webhook, Brain, ChevronRight, Loader2, AlertCircle,
-  CheckCircle2, Circle, Settings2, Zap
+  CheckCircle2, Circle, Settings2, Zap, BarChart3, Bell
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -11,6 +11,10 @@ import OmniFlowWhatsApp from "./OmniFlow/OmniFlowWhatsApp";
 import OmniFlowWebhooks from "./OmniFlow/OmniFlowWebhooks";
 import OmniFlowAgent from "./OmniFlow/OmniFlowAgent";
 import OmniFlowBuilder from "./OmniFlow/OmniFlowBuilder";
+import Integrations from "./OmniFlow/Integrations";
+import Inbox from "./OmniFlow/Inbox";
+import Analytics from "./OmniFlow/Analytics";
+import NotificationCenter from "./OmniFlow/NotificationCenter";
 import TooltipHelp from "@/components/ui/tooltip-help";
 
 interface IntegrationStatus {
@@ -20,7 +24,7 @@ interface IntegrationStatus {
 }
 
 const OmniFlow = React.forwardRef<HTMLDivElement>((_, ref) => {
-  const [activeModule, setActiveModule] = useState<string | null>(null);
+  const [activeModule, setActiveModule] = useState<string>("dashboard");
   const [status, setStatus] = useState<IntegrationStatus>({
     whatsapp: "disconnected",
     webhooks: "inactive",
@@ -112,25 +116,43 @@ const OmniFlow = React.forwardRef<HTMLDivElement>((_, ref) => {
     );
   }
 
+  // Renderizar módulos específicos
   if (activeModule === "whatsapp") {
-    return <OmniFlowWhatsApp onBack={() => { setActiveModule(null); loadIntegrationStatus(); }} />;
+    return <OmniFlowWhatsApp onBack={() => { setActiveModule("dashboard"); loadIntegrationStatus(); }} />;
   }
 
   if (activeModule === "webhooks") {
-    return <OmniFlowWebhooks onBack={() => { setActiveModule(null); loadIntegrationStatus(); }} />;
+    return <OmniFlowWebhooks onBack={() => { setActiveModule("dashboard"); loadIntegrationStatus(); }} />;
   }
 
   if (activeModule === "agent") {
-    return <OmniFlowAgent onBack={() => { setActiveModule(null); loadIntegrationStatus(); }} />;
+    return <OmniFlowAgent onBack={() => { setActiveModule("dashboard"); loadIntegrationStatus(); }} />;
   }
 
   if (activeModule === "builder") {
-    return <OmniFlowBuilder onBack={() => { setActiveModule(null); loadIntegrationStatus(); }} />;
+    return <OmniFlowBuilder onBack={() => { setActiveModule("dashboard"); loadIntegrationStatus(); }} />;
   }
 
+  if (activeModule === "integrations") {
+    return <Integrations onBack={() => { setActiveModule("dashboard"); }} />;
+  }
+
+  if (activeModule === "inbox") {
+    return <Inbox onBack={() => { setActiveModule("dashboard"); }} />;
+  }
+
+  if (activeModule === "analytics") {
+    return <Analytics onBack={() => { setActiveModule("dashboard"); }} />;
+  }
+
+  if (activeModule === "notifications") {
+    return <NotificationCenter onBack={() => { setActiveModule("dashboard"); }} />;
+  }
+
+  // Dashboard principal
   return (
     <div ref={ref} className="space-y-8">
-      {/* Header */}
+      {/* Header com Navegação */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
           <div className="p-2 rounded-lg bg-gradient-to-br from-[#D97757]/20 to-[#D97757]/10 border border-[#D97757]/30">
@@ -142,6 +164,48 @@ const OmniFlow = React.forwardRef<HTMLDivElement>((_, ref) => {
         <p className="text-sm text-muted-foreground mt-2">
           Hub central de integrações e automações para seu projeto. Conecte WhatsApp, configure webhooks e ative sua IA.
         </p>
+
+        {/* Navigation Tabs */}
+        <div className="flex gap-2 mt-6 flex-wrap">
+          <Button
+            variant={activeModule === "dashboard" ? "default" : "outline"}
+            onClick={() => setActiveModule("dashboard")}
+            className={activeModule === "dashboard" ? "bg-[#D97757]" : ""}
+          >
+            Dashboard
+          </Button>
+          <Button
+            variant={activeModule === "inbox" ? "default" : "outline"}
+            onClick={() => setActiveModule("inbox")}
+            className={activeModule === "inbox" ? "bg-[#D97757]" : ""}
+          >
+            <MessageCircle className="w-4 h-4 mr-2" />
+            Inbox
+          </Button>
+          <Button
+            variant={activeModule === "integrations" ? "default" : "outline"}
+            onClick={() => setActiveModule("integrations")}
+            className={activeModule === "integrations" ? "bg-[#D97757]" : ""}
+          >
+            Integrações
+          </Button>
+          <Button
+            variant={activeModule === "analytics" ? "default" : "outline"}
+            onClick={() => setActiveModule("analytics")}
+            className={activeModule === "analytics" ? "bg-[#D97757]" : ""}
+          >
+            <BarChart3 className="w-4 h-4 mr-2" />
+            Analytics
+          </Button>
+          <Button
+            variant={activeModule === "notifications" ? "default" : "outline"}
+            onClick={() => setActiveModule("notifications")}
+            className={activeModule === "notifications" ? "bg-[#D97757]" : ""}
+          >
+            <Bell className="w-4 h-4 mr-2" />
+            Notificações
+          </Button>
+        </div>
       </div>
 
       {/* Status Overview */}
