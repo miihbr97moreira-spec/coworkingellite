@@ -350,15 +350,29 @@ function nextQ(i){var slides=document.querySelectorAll('.q-slide');if(i<slides.l
               <p className="text-[10px] text-muted-foreground truncate">/quiz/{q.slug}</p>
               <div className="flex items-center gap-1 mt-2">
                 <button onClick={e => { e.stopPropagation(); copySlug(q.slug); }}
-                  className="p-1 rounded hover:bg-secondary text-muted-foreground">
+                  className="p-1 rounded hover:bg-secondary text-muted-foreground" title="Copiar link">
                   {copiedSlug === q.slug ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
                 </button>
                 <button onClick={e => { e.stopPropagation(); window.open(`/quiz/${q.slug}`, "_blank"); }}
-                  className="p-1 rounded hover:bg-secondary text-muted-foreground">
+                  className="p-1 rounded hover:bg-secondary text-muted-foreground" title="Abrir">
                   <ExternalLink className="w-3 h-3" />
                 </button>
+                <button onClick={e => { e.stopPropagation(); openQuiz(q); }}
+                  className="p-1 rounded hover:bg-secondary text-muted-foreground" title="Editar">
+                  <Settings className="w-3 h-3" />
+                </button>
+                {q.status === "published" && (
+                  <button onClick={async e => {
+                    e.stopPropagation();
+                    await supabase.from("quizzes").update({ status: "draft" }).eq("id", q.id);
+                    loadQuizzes();
+                    toast.success("Quiz despublicado");
+                  }} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-amber-500" title="Despublicar">
+                    <Eye className="w-3 h-3" />
+                  </button>
+                )}
                 <button onClick={e => { e.stopPropagation(); deleteQuiz(q.id); }}
-                  className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-destructive ml-auto">
+                  className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-destructive ml-auto" title="Excluir">
                   <Trash2 className="w-3 h-3" />
                 </button>
               </div>
