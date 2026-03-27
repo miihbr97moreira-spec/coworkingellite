@@ -16,10 +16,24 @@ const AdminLogin = () => {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const { error } = await signIn(email, password);
+
+    const { error } = await signIn(email.trim(), password);
     setLoading(false);
+
     if (error) {
-      setError("E-mail ou senha incorretos");
+      // Mensagens de erro amigáveis
+      const msg = error.message?.toLowerCase() ?? "";
+      if (msg.includes("invalid login credentials") || msg.includes("invalid credentials")) {
+        setError("E-mail ou senha incorretos. Verifique suas credenciais.");
+      } else if (msg.includes("email not confirmed")) {
+        setError("E-mail não confirmado. Entre em contato com o administrador.");
+      } else if (msg.includes("user banned") || msg.includes("ban")) {
+        setError("Sua conta está desativada. Entre em contato com o administrador.");
+      } else if (msg.includes("too many requests")) {
+        setError("Muitas tentativas. Aguarde alguns minutos e tente novamente.");
+      } else {
+        setError("Erro ao fazer login. Tente novamente.");
+      }
     } else {
       navigate("/admin");
     }
@@ -50,6 +64,7 @@ const AdminLogin = () => {
               className="w-full px-4 py-3 rounded-xl bg-secondary border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
               placeholder="seu@email.com"
               required
+              autoComplete="email"
             />
           </div>
           <div>
@@ -61,18 +76,23 @@ const AdminLogin = () => {
               className="w-full px-4 py-3 rounded-xl bg-secondary border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
               placeholder="Digite sua senha"
               required
+              autoComplete="current-password"
             />
           </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <div className="bg-destructive/10 border border-destructive/20 rounded-lg px-4 py-3">
+              <p className="text-sm text-destructive">{error}</p>
+            </div>
+          )}
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             type="submit"
             disabled={loading}
-            className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold flex items-center justify-center gap-2"
+            className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold flex items-center justify-center gap-2 disabled:opacity-70"
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-            Entrar
+            {loading ? "Entrando..." : "Entrar"}
           </motion.button>
         </form>
       </motion.div>
