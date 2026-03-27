@@ -66,13 +66,19 @@ const QuizPage = ({ overrideSlug }: { overrideSlug?: string }) => {
         if (data.settings?.enable_timer) {
           setTimeLeft(data.settings.timer_seconds || 300);
         }
-        // Track initial view
-        trackEvent("start", "view");
+        // Track initial view usando quiz_id direto para evitar closure stale
+        await supabase.from("quiz_analytics").insert({
+          quiz_id: data.id,
+          session_id: sessionId,
+          step_id: "start",
+          event_type: "view",
+          metadata: {}
+        });
       }
       setLoading(false);
     };
     load();
-  }, [slug]);
+  }, [slug, sessionId]);
 
   // Timer logic
   useEffect(() => {
@@ -213,8 +219,18 @@ const QuizPage = ({ overrideSlug }: { overrideSlug?: string }) => {
     </div>
   );
 
-  const theme: QuizTheme = quiz.theme || { bgColor: "#0f172a", textColor: "#fff", buttonColor: "#FBBF24", buttonTextColor: "#000", fontFamily: "Inter" };
-  const settings: QuizSettings = quiz.settings || { auto_advance: true, show_progress_bar: true, enable_fake_loading: true, fake_loading_text: "Analisando...", enable_timer: false, timer_seconds: 300, piping_enabled: true };
+  const theme: QuizTheme = { bgColor: "#0f172a", textColor: "#fff", buttonColor: "#FBBF24", buttonTextColor: "#000", fontFamily: "Inter", ...(quiz.theme || {}) };
+  // Merge com defaults usando spread para preservar valores false/0 do banco
+  const settings: QuizSettings = {
+    auto_advance: true,
+    show_progress_bar: true,
+    enable_fake_loading: true,
+    fake_loading_text: "Analisando seu perfil...",
+    enable_timer: false,
+    timer_seconds: 300,
+    piping_enabled: true,
+    ...(quiz.settings ?? {}),
+  };
   
   const currentQuestion = quiz.questions.find((q: any) => q.id === currentStepId);
   const questionIndex = quiz.questions.findIndex((q: any) => q.id === currentStepId);

@@ -3,7 +3,8 @@ import {
   Plus, Trash2, Save, Loader2, Sparkles, Send, Eye, Copy, Check,
   ExternalLink, Image, Palette, Settings, X, Bot, Code,
   ListChecks, MessageSquare, Phone, Mail,
-  LayoutGrid, Timer, Zap, Webhook, BarChart3, ChevronRight, Split, Globe
+  LayoutGrid, Timer, Zap, Webhook, BarChart3, ChevronRight, Split, Globe,
+  Link2, Files, TrendingUp
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -91,9 +92,11 @@ const QUESTION_TYPES = [
 const AdminQuizBuilder = () => {
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [activeQuiz, setActiveQuiz] = useState<Quiz | null>(null);
-  const [tab, setTab] = useState<"editor" | "theme" | "settings" | "analytics">("editor");
+  const [tab, setTab] = useState<"editor" | "theme" | "settings" | "analytics" | "integrations">("editor");
   const [isSaving, setIsSaving] = useState(false);
   const [analytics, setAnalytics] = useState<any[]>([]);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [submissions, setSubmissions] = useState<any[]>([]);
   
   const [title, setTitle] = useState("Novo Quiz");
   const [slug, setSlug] = useState("");
@@ -127,12 +130,21 @@ const AdminQuizBuilder = () => {
   };
 
   const loadAnalytics = async (quizId: string) => {
-    const { data } = await supabase
-      .from("quiz_analytics")
-      .select("*")
-      .eq("quiz_id", quizId)
-      .order("created_at", { ascending: true });
-    if (data) setAnalytics(data);
+    setAnalyticsLoading(true);
+    const [{ data: analyticsData }, { data: submissionsData }] = await Promise.all([
+      supabase
+        .from("quiz_analytics")
+        .select("*")
+        .eq("quiz_id", quizId)
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("quiz_submissions")
+        .select("id, created_at")
+        .eq("quiz_id", quizId)
+    ]);
+    if (analyticsData) setAnalytics(analyticsData);
+    if (submissionsData) setSubmissions(submissionsData);
+    setAnalyticsLoading(false);
   };
 
   const openQuiz = (q: Quiz) => {
@@ -326,16 +338,87 @@ Retorne APENAS o JSON puro.`;
                   </div>
                   <p className="text-sm opacity-70 line-clamp-2">{q.description}</p>
                   <div className="flex items-center gap-2 pt-2 border-t border-border/20 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={(e) => { e.stopPropagation(); window.open(`/quiz/${q.slug}`, "_blank"); }} className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary" title="Visualizar">
+                    {/* Visualizar no link público */}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); window.open(`/quiz/${q.slug}`, "_blank"); }}
+                      className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
+                      title="Visualizar quiz público"
+                    >
                       <Eye className="w-4 h-4" />
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(window.location.origin + `/quiz/${q.slug}`); }} className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary" title="Copiar link">
-                      <Copy className="w-4 h-4" />
+
+                    {/* Copiar Link — ícone de corrente/link */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigator.clipboard.writeText(window.location.origin + `/quiz/${q.slug}`);
+                        toast.success("Link copiado!", { description: window.location.origin + `/quiz/${q.slug}` });
+                      }}
+                      className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
+                      title="Copiar link público"
+                    >
+                      <Link2 className="w-4 h-4" />
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); const newQ = {...q, id: undefined, title: q.title + " (Cópia)", slug: q.slug + "-" + Date.now()}; setQuizzes([...quizzes, newQ]); }} className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary" title="Duplicar">
-                      <Copy className="w-4 h-4" />
+
+                    {/* Duplicar — ícone de múltiplos arquivos */}
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        const { data } = await supabase.from("quizzes").insert({
+                          title: q.title + " (Cópia)",
+                          slug: q.slug + "-copia-" + Date.now(),
+                          description: q.description,
+                          logo_url: q.logo_url,
+                          logo_position: q.logo_position,
+                          theme: q.theme,
+                          questions: q.questions,
+                          status: "draft",
+                          crm_funnel_id: q.crm_funnel_id,
+                          crm_stage_id: q.crm_stage_id,
+                          meta_pixel_id: q.meta_pixel_id,
+                          ga_id: q.ga_id,
+                          webhook_url: q.webhook_url,
+                          custom_scripts: q.custom_scripts,
+                          settings: q.settings,
+                        }).select().single();
+                        if (data) {
+                          loadQuizzes();
+                          toast.success("Quiz duplicado!", { description: `"${data.title}" criado como rascunho.` });
+                        }
+                      }}
+                      className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
+                      title="Duplicar quiz"
+                    >
+                      <Files className="w-4 h-4" />
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); setQuizzes(quizzes.filter(qq => qq.id !== q.id)); }} className="p-2 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive ml-auto" title="Excluir">
+
+                    {/* Analytics — atalho direto para aba analytics */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openQuiz(q);
+                        setTab("analytics");
+                      }}
+                      className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
+                      title="Ver Analytics"
+                    >
+                      <TrendingUp className="w-4 h-4" />
+                    </button>
+
+                    {/* Excluir */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm(`Excluir "${q.title}"? Esta ação não pode ser desfeita.`)) {
+                          supabase.from("quizzes").delete().eq("id", q.id).then(() => {
+                            loadQuizzes();
+                            toast.success("Quiz excluído.");
+                          });
+                        }
+                      }}
+                      className="p-2 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive ml-auto transition-colors"
+                      title="Excluir quiz"
+                    >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -595,6 +678,135 @@ Retorne APENAS o JSON puro.`;
                 </div>
               </div>
             )}
+
+            {tab === "analytics" && (() => {
+              // Calcular KPIs a partir dos dados reais
+              const uniqueSessions = new Set(analytics.map((a: any) => a.session_id)).size;
+              const totalLeads = submissions.length;
+              const conversionRate = uniqueSessions > 0 ? ((totalLeads / uniqueSessions) * 100).toFixed(1) : "0.0";
+
+              // Calcular drop-off por etapa
+              const stepViews: Record<string, number> = {};
+              analytics.filter((a: any) => a.event_type === "view").forEach((a: any) => {
+                stepViews[a.step_id] = (stepViews[a.step_id] || 0) + 1;
+              });
+
+              // Ordenar etapas: start, perguntas em ordem, lead_capture
+              const orderedStepIds = [
+                "start",
+                ...questions.map(q => q.id),
+                "lead_capture",
+              ].filter(id => stepViews[id] !== undefined);
+
+              const maxViews = Math.max(...Object.values(stepViews), 1);
+
+              return (
+                <div className="space-y-8">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-black">Analytics</h3>
+                    <button
+                      onClick={() => activeQuiz?.id && loadAnalytics(activeQuiz.id)}
+                      className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5 transition-colors"
+                    >
+                      <TrendingUp className="w-3.5 h-3.5" /> Atualizar
+                    </button>
+                  </div>
+
+                  {analyticsLoading ? (
+                    <div className="flex items-center justify-center py-16">
+                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                    </div>
+                  ) : (
+                    <>
+                      {/* KPI Cards */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-5 rounded-2xl border border-border/40 bg-background space-y-1">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Visualizações</p>
+                          <p className="text-3xl font-black">{uniqueSessions.toLocaleString("pt-BR")}</p>
+                          <p className="text-[10px] text-muted-foreground">Sessões únicas iniciadas</p>
+                        </div>
+                        <div className="p-5 rounded-2xl border border-border/40 bg-background space-y-1">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Leads Capturados</p>
+                          <p className="text-3xl font-black text-emerald-500">{totalLeads.toLocaleString("pt-BR")}</p>
+                          <p className="text-[10px] text-muted-foreground">Formulários enviados</p>
+                        </div>
+                        <div className="p-5 rounded-2xl border border-border/40 bg-background space-y-1">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Taxa de Conversão</p>
+                          <p className="text-3xl font-black text-primary">{conversionRate}%</p>
+                          <p className="text-[10px] text-muted-foreground">Sessões → Leads</p>
+                        </div>
+                        <div className="p-5 rounded-2xl border border-border/40 bg-background space-y-1">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Drop-off Médio</p>
+                          <p className="text-3xl font-black text-orange-400">
+                            {uniqueSessions > 0 ? (100 - parseFloat(conversionRate)).toFixed(1) : "0.0"}%
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">Abandonaram sem converter</p>
+                        </div>
+                      </div>
+
+                      {/* Funil de Drop-off por Etapa */}
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-black uppercase tracking-widest text-muted-foreground">Funil por Etapa</h4>
+                        {orderedStepIds.length === 0 ? (
+                          <div className="p-8 rounded-2xl border border-dashed border-border/40 text-center">
+                            <BarChart3 className="w-8 h-8 mx-auto text-muted-foreground/30 mb-3" />
+                            <p className="text-sm text-muted-foreground">Nenhum dado ainda. Compartilhe o link público para começar a coletar dados.</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {orderedStepIds.map((stepId, idx) => {
+                              const views = stepViews[stepId] || 0;
+                              const prevViews = idx > 0 ? (stepViews[orderedStepIds[idx - 1]] || 0) : views;
+                              const dropPct = prevViews > 0 ? (((prevViews - views) / prevViews) * 100).toFixed(0) : "0";
+                              const barWidth = (views / maxViews) * 100;
+                              const stepLabel = stepId === "start" ? "Início" : stepId === "lead_capture" ? "Captura de Lead" : (questions.find(q => q.id === stepId)?.title?.slice(0, 40) || stepId);
+
+                              return (
+                                <div key={stepId} className="space-y-1">
+                                  <div className="flex items-center justify-between text-[10px]">
+                                    <span className="font-medium text-foreground/70 truncate max-w-[60%]">{stepLabel}</span>
+                                    <div className="flex items-center gap-3">
+                                      {idx > 0 && parseInt(dropPct) > 0 && (
+                                        <span className="text-red-400 font-bold">-{dropPct}%</span>
+                                      )}
+                                      <span className="font-black">{views.toLocaleString("pt-BR")} views</span>
+                                    </div>
+                                  </div>
+                                  <div className="h-2 bg-secondary/50 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full rounded-full transition-all duration-700"
+                                      style={{
+                                        width: `${barWidth}%`,
+                                        backgroundColor: stepId === "lead_capture" ? "#10b981" : stepId === "start" ? "#6366f1" : "#FBBF24",
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Últimas conversões */}
+                      {submissions.length > 0 && (
+                        <div className="space-y-3">
+                          <h4 className="text-sm font-black uppercase tracking-widest text-muted-foreground">Últimas Conversões</h4>
+                          <div className="space-y-2">
+                            {submissions.slice(-5).reverse().map((s: any) => (
+                              <div key={s.id} className="flex items-center justify-between p-3 rounded-xl bg-secondary/30 text-xs">
+                                <span className="font-mono text-muted-foreground">{s.id.slice(0, 8)}...</span>
+                                <span className="text-muted-foreground">{new Date(s.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              );
+            })()}
 
             {tab === "integrations" && (
               <div className="space-y-6">
