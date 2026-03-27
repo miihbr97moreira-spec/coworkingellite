@@ -42,6 +42,9 @@ interface QuizTheme {
   buttonColor: string;
   buttonTextColor: string;
   fontFamily: string;
+  // Branding personalizado
+  logoUrl?: string;
+  faviconUrl?: string;
   // Cores adicionais para design premium
   accentColor?: string;
   cardBgColor?: string;
@@ -758,6 +761,48 @@ Retorne APENAS o JSON puro, sem markdown.`;
             {tab === "theme" && (
               <div className="space-y-6">
                 <h3 className="text-xl font-black">Personalização de Design</h3>
+                
+                {/* Branding do Projeto */}
+                <div className="space-y-4 p-4 rounded-xl border border-primary/20 bg-primary/5">
+                  <h4 className="text-sm font-bold flex items-center gap-2">🎨 Branding do Projeto</h4>
+                  
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase">Descrição do Projeto</label>
+                    <textarea
+                      value={description}
+                      onChange={e => setDescription(e.target.value)}
+                      placeholder="Descreva seu quiz em uma frase..."
+                      className="w-full h-20 px-3 py-2 rounded-lg bg-background border border-border text-sm outline-none focus:ring-1 focus:ring-primary/30 resize-none"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase">Logo (URL ou Upload)</label>
+                      <input
+                        type="text"
+                        value={theme.logoUrl || ""}
+                        onChange={e => setTheme({...theme, logoUrl: e.target.value})}
+                        placeholder="https://exemplo.com/logo.png"
+                        className="w-full px-3 py-2 rounded-lg bg-background border border-border text-sm outline-none focus:ring-1 focus:ring-primary/30"
+                      />
+                      <p className="text-[10px] text-muted-foreground">Aparecerá no topo do quiz</p>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase">Favicon (URL)</label>
+                      <input
+                        type="text"
+                        value={theme.faviconUrl || ""}
+                        onChange={e => setTheme({...theme, faviconUrl: e.target.value})}
+                        placeholder="https://exemplo.com/favicon.ico"
+                        className="w-full px-3 py-2 rounded-lg bg-background border border-border text-sm outline-none focus:ring-1 focus:ring-primary/30"
+                      />
+                      <p className="text-[10px] text-muted-foreground">Ícone da aba do navegador</p>
+                    </div>
+                  </div>
+                </div>
+                
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase">Cor de Fundo</label>

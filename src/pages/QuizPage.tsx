@@ -66,6 +66,55 @@ const QuizPage = ({ overrideSlug }: { overrideSlug?: string }) => {
     piping_enabled: true,
   });
 
+  // Injetar favicon e meta tags personalizados
+  useEffect(() => {
+    if (!quiz) return;
+    
+    // Atualizar título da página
+    document.title = quiz.title || "Quiz";
+    
+    // Atualizar favicon
+    if (quiz.theme?.faviconUrl) {
+      let favicon = document.querySelector("link[rel='icon']") as HTMLLinkElement;
+      if (!favicon) {
+        favicon = document.createElement("link");
+        favicon.rel = "icon";
+        document.head.appendChild(favicon);
+      }
+      favicon.href = quiz.theme.faviconUrl;
+    }
+    
+    // Atualizar meta description
+    if (quiz.description) {
+      let metaDesc = document.querySelector("meta[name='description']") as HTMLMetaElement;
+      if (!metaDesc) {
+        metaDesc = document.createElement("meta");
+        metaDesc.name = "description";
+        document.head.appendChild(metaDesc);
+      }
+      metaDesc.content = quiz.description;
+    }
+    
+    // Atualizar og:title e og:description para compartilhamento
+    let ogTitle = document.querySelector("meta[property='og:title']") as HTMLMetaElement;
+    if (!ogTitle) {
+      ogTitle = document.createElement("meta");
+      ogTitle.setAttribute("property", "og:title");
+      document.head.appendChild(ogTitle);
+    }
+    ogTitle.content = quiz.title || "Quiz";
+    
+    if (quiz.description) {
+      let ogDesc = document.querySelector("meta[property='og:description']") as HTMLMetaElement;
+      if (!ogDesc) {
+        ogDesc = document.createElement("meta");
+        ogDesc.setAttribute("property", "og:description");
+        document.head.appendChild(ogDesc);
+      }
+      ogDesc.content = quiz.description;
+    }
+  }, [quiz]);
+
   // Load Quiz Data
   useEffect(() => {
     const load = async () => {
