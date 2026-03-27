@@ -1,10 +1,231 @@
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { 
+  ReactFlow, 
+  Background, 
+  Controls, 
+  MiniMap, 
+  useNodesState, 
+  useEdgesState, 
+  addEdge,
+  Connection,
+  Edge,
+  Node,
+  Panel
+} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/context/AuthContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { AlertCircle, Plus, Trash2, Play, Save } from 'lucide-react';
+import { AlertCircle, Plus, Trash2, Play, Save, Loader2, ArrowLeft } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import {\n  Dialog,\n  DialogContent,\n  DialogDescription,\n  DialogHeader,\n  DialogTitle,\n  DialogTrigger,\n} from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { toast } from "sonner";
 
-interface FlowNode {\n  id: string;\n  type: 'message' | 'action' | 'condition';\n  label: string;\n  x: number;\n  y: number;\n}\n\ninterface ConversationFlow {\n  id: string;\n  name: string;\n  nodes: FlowNode[];\n  status: 'draft' | 'active';\n  created_at: string;\n}\n\nexport default function FlowsTab() {\n  const [flows, setFlows] = useState<ConversationFlow[]>([]);\n  const [isDialogOpen, setIsDialogOpen] = useState(false);\n  const [flowName, setFlowName] = useState('');\n  const [selectedFlow, setSelectedFlow] = useState<ConversationFlow | null>(null);\n  const [canvasNodes, setCanvasNodes] = useState<FlowNode[]>([]);\n\n  const handleCreateFlow = () => {\n    if (!flowName.trim()) {\n      alert('Por favor, insira um nome para o fluxo');\n      return;\n    }\n\n    const newFlow: ConversationFlow = {\n      id: Date.now().toString(),\n      name: flowName,\n      nodes: [],\n      status: 'draft',\n      created_at: new Date().toLocaleDateString('pt-BR'),\n    };\n\n    setFlows((prev) => [...prev, newFlow]);\n    setFlowName('');\n    setIsDialogOpen(false);\n  };\n\n  const handleDeleteFlow = (id: string) => {\n    setFlows((prev) => prev.filter((f) => f.id !== id));\n    if (selectedFlow?.id === id) setSelectedFlow(null);\n  };\n\n  const handleToggleStatus = (id: string) => {\n    setFlows((prev) =>\n      prev.map((f) =>\n        f.id === id\n          ? { ...f, status: f.status === 'draft' ? 'active' : 'draft' }\n          : f\n      )\n    );\n  };\n\n  const handleAddNode = (type: FlowNode['type']) => {\n    if (!selectedFlow) return;\n\n    const newNode: FlowNode = {\n      id: `node-${Date.now()}`,\n      type,\n      label: `${type === 'message' ? 'Mensagem' : type === 'action' ? 'Ação' : 'Condição'} ${canvasNodes.length + 1}`,\n      x: Math.random() * 400,\n      y: Math.random() * 300,\n    };\n\n    setCanvasNodes((prev) => [...prev, newNode]);\n  };\n\n  const handleSaveFlow = () => {\n    if (!selectedFlow) return;\n\n    setFlows((prev) =>\n      prev.map((f) =>\n        f.id === selectedFlow.id\n          ? { ...f, nodes: canvasNodes }\n          : f\n      )\n    );\n    alert('Fluxo salvo com sucesso!');\n  };\n\n  const handleEditFlow = (flow: ConversationFlow) => {\n    setSelectedFlow(flow);\n    setCanvasNodes(flow.nodes);\n  };\n\n  const handleCloseEditor = () => {\n    setSelectedFlow(null);\n    setCanvasNodes([]);\n  };\n\n  return (\n    <div className=\"space-y-6\">\n      {/* Header */}\n      <div className=\"flex items-center justify-between\">\n        <div>\n          <h2 className=\"text-2xl font-bold text-white\">Fluxos de Conversa</h2>\n          <p className=\"text-slate-400\">Construtor visual de fluxos de conversa</p>\n        </div>\n        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>\n          <DialogTrigger asChild>\n            <Button className=\"bg-[#D97757] hover:bg-[#c86647] text-white\">\n              <Plus className=\"w-4 h-4 mr-2\" />\n              Novo Fluxo\n            </Button>\n          </DialogTrigger>\n          <DialogContent className=\"bg-slate-800 border-slate-700\">\n            <DialogHeader>\n              <DialogTitle className=\"text-white\">Criar Novo Fluxo</DialogTitle>\n              <DialogDescription className=\"text-slate-400\">\n                Insira um nome para seu novo fluxo de conversa\n              </DialogDescription>\n            </DialogHeader>\n\n            <div className=\"space-y-4\">\n              <div className=\"space-y-2\">\n                <Label htmlFor=\"flow_name\" className=\"text-slate-300\">\n                  Nome do Fluxo *\n                </Label>\n                <Input\n                  id=\"flow_name\"\n                  value={flowName}\n                  onChange={(e) => setFlowName(e.target.value)}\n                  placeholder=\"Ex: Fluxo de Vendas\"\n                  className=\"bg-slate-700 border-slate-600 text-white\"\n                />\n              </div>\n\n              <div className=\"flex gap-2 pt-4\">\n                <Button\n                  onClick={handleCreateFlow}\n                  className=\"bg-[#D97757] hover:bg-[#c86647] text-white flex-1\"\n                >\n                  Criar\n                </Button>\n                <Button\n                  onClick={() => setIsDialogOpen(false)}\n                  variant=\"outline\"\n                  className=\"border-slate-600 text-slate-300 flex-1\"\n                >\n                  Cancelar\n                </Button>\n              </div>\n            </div>\n          </DialogContent>\n        </Dialog>\n      </div>\n\n      {/* Flow Editor */}\n      {selectedFlow && (\n        <Card className=\"border-[#D97757] bg-slate-800/50\">\n          <CardHeader className=\"border-b border-slate-700\">\n            <div className=\"flex items-center justify-between\">\n              <div>\n                <CardTitle className=\"text-white\">{selectedFlow.name}</CardTitle>\n                <CardDescription className=\"text-slate-400\">\n                  Editor visual de fluxo\n                </CardDescription>\n              </div>\n              <Button\n                onClick={handleCloseEditor}\n                variant=\"ghost\"\n                className=\"text-slate-400\"\n              >\n                ✕\n              </Button>\n            </div>\n          </CardHeader>\n          <CardContent className=\"pt-6 space-y-4\">\n            {/* Canvas */}\n            <div className=\"bg-slate-900 rounded border border-slate-700 p-4 min-h-96 relative\">\n              <div className=\"absolute inset-0 opacity-10\" style={{\n                backgroundImage: 'linear-gradient(0deg, transparent 24%, rgba(255,255,255,.05) 25%, rgba(255,255,255,.05) 26%, transparent 27%, transparent 74%, rgba(255,255,255,.05) 75%, rgba(255,255,255,.05) 76%, transparent 77%, transparent), linear-gradient(90deg, transparent 24%, rgba(255,255,255,.05) 25%, rgba(255,255,255,.05) 26%, transparent 27%, transparent 74%, rgba(255,255,255,.05) 75%, rgba(255,255,255,.05) 76%, transparent 77%, transparent)',\n                backgroundSize: '50px 50px'\n              }}></div>\n              \n              {/* Nodes */}\n              <div className=\"relative z-10\">\n                {canvasNodes.map((node) => (\n                  <div\n                    key={node.id}\n                    className=\"absolute bg-slate-700 border-2 border-slate-600 rounded p-3 min-w-32 cursor-move hover:border-[#D97757] transition\"\n                    style={{\n                      left: `${node.x}px`,\n                      top: `${node.y}px`,\n                    }}\n                  >\n                    <div className=\"text-xs text-slate-300 font-semibold mb-1\">\n                      {node.type === 'message' && '💬'}\n                      {node.type === 'action' && '⚙️'}\n                      {node.type === 'condition' && '🔀'}\n                    </div>\n                    <p className=\"text-white text-sm font-semibold\">{node.label}</p>\n                  </div>\n                ))}\n              </div>\n\n              {canvasNodes.length === 0 && (\n                <div className=\"absolute inset-0 flex items-center justify-center text-slate-500 text-sm\">\n                  Arraste nós do painel lateral para começar\n                </div>\n              )}\n            </div>\n\n            {/* Node Palette */}\n            <div className=\"grid grid-cols-3 gap-2\">\n              <Button\n                onClick={() => handleAddNode('message')}\n                variant=\"outline\"\n                className=\"border-slate-600 text-slate-300 h-auto py-3 flex flex-col items-center gap-1\"\n              >\n                <span className=\"text-lg\">💬</span>\n                <span className=\"text-xs\">Mensagem</span>\n              </Button>\n              <Button\n                onClick={() => handleAddNode('action')}\n                variant=\"outline\"\n                className=\"border-slate-600 text-slate-300 h-auto py-3 flex flex-col items-center gap-1\"\n              >\n                <span className=\"text-lg\">⚙️</span>\n                <span className=\"text-xs\">Ação</span>\n              </Button>\n              <Button\n                onClick={() => handleAddNode('condition')}\n                variant=\"outline\"\n                className=\"border-slate-600 text-slate-300 h-auto py-3 flex flex-col items-center gap-1\"\n              >\n                <span className=\"text-lg\">🔀</span>\n                <span className=\"text-xs\">Condição</span>\n              </Button>\n            </div>\n\n            {/* Actions */}\n            <div className=\"flex gap-2 pt-4\">\n              <Button\n                onClick={handleSaveFlow}\n                className=\"bg-[#D97757] hover:bg-[#c86647] text-white flex-1\"\n              >\n                <Save className=\"w-4 h-4 mr-2\" />\n                Salvar Fluxo\n              </Button>\n              <Button\n                variant=\"outline\"\n                className=\"border-slate-600 text-slate-300 flex-1\"\n              >\n                <Play className=\"w-4 h-4 mr-2\" />\n                Testar\n              </Button>\n            </div>\n          </CardContent>\n        </Card>\n      )}\n\n      {/* Flows List */}\n      <div className=\"space-y-4\">\n        {flows.length === 0 ? (\n          <Alert className=\"border-slate-700 bg-slate-800/50\">\n            <AlertCircle className=\"h-4 w-4 text-[#D97757]\" />\n            <AlertDescription className=\"text-slate-300\">\n              Nenhum fluxo criado. Clique em \"Novo Fluxo\" para começar.\n            </AlertDescription>\n          </Alert>\n        ) : (\n          flows.map((flow) => (\n            <Card key={flow.id} className=\"border-slate-700 bg-slate-800/50\">\n              <CardContent className=\"pt-6\">\n                <div className=\"flex items-start justify-between\">\n                  <div className=\"flex-1\">\n                    <div className=\"flex items-center gap-2\">\n                      <h3 className=\"text-lg font-semibold text-white\">{flow.name}</h3>\n                      <span\n                        className={`px-2 py-1 rounded text-xs font-semibold ${\n                          flow.status === 'active'\n                            ? 'bg-green-900/30 text-green-300'\n                            : 'bg-yellow-900/30 text-yellow-300'\n                        }`}\n                      >\n                        {flow.status === 'active' ? 'Ativo' : 'Rascunho'}\n                      </span>\n                    </div>\n                    <p className=\"text-sm text-slate-400 mt-1\">\n                      {flow.nodes.length} nós • Criado em: {flow.created_at}\n                    </p>\n                  </div>\n                  <div className=\"flex gap-2\">\n                    <Button\n                      onClick={() => handleEditFlow(flow)}\n                      variant=\"outline\"\n                      className=\"border-slate-600 text-slate-300\"\n                    >\n                      Editar\n                    </Button>\n                    <Button\n                      onClick={() => handleToggleStatus(flow.id)}\n                      variant=\"outline\"\n                      className={`border-slate-600 ${\n                        flow.status === 'active'\n                          ? 'text-green-400'\n                          : 'text-yellow-400'\n                      }`}\n                    >\n                      {flow.status === 'active' ? 'Desativar' : 'Ativar'}\n                    </Button>\n                    <Button\n                      onClick={() => handleDeleteFlow(flow.id)}\n                      variant=\"outline\"\n                      className=\"border-red-600 text-red-400 hover:bg-red-950\"\n                    >\n                      <Trash2 className=\"w-4 h-4\" />\n                    </Button>\n                  </div>\n                </div>\n              </CardContent>\n            </Card>\n          ))\n        )}\n      </div>\n\n      {/* Info */}\n      <Alert className=\"border-blue-600/50 bg-blue-900/20\">\n        <AlertCircle className=\"h-4 w-4 text-blue-400\" />\n        <AlertDescription className=\"text-blue-200\">\n          <strong>Construtor Visual:</strong> Crie fluxos de conversa complexos arrastando e soltando nós.\n          Conecte mensagens, ações e condições para criar lógica de conversa inteligente.\n        </AlertDescription>\n      </Alert>\n    </div>\n  );\n}\n
+const initialNodes: Node[] = [];
+const initialEdges: Edge[] = [];
+
+export default function FlowsTab() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const [selectedFlow, setSelectedFlow] = useState<any>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [flowName, setFlowName] = useState('');
+  
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
+  const onConnect = useCallback(
+    (params: Connection) => setEdges((eds) => addEdge({ ...params, animated: true, style: { stroke: '#D97757' } }, eds)),
+    [setEdges]
+  );
+
+  // Fetch flows
+  const { data: flows, isLoading } = useQuery({
+    queryKey: ['conversation_flows', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('conversation_flows' as any)
+        .select('*')
+        .eq('tenant_id', user?.id);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  // Save flow mutation
+  const saveMutation = useMutation({
+    mutationFn: async (flowData: any) => {
+      const { error } = await supabase
+        .from('conversation_flows' as any)
+        .upsert({
+          id: selectedFlow?.id,
+          name: selectedFlow?.name,
+          tenant_id: user?.id,
+          flow_data: flowData,
+          updated_at: new Date().toISOString()
+        });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['conversation_flows'] });
+      toast.success("Fluxo salvo com sucesso!");
+    },
+    onError: (error: any) => {
+      toast.error("Erro ao salvar fluxo: " + error.message);
+    }
+  });
+
+  // Create flow mutation
+  const createMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const { data, error } = await supabase
+        .from('conversation_flows' as any)
+        .insert({
+          name,
+          tenant_id: user?.id,
+          flow_data: { nodes: [], edges: [] }
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['conversation_flows'] });
+      setSelectedFlow(data);
+      setNodes([]);
+      setEdges([]);
+      setIsDialogOpen(false);
+      setFlowName('');
+      toast.success("Fluxo criado!");
+    }
+  });
+
+  const handleSave = () => {
+    if (!selectedFlow) return;
+    saveMutation.mutate({ nodes, edges });
+  };
+
+  const handleEdit = (flow: any) => {
+    setSelectedFlow(flow);
+    const flowData = flow.flow_data || { nodes: [], edges: [] };
+    setNodes(flowData.nodes || []);
+    setEdges(flowData.edges || []);
+  };
+
+  const addNode = (type: string) => {
+    const newNode: Node = {
+      id: `node_${Date.now()}`,
+      type: 'default',
+      data: { label: `${type.toUpperCase()} - Nova Etapa` },
+      position: { x: Math.random() * 400, y: Math.random() * 400 },
+      style: { background: '#1e293b', color: '#fff', border: '1px solid #D97757', borderRadius: '8px' }
+    };
+    setNodes((nds) => nds.concat(newNode));
+  };
+
+  if (selectedFlow) {
+    return (
+      <div className="h-[700px] w-full flex flex-col space-y-4">
+        <div className="flex items-center justify-between bg-slate-900 p-4 rounded-lg border border-slate-800">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" onClick={() => setSelectedFlow(null)} className="text-slate-400">
+              <ArrowLeft className="w-4 h-4 mr-2" /> Voltar
+            </Button>
+            <h3 className="text-xl font-bold text-white">{selectedFlow.name}</h3>
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={handleSave} disabled={saveMutation.isPending} className="bg-[#D97757] hover:bg-[#c86647]">
+              {saveMutation.isPending ? <Loader2 className="animate-spin w-4 h-4" /> : <Save className="w-4 h-4 mr-2" />}
+              Salvar Fluxo
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex-1 border border-slate-800 rounded-xl overflow-hidden bg-slate-950 relative">
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            fitView
+            colorMode="dark"
+          >
+            <Background color="#334155" gap={20} />
+            <Controls />
+            <MiniMap nodeColor="#D97757" maskColor="rgba(0,0,0,0.5)" />
+            <Panel position="top-right" className="flex flex-col gap-2">
+              <Button size="sm" onClick={() => addNode('mensagem')} className="bg-slate-800 hover:bg-slate-700 text-xs">💬 + Mensagem</Button>
+              <Button size="sm" onClick={() => addNode('ação')} className="bg-slate-800 hover:bg-slate-700 text-xs">⚙️ + Ação CRM</Button>
+              <Button size="sm" onClick={() => addNode('ia')} className="bg-slate-800 hover:bg-slate-700 text-xs">🤖 + Agente IA</Button>
+            </Panel>
+          </ReactFlow>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-white">Fluxos de Conversa</h2>
+          <p className="text-slate-400">Crie árvores de decisão e automações visuais</p>
+        </div>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-[#D97757] hover:bg-[#c86647]">
+              <Plus className="w-4 h-4 mr-2" /> Novo Fluxo
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="bg-slate-800 border-slate-700">
+            <DialogHeader><DialogTitle className="text-white">Nome do Fluxo</DialogTitle></DialogHeader>
+            <div className="space-y-4 pt-4">
+              <Input value={flowName} onChange={(e) => setFlowName(e.target.value)} placeholder="Ex: Onboarding Cliente" className="bg-slate-700 border-slate-600 text-white" />
+              <Button onClick={() => createMutation.mutate(flowName)} disabled={createMutation.isPending} className="w-full bg-[#D97757]">Criar</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {isLoading ? (
+          <div className="col-span-3 flex justify-center py-12"><Loader2 className="animate-spin text-[#D97757]" /></div>
+        ) : flows?.length === 0 ? (
+          <Alert className="col-span-3 border-slate-800 bg-slate-900/50">
+            <AlertCircle className="w-4 h-4 text-[#D97757]" />
+            <AlertDescription className="text-slate-400">Nenhum fluxo visual criado ainda.</AlertDescription>
+          </Alert>
+        ) : (
+          flows?.map((flow: any) => (
+            <Card key={flow.id} className="border-slate-800 bg-slate-900/50 hover:border-[#D97757] transition-all cursor-pointer" onClick={() => handleEdit(flow)}>
+              <CardHeader>
+                <CardTitle className="text-white text-lg">{flow.name}</CardTitle>
+                <CardDescription className="text-slate-500">Última alteração: {new Date(flow.updated_at).toLocaleDateString()}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-slate-400">{(flow.flow_data?.nodes?.length || 0)} nós no canvas</span>
+                  <Button variant="ghost" size="sm" className="text-[#D97757]"><Play className="w-3 h-3 mr-1" /> Editar</Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}

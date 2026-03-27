@@ -5,7 +5,6 @@ import {
   CheckCircle2, Circle, Settings2, Zap
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import OmniFlowWhatsApp from "./OmniFlow/OmniFlowWhatsApp";
 import OmniFlowWebhooks from "./OmniFlow/OmniFlowWebhooks";
@@ -37,31 +36,28 @@ const OmniFlow = React.forwardRef<HTMLDivElement>((_, ref) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Verificar Z-API
       const { data: zapiData } = await supabase
-        .from("zapi_instances")
-        .select("connection_status")
+        .from("whatsapp_configs" as any)
+        .select("id")
         .eq("tenant_id", user.id)
-        .single();
+        .limit(1);
 
-      // Verificar Webhooks
       const { data: webhookData } = await supabase
-        .from("webhook_endpoints")
+        .from("webhook_configs" as any)
         .select("is_active")
         .eq("tenant_id", user.id)
-        .single();
+        .limit(1);
 
-      // Verificar Omni Agent
       const { data: agentData } = await supabase
-        .from("omni_agent_config")
-        .select("ai_api_key")
+        .from("api_keys" as any)
+        .select("id")
         .eq("tenant_id", user.id)
-        .single();
+        .limit(1);
 
       setStatus({
-        whatsapp: (zapiData?.connection_status as any) || "disconnected",
-        webhooks: webhookData?.is_active ? "active" : "inactive",
-        agent: agentData?.ai_api_key ? "configured" : "unconfigured",
+        whatsapp: zapiData?.length ? "connected" : "disconnected",
+        webhooks: webhookData?.length ? "active" : "inactive",
+        agent: agentData?.length ? "configured" : "unconfigured",
       });
     } catch (err) {
       console.error("Erro ao carregar status:", err);
@@ -69,39 +65,6 @@ const OmniFlow = React.forwardRef<HTMLDivElement>((_, ref) => {
       setLoading(false);
     }
   };
-
-  const integrations = [
-    {
-      id: "whatsapp",
-      title: "WhatsApp (Z-API)",
-      description: "Conecte seu número do WhatsApp para automações",
-      icon: MessageCircle,
-      status: status.whatsapp,
-      color: "from-green-500/20 to-emerald-500/20",
-      borderColor: "border-green-500/30",
-      statusColor: status.whatsapp === "connected" ? "text-green-500" : "text-amber-500",
-    },
-    {
-      id: "webhooks",
-      title: "Webhooks",
-      description: "Receba eventos em tempo real via webhook",
-      icon: Webhook,
-      status: status.webhooks,
-      color: "from-blue-500/20 to-cyan-500/20",
-      borderColor: "border-blue-500/30",
-      statusColor: status.webhooks === "active" ? "text-blue-500" : "text-muted-foreground",
-    },
-    {
-      id: "agent",
-      title: "Omni Agent (IA)",
-      description: "Configure sua IA para respostas automáticas",
-      icon: Brain,
-      status: status.agent,
-      color: "from-purple-500/20 to-pink-500/20",
-      borderColor: "border-purple-500/30",
-      statusColor: status.agent === "configured" ? "text-purple-500" : "text-muted-foreground",
-    },
-  ];
 
   if (loading) {
     return (
@@ -124,7 +87,14 @@ const OmniFlow = React.forwardRef<HTMLDivElement>((_, ref) => {
   }
 
   if (activeModule === "integrations") {
-    return <Integrations />;
+    return (
+      <div className="space-y-4">
+        <Button variant="ghost" onClick={() => setActiveModule(null)} className="mb-4 text-slate-400">
+          <ChevronRight className="w-4 h-4 mr-2 rotate-180" /> Voltar ao Dashboard
+        </Button>
+        <Integrations />
+      </div>
+    );
   }
 
   return (
@@ -132,149 +102,68 @@ const OmniFlow = React.forwardRef<HTMLDivElement>((_, ref) => {
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-amber-500/30">
-            <Settings2 className="w-6 h-6 text-amber-600" />
+          <div className="p-2 rounded-lg bg-gradient-to-br from-[#D97757]/20 to-orange-500/20 border border-[#D97757]/30">
+            <Zap className="w-6 h-6 text-[#D97757]" />
           </div>
-          Omni Flow
+          Omni Flow Hub
         </h1>
         <p className="text-sm text-muted-foreground mt-2">
-          Hub central de integrações e automações para seu projeto. Conecte WhatsApp, configure webhooks e ative sua IA.
+          Hub central de integrações bidirecionais. Conecte WhatsApp, configure webhooks e ative sua IA.
         </p>
       </div>
 
-      {/* Status Overview */}
-      <div className="grid grid-cols-3 gap-4">
-        {integrations.map((integration) => (
-          <motion.div
-            key={integration.id}
-            whileHover={{ scale: 1.02 }}
-            className={`p-4 rounded-lg border ${integration.borderColor} bg-gradient-to-br ${integration.color} backdrop-blur-sm`}
-          >
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-background/50">
-                  <integration.icon className="w-5 h-5 text-foreground" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold">{integration.title}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {integration.status === "connected" || integration.status === "active" || integration.status === "configured"
-                      ? "✓ Ativo"
-                      : "○ Inativo"}
-                  </p>
-                </div>
-              </div>
-              <Circle className={`w-3 h-3 ${integration.statusColor} fill-current`} />
-            </div>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Bento Grid - Integration Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-max">
-        {/* New Integrations Hub Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0 }}
-          className="group relative overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/20 to-orange-500/20 backdrop-blur-sm p-6 cursor-pointer hover:shadow-lg transition-all"
-          onClick={() => setActiveModule("integrations")}
-        >
-          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent" />
+      {/* Hero Card - NOVO HUB */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="group relative overflow-hidden rounded-2xl border border-[#D97757]/30 bg-gradient-to-br from-[#D97757]/20 to-slate-900 backdrop-blur-sm p-8 cursor-pointer hover:shadow-2xl transition-all"
+        onClick={() => setActiveModule("integrations")}
+      >
+        <div className="absolute top-0 right-0 p-4">
+          <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold bg-[#D97757] text-white animate-pulse">
+            NOVO HUB ATIVO
+          </span>
+        </div>
+        <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
+          <div className="p-6 rounded-2xl bg-slate-950/50 border border-[#D97757]/20">
+            <Zap className="w-12 h-12 text-[#D97757]" />
           </div>
-          <div className="relative z-10 flex flex-col h-full">
-            <div className="flex items-start justify-between mb-4">
-              <div className="p-3 rounded-xl bg-background/50 group-hover:bg-background/70 transition-colors">
-                <Zap className="w-6 h-6 text-amber-600" />
-              </div>
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-700 border border-amber-500/30">
-                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                NOVO
-              </div>
-            </div>
-            <h3 className="text-lg font-bold mb-2">Omni Flow Hub</h3>
-            <p className="text-sm text-muted-foreground mb-6 flex-1">Hub de integrações bidirecional com 9 abas — conecte qualquer ferramenta</p>
-            <Button className="w-full gap-2 group/btn" variant="default">
-              Acessar Hub
-              <ChevronRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+          <div className="flex-1 text-center md:text-left">
+            <h2 className="text-2xl font-bold text-white mb-2">Acessar Hub de Integrações Completo</h2>
+            <p className="text-slate-400 mb-6">Gerencie WhatsApp, Automações, Webhooks, Logs, Playbooks, Agentes IA, Fluxos Visuais e API Keys em um único lugar.</p>
+            <Button className="bg-[#D97757] hover:bg-[#c86647] text-white px-8 py-6 text-lg font-bold rounded-xl shadow-lg shadow-[#D97757]/20">
+              Entrar no Omni Flow Hub
+              <ChevronRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
             </Button>
           </div>
-        </motion.div>
+        </div>
+      </motion.div>
 
-        {integrations.map((integration, idx) => (
-          <motion.div
-            key={integration.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: (idx + 1) * 0.1 }}
-            className={`group relative overflow-hidden rounded-2xl border ${integration.borderColor} bg-gradient-to-br ${integration.color} backdrop-blur-sm p-6 cursor-pointer hover:shadow-lg transition-all ${
-              idx === 1 ? "md:col-span-1 md:row-span-2" : ""
-            }`}
-            onClick={() => setActiveModule(integration.id)}
-          >
-            {/* Background Gradient Accent */}
-            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-              <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent" />
-            </div>
-
-            {/* Content */}
-            <div className="relative z-10 flex flex-col h-full">
-              <div className="flex items-start justify-between mb-4">
-                <div className="p-3 rounded-xl bg-background/50 group-hover:bg-background/70 transition-colors">
-                  <integration.icon className="w-6 h-6 text-foreground" />
-                </div>
-                <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                  integration.status === "connected" || integration.status === "active" || integration.status === "configured"
-                    ? "bg-green-500/20 text-green-700 border border-green-500/30"
-                    : "bg-muted text-muted-foreground border border-border/50"
-                }`}>
-                  {integration.status === "connected" || integration.status === "active" || integration.status === "configured" ? (
-                    <>
-                      <CheckCircle2 className="w-3 h-3" />
-                      Ativo
-                    </>
-                  ) : (
-                    <>
-                      <AlertCircle className="w-3 h-3" />
-                      Inativo
-                    </>
-                  )}
-                </div>
-              </div>
-
-              <h3 className="text-lg font-bold mb-2">{integration.title}</h3>
-              <p className="text-sm text-muted-foreground mb-6 flex-1">{integration.description}</p>
-
-              {/* CTA Button */}
-              <Button
-                className="w-full gap-2 group/btn"
-                variant={integration.status === "connected" || integration.status === "active" || integration.status === "configured" ? "outline" : "default"}
-              >
-                {integration.status === "connected" || integration.status === "active" || integration.status === "configured" ? "Gerenciar" : "Conectar"}
-                <ChevronRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
-              </Button>
-            </div>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Info Section */}
-      <div className="rounded-xl border border-border/40 bg-secondary/20 p-6">
-        <h3 className="font-semibold mb-3 flex items-center gap-2">
-          <AlertCircle className="w-5 h-5 text-amber-500" />
-          Documentação e Suporte
-        </h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          Precisa de ajuda para configurar suas integrações? Consulte nossa documentação completa ou entre em contato com o suporte.
-        </p>
-        <div className="flex gap-3">
-          <Button variant="outline" size="sm">
-            Documentação
-          </Button>
-          <Button variant="outline" size="sm">
-            Suporte
-          </Button>
+      {/* Mini Cards Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="p-6 rounded-xl border border-slate-800 bg-slate-900/50">
+          <div className="flex items-center gap-3 mb-4">
+            <MessageCircle className="w-5 h-5 text-green-500" />
+            <h3 className="font-bold text-white">WhatsApp</h3>
+          </div>
+          <p className="text-sm text-slate-400 mb-4">Status: {status.whatsapp === "connected" ? "✅ Conectado" : "❌ Desconectado"}</p>
+          <Button variant="outline" size="sm" className="w-full border-slate-700" onClick={() => setActiveModule("whatsapp")}>Gerenciar</Button>
+        </div>
+        <div className="p-6 rounded-xl border border-slate-800 bg-slate-900/50">
+          <div className="flex items-center gap-3 mb-4">
+            <Webhook className="w-5 h-5 text-blue-500" />
+            <h3 className="font-bold text-white">Webhooks</h3>
+          </div>
+          <p className="text-sm text-slate-400 mb-4">Status: {status.webhooks === "active" ? "✅ Ativo" : "❌ Inativo"}</p>
+          <Button variant="outline" size="sm" className="w-full border-slate-700" onClick={() => setActiveModule("webhooks")}>Gerenciar</Button>
+        </div>
+        <div className="p-6 rounded-xl border border-slate-800 bg-slate-900/50">
+          <div className="flex items-center gap-3 mb-4">
+            <Brain className="w-5 h-5 text-purple-500" />
+            <h3 className="font-bold text-white">Agentes IA</h3>
+          </div>
+          <p className="text-sm text-slate-400 mb-4">Status: {status.agent === "configured" ? "✅ Configurado" : "❌ Sem Chaves"}</p>
+          <Button variant="outline" size="sm" className="w-full border-slate-700" onClick={() => setActiveModule("agent")}>Gerenciar</Button>
         </div>
       </div>
     </div>
