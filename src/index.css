@@ -168,3 +168,12 @@
     animation-delay: 200ms;
   }
 }
+
+/* Admin-only theme override: Terracota accent */
+.admin-theme {
+  --primary: 18 65% 60%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 18 65% 60%;
+  --accent-foreground: 0 0% 100%;
+  --ring: 18 65% 60%;
+}

@@ -26,7 +26,7 @@ const AdminLogin = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background grid-bg flex items-center justify-center px-4">
+    <div className="min-h-screen bg-background grid-bg flex items-center justify-center px-4 admin-theme">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}

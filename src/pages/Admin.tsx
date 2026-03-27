@@ -61,7 +61,7 @@ const Admin = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-background flex admin-theme">
       <aside className={`border-r border-border bg-secondary/30 flex flex-col shrink-0 transition-all duration-300 ${collapsed ? "w-16" : "w-64"}`}>
         <div className="p-4 border-b border-border flex items-center justify-between">
           {!collapsed && (
