@@ -6,289 +6,389 @@ import {
 } from "recharts";
 import {
   Eye, MousePointerClick, TrendingUp, Users, Download, Calendar, ArrowUpRight,
-  ArrowDownRight, DollarSign, Target, MessageCircle, Zap, Activity, Gauge
+  ArrowDownRight, DollarSign, Target, MessageCircle, Zap, Activity, Gauge, ListChecks, Globe
 } from "lucide-react";
-import { useLPEvents, useLeads, useStages } from "@/hooks/useSupabaseQuery";
+import { useLPEvents, useLeads, useStages, useQuizzes, useQuizSubmissions } from "@/hooks/useSupabaseQuery";
 import jsPDF from "jspdf";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { format, subDays, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { supabase } from "@/integrations/supabase/client";
+
+/* ── KPI Card ── */
+const KPICard = ({ label, value, icon: Icon, trend, up, color, subtitle }: any) => (
+  <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+    className="p-5 rounded-xl border border-border/40 bg-secondary/10 hover:border-primary/30 transition-all group">
+    <div className="flex items-start justify-between">
+      <div className="flex-1">
+        <p className="text-[10px] font-semibold uppercase text-muted-foreground tracking-widest mb-1.5">{label}</p>
+        <p className="text-2xl font-bold tracking-tight">{value}</p>
+        {subtitle && <p className="text-[10px] text-muted-foreground mt-1">{subtitle}</p>}
+        {trend && (
+          <div className={`flex items-center gap-1 mt-2 text-[10px] font-semibold ${up ? 'text-emerald-500' : 'text-red-400'}`}>
+            {up ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+            {trend}
+          </div>
+        )}
+      </div>
+      <div className={`p-2.5 rounded-lg bg-secondary/50 ${color}`}>
+        <Icon className="w-5 h-5" />
+      </div>
+    </div>
+  </motion.div>
+);
+
+const chartTooltipStyle = {
+  contentStyle: { background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: "10px", fontSize: "12px" },
+};
 
 const AdminDashboardExpanded = () => {
   const { data: events } = useLPEvents();
   const { data: leads } = useLeads(null);
   const { data: stages } = useStages(null);
+  const { data: quizzes } = useQuizzes();
+  const { data: quizSubs } = useQuizSubmissions(null);
 
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
-    from: subDays(new Date(), 30),
-    to: new Date(),
+    from: subDays(new Date(), 30), to: new Date(),
   });
 
-  const filteredEvents = useMemo(() => {
-    if (!events) return [];
-    if (!dateRange.from || !dateRange.to) return events;
-    return events.filter((e) => {
-      const eventDate = new Date(e.created_at);
-      return isWithinInterval(eventDate, { start: startOfDay(dateRange.from!), end: endOfDay(dateRange.to!) });
-    });
-  }, [events, dateRange]);
-
-  const filteredLeads = useMemo(() => {
-    if (!leads) return [];
-    if (!dateRange.from || !dateRange.to) return leads;
-    return leads.filter((l) => {
-      const leadDate = new Date(l.created_at);
-      return isWithinInterval(leadDate, { start: startOfDay(dateRange.from!), end: endOfDay(dateRange.to!) });
-    });
-  }, [leads, dateRange]);
-
-  const getMeta = (e: typeof filteredEvents[0], key: string): any => {
-    const meta = e.metadata as Record<string, any> | null;
-    return meta?.[key];
+  const filterByDate = <T extends { created_at: string }>(items: T[] | undefined) => {
+    if (!items) return [];
+    if (!dateRange.from || !dateRange.to) return items;
+    return items.filter(i => isWithinInterval(new Date(i.created_at), { start: startOfDay(dateRange.from!), end: endOfDay(dateRange.to!) }));
   };
 
+  const fEvents = useMemo(() => filterByDate(events), [events, dateRange]);
+  const fLeads = useMemo(() => filterByDate(leads), [leads, dateRange]);
+  const fSubs = useMemo(() => filterByDate(quizSubs), [quizSubs, dateRange]);
+
+  const getMeta = (e: any, key: string): any => (e.metadata as Record<string, any> | null)?.[key];
+
+  // ── Computed Stats ──
   const stats = useMemo(() => {
-    const uniqueVisits = new Set(filteredEvents.filter(e => e.event_type === 'page_view').map(e => getMeta(e, 'session_id'))).size;
-    const totalPageViews = filteredEvents.filter(e => e.event_type === 'page_view').length;
-    const totalClicks = filteredEvents.filter(e => ['button_click', 'plan_click', 'cta_click', 'whatsapp_click'].includes(e.event_type)).length;
-    const whatsappClicks = filteredEvents.filter(e =>
-      (e.event_type === 'button_click' && getMeta(e, 'cta_type') === 'whatsapp') ||
-      e.event_type === 'whatsapp_click' ||
-      e.event_type === 'plan_click'
-    ).length;
-    const linkClicks = filteredEvents.filter(e =>
-      (e.event_type === 'button_click' && getMeta(e, 'cta_type') === 'url') ||
-      e.event_type === 'cta_click'
+    const uniqueVisits = new Set(fEvents.filter(e => e.event_type === 'page_view').map(e => getMeta(e, 'session_id'))).size;
+    const totalPageViews = fEvents.filter(e => e.event_type === 'page_view').length;
+    const totalClicks = fEvents.filter(e => ['button_click', 'plan_click', 'cta_click', 'whatsapp_click'].includes(e.event_type)).length;
+    const whatsappClicks = fEvents.filter(e =>
+      (e.event_type === 'button_click' && getMeta(e, 'cta_type') === 'whatsapp') || e.event_type === 'whatsapp_click' || e.event_type === 'plan_click'
     ).length;
 
-    const totalLeads = filteredLeads.length;
-    const pipelineValue = filteredLeads
-      .filter(l => {
-        const stage = stages?.find(s => s.id === l.stage_id);
-        return stage && stage.name.toLowerCase() !== 'fechado';
-      })
-      .reduce((acc, curr) => acc + Number(curr.deal_value || 0), 0);
-
-    const closedLeads = filteredLeads.filter(l => {
+    const totalLeads = fLeads.length;
+    const closedLeads = fLeads.filter(l => {
       const stage = stages?.find(s => s.id === l.stage_id);
-      return stage && stage.name.toLowerCase() === 'fechado';
+      return stage && stage.name.toLowerCase().includes('fechado');
     });
-
+    const revenue = closedLeads.reduce((a, l) => a + Number(l.deal_value || 0), 0);
+    const pipelineValue = fLeads.filter(l => !closedLeads.includes(l)).reduce((a, l) => a + Number(l.deal_value || 0), 0);
     const conversionRate = totalLeads > 0 ? ((closedLeads.length / totalLeads) * 100).toFixed(1) : "0";
-    const avgTicket = closedLeads.length > 0
-      ? (closedLeads.reduce((acc, curr) => acc + Number(curr.deal_value || 0), 0) / closedLeads.length).toFixed(0)
-      : "0";
+    const avgTicket = closedLeads.length > 0 ? Math.round(revenue / closedLeads.length) : 0;
 
-    const visitorToLeadRate = uniqueVisits > 0 ? ((totalLeads / uniqueVisits) * 100).toFixed(2) : "0";
-
-    const dailyData: Record<string, { date: string, leads: number, views: number, clicks: number, whatsapp: number }> = {};
-    filteredEvents.forEach(e => {
+    // Daily chart
+    const dailyData: Record<string, any> = {};
+    fEvents.forEach(e => {
       const day = format(new Date(e.created_at), "dd/MM");
       if (!dailyData[day]) dailyData[day] = { date: day, leads: 0, views: 0, clicks: 0, whatsapp: 0 };
       if (e.event_type === 'page_view') dailyData[day].views++;
-      if (e.event_type === 'button_click') {
-        dailyData[day].clicks++;
-        if (getMeta(e, 'cta_type') === 'whatsapp') dailyData[day].whatsapp++;
-      }
+      if (['button_click', 'cta_click'].includes(e.event_type)) dailyData[day].clicks++;
+      if (e.event_type === 'whatsapp_click' || (e.event_type === 'button_click' && getMeta(e, 'cta_type') === 'whatsapp')) dailyData[day].whatsapp++;
     });
-    filteredLeads.forEach(l => {
+    fLeads.forEach(l => {
       const day = format(new Date(l.created_at), "dd/MM");
       if (!dailyData[day]) dailyData[day] = { date: day, leads: 0, views: 0, clicks: 0, whatsapp: 0 };
       dailyData[day].leads++;
     });
 
     const stageData = stages?.map(s => ({
-      name: s.name,
-      value: filteredLeads.filter(l => l.stage_id === s.id).length,
-      amount: filteredLeads.filter(l => l.stage_id === s.id).reduce((acc, curr) => acc + Number(curr.deal_value || 0), 0),
-      color: s.color
+      name: s.name, value: fLeads.filter(l => l.stage_id === s.id).length,
+      amount: fLeads.filter(l => l.stage_id === s.id).reduce((a, l) => a + Number(l.deal_value || 0), 0),
+      color: s.color,
     })) || [];
 
     const ctaClicks: Record<string, number> = {};
-    filteredEvents.forEach(e => {
-      if (e.event_type === 'button_click') {
-        const label = getMeta(e, 'cta_label') || 'Desconhecido';
-        ctaClicks[label] = (ctaClicks[label] || 0) + 1;
-      }
-    });
-    const ctaClicksData = Object.entries(ctaClicks).map(([label, count]) => ({
-      name: label,
-      value: count
-    })).sort((a, b) => b.value - a.value).slice(0, 8);
+    fEvents.forEach(e => { if (e.event_type === 'button_click') { const l = getMeta(e, 'cta_label') || '?'; ctaClicks[l] = (ctaClicks[l] || 0) + 1; } });
+    const ctaClicksData = Object.entries(ctaClicks).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 8);
 
     return {
-      uniqueVisits, totalPageViews, totalClicks, whatsappClicks, linkClicks, visitorToLeadRate,
-      clickThroughRate: totalPageViews > 0 ? ((totalClicks / totalPageViews) * 100).toFixed(2) : "0",
-      whatsappConversionRate: totalClicks > 0 ? ((whatsappClicks / totalClicks) * 100).toFixed(1) : "0",
-      totalLeads, pipelineValue, conversionRate, avgTicket,
-      dailyChart: Object.values(dailyData).sort((a, b) => a.date.localeCompare(b.date)),
+      uniqueVisits, totalPageViews, totalClicks, whatsappClicks, totalLeads,
+      revenue, pipelineValue, conversionRate, avgTicket,
+      clickThroughRate: totalPageViews > 0 ? ((totalClicks / totalPageViews) * 100).toFixed(1) : "0",
+      dailyChart: Object.values(dailyData).sort((a: any, b: any) => a.date.localeCompare(b.date)),
       stageChart: stageData, ctaClicksData,
-      topLeads: [...filteredLeads].sort((a, b) => Number(b.deal_value || 0) - Number(a.deal_value || 0)).slice(0, 5)
+      topLeads: [...fLeads].sort((a, b) => Number(b.deal_value || 0) - Number(a.deal_value || 0)).slice(0, 5),
     };
-  }, [filteredLeads, filteredEvents, stages]);
+  }, [fEvents, fLeads, stages]);
 
   const exportPDF = () => {
     const doc = new jsPDF();
-    doc.setFontSize(20);
-    doc.text("Ellite Coworking — Relatório Completo", 20, 20);
-    doc.setFontSize(12);
-    const rangeText = dateRange.from && dateRange.to
-      ? `${format(dateRange.from, "dd/MM/yyyy")} - ${format(dateRange.to, "dd/MM/yyyy")}`
-      : "Todo o período";
-    doc.text(`Período: ${rangeText}`, 20, 30);
-    doc.text(`Visitantes Únicos: ${stats.uniqueVisits}`, 20, 45);
-    doc.text(`Visualizações: ${stats.totalPageViews}`, 20, 52);
-    doc.text(`Cliques: ${stats.totalClicks}`, 20, 59);
-    doc.text(`WhatsApp: ${stats.whatsappClicks}`, 20, 66);
-    doc.text(`Leads: ${stats.totalLeads}`, 20, 80);
-    doc.text(`Pipeline: R$ ${stats.pipelineValue.toLocaleString("pt-BR")}`, 20, 87);
-    doc.text(`Conversão: ${stats.conversionRate}%`, 20, 94);
-    doc.text(`Ticket Médio: R$ ${Number(stats.avgTicket).toLocaleString("pt-BR")}`, 20, 101);
-    doc.save(`relatorio-ellite-${format(new Date(), "yyyy-MM-dd")}.pdf`);
+    doc.setFontSize(18);
+    doc.text("Omni Builder — Relatório", 20, 20);
+    doc.setFontSize(11);
+    const r = dateRange.from && dateRange.to ? `${format(dateRange.from, "dd/MM/yyyy")} - ${format(dateRange.to, "dd/MM/yyyy")}` : "Todo o período";
+    doc.text(`Período: ${r}`, 20, 30);
+    doc.text(`Receita: R$ ${stats.revenue.toLocaleString("pt-BR")}`, 20, 45);
+    doc.text(`Leads: ${stats.totalLeads}`, 20, 52);
+    doc.text(`Conversão: ${stats.conversionRate}%`, 20, 59);
+    doc.text(`Pipeline: R$ ${stats.pipelineValue.toLocaleString("pt-BR")}`, 20, 66);
+    doc.text(`Visitantes: ${stats.uniqueVisits}`, 20, 73);
+    doc.text(`WhatsApp Cliques: ${stats.whatsappClicks}`, 20, 80);
+    doc.save(`omni-relatorio-${format(new Date(), "yyyy-MM-dd")}.pdf`);
   };
 
-  const KPICard = ({ label, value, icon: Icon, trend, up, color }: any) => (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="glass p-6 rounded-2xl border border-border/40 hover:border-primary/40 transition-all group"
-    >
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <p className="text-xs font-bold uppercase text-muted-foreground tracking-widest mb-2">{label}</p>
-          <p className="text-3xl font-bold tracking-tight">{value}</p>
-          {trend && (
-            <div className={`flex items-center gap-1 mt-2 text-xs font-bold ${up ? 'text-emerald-500' : 'text-red-500'}`}>
-              {up ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-              {trend}
+  const DateFilter = () => (
+    <div className="flex items-center gap-2">
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" size="sm" className="gap-2 text-xs rounded-lg border-border/40 bg-secondary/20">
+            <Calendar className="w-3.5 h-3.5 text-primary" />
+            {dateRange.from && dateRange.to
+              ? `${format(dateRange.from, "dd MMM", { locale: ptBR })} – ${format(dateRange.to, "dd MMM", { locale: ptBR })}`
+              : "Período"}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="end">
+          <div className="p-3">
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div>
+                <p className="text-[10px] font-semibold uppercase text-muted-foreground mb-1">De</p>
+                <CalendarComponent mode="single" selected={dateRange.from} onSelect={(d) => setDateRange(p => ({ ...p, from: d }))} />
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase text-muted-foreground mb-1">Até</p>
+                <CalendarComponent mode="single" selected={dateRange.to} onSelect={(d) => setDateRange(p => ({ ...p, to: d }))} />
+              </div>
             </div>
-          )}
-        </div>
-        <div className={`p-3 rounded-xl ${color} bg-opacity-10 group-hover:scale-110 transition-transform`}>
-          <Icon className={`w-6 h-6 ${color}`} />
-        </div>
-      </div>
-    </motion.div>
+            <div className="flex gap-1.5">
+              <Button variant="ghost" size="sm" className="flex-1 text-[10px] h-7" onClick={() => setDateRange({ from: subDays(new Date(), 7), to: new Date() })}>7d</Button>
+              <Button variant="ghost" size="sm" className="flex-1 text-[10px] h-7" onClick={() => setDateRange({ from: subDays(new Date(), 30), to: new Date() })}>30d</Button>
+              <Button variant="outline" size="sm" className="flex-1 text-[10px] h-7" onClick={() => setDateRange({ from: undefined, to: undefined })}>Tudo</Button>
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+      <Button onClick={exportPDF} variant="outline" size="sm" className="gap-1.5 text-xs rounded-lg">
+        <Download className="w-3.5 h-3.5" /> PDF
+      </Button>
+    </div>
   );
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Dashboard Avançado</h2>
-          <p className="text-sm text-muted-foreground mt-1">Métricas completas da Landing Page e CRM integradas.</p>
+          <h2 className="text-2xl font-bold tracking-tight">Dashboard</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">Analytics e performance consolidados.</p>
         </div>
-        <div className="flex items-center gap-3">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="gap-2 rounded-xl border-border/40 bg-secondary/30">
-                <Calendar className="w-4 h-4 text-primary" />
-                {dateRange.from && dateRange.to
-                  ? `${format(dateRange.from, "dd MMM", { locale: ptBR })} - ${format(dateRange.to, "dd MMM", { locale: ptBR })}`
-                  : "Filtrar período"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
-              <div className="p-4 bg-background border border-border rounded-xl shadow-2xl">
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase text-muted-foreground mb-2">Início</p>
-                    <CalendarComponent mode="single" selected={dateRange.from} onSelect={(d) => setDateRange(prev => ({ ...prev, from: d }))} />
+        <DateFilter />
+      </div>
+
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="bg-secondary/30 border border-border/30 p-1 rounded-lg">
+          <TabsTrigger value="overview" className="text-xs rounded-md data-[state=active]:bg-background">Visão Geral</TabsTrigger>
+          <TabsTrigger value="crm" className="text-xs rounded-md data-[state=active]:bg-background">CRM & Vendas</TabsTrigger>
+          <TabsTrigger value="lp" className="text-xs rounded-md data-[state=active]:bg-background">Landing Pages</TabsTrigger>
+          <TabsTrigger value="quizzes" className="text-xs rounded-md data-[state=active]:bg-background">Quizzes</TabsTrigger>
+          <TabsTrigger value="whatsapp" className="text-xs rounded-md data-[state=active]:bg-background">WhatsApp</TabsTrigger>
+        </TabsList>
+
+        {/* ═══ OVERVIEW ═══ */}
+        <TabsContent value="overview" className="space-y-6 mt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <KPICard label="Receita" value={`R$ ${stats.revenue.toLocaleString("pt-BR")}`} icon={DollarSign} color="text-emerald-500" />
+            <KPICard label="Total de Leads" value={stats.totalLeads} icon={Users} color="text-blue-500" />
+            <KPICard label="Conversão" value={`${stats.conversionRate}%`} icon={Target} color="text-amber-500" />
+            <KPICard label="Ticket Médio" value={`R$ ${stats.avgTicket.toLocaleString("pt-BR")}`} icon={TrendingUp} color="text-primary" />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2 p-5 rounded-xl border border-border/40 bg-secondary/10">
+              <h3 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-4">Atividade Diária</h3>
+              <ResponsiveContainer width="100%" height={280}>
+                <ComposedChart data={stats.dailyChart}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" style={{ fontSize: '10px' }} tickLine={false} axisLine={false} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: '10px' }} tickLine={false} axisLine={false} />
+                  <Tooltip {...chartTooltipStyle} />
+                  <Area type="monotone" dataKey="views" fill="hsl(var(--primary) / 0.15)" stroke="hsl(var(--primary))" name="Views" />
+                  <Line type="monotone" dataKey="leads" stroke="#10b981" strokeWidth={2} name="Leads" dot={false} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="p-5 rounded-xl border border-border/40 bg-secondary/10">
+              <h3 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-4">Pipeline por Etapa</h3>
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie data={stats.stageChart} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={4} dataKey="value">
+                    {stats.stageChart.map((entry, i) => <Cell key={i} fill={entry.color || '#8884d8'} />)}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="space-y-1.5 mt-3">
+                {stats.stageChart.map(s => (
+                  <div key={s.name} className="flex items-center justify-between text-[11px]">
+                    <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} /><span className="text-muted-foreground">{s.name}</span></div>
+                    <span className="font-mono font-medium">{s.value}</span>
                   </div>
-                  <div>
-                    <p className="text-[10px] font-bold uppercase text-muted-foreground mb-2">Fim</p>
-                    <CalendarComponent mode="single" selected={dateRange.to} onSelect={(d) => setDateRange(prev => ({ ...prev, to: d }))} />
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="ghost" className="flex-1 text-xs" onClick={() => setDateRange({ from: subDays(new Date(), 7), to: new Date() })}>7 dias</Button>
-                  <Button variant="ghost" className="flex-1 text-xs" onClick={() => setDateRange({ from: subDays(new Date(), 30), to: new Date() })}>30 dias</Button>
-                  <Button variant="outline" className="flex-1 text-xs" onClick={() => setDateRange({ from: undefined, to: undefined })}>Limpar</Button>
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
-          <Button onClick={exportPDF} variant="outline" className="gap-2 rounded-xl">
-            <Download className="w-4 h-4" /> Exportar PDF
-          </Button>
-        </div>
-      </div>
-
-      <div>
-        <h3 className="font-bold text-sm uppercase tracking-wider mb-4 text-primary">Métricas da Landing Page</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <KPICard label="Visitantes Únicos" value={stats.uniqueVisits} icon={Eye} trend="+18%" up={true} color="text-blue-500" />
-          <KPICard label="Visualizações Totais" value={stats.totalPageViews} icon={Activity} trend="+12%" up={true} color="text-cyan-500" />
-          <KPICard label="Cliques em Botões" value={stats.totalClicks} icon={MousePointerClick} trend="+24%" up={true} color="text-amber-500" />
-          <KPICard label="Taxa de Cliques" value={`${stats.clickThroughRate}%`} icon={Gauge} trend="+3.2%" up={true} color="text-purple-500" />
-        </div>
-      </div>
-
-      <div>
-        <h3 className="font-bold text-sm uppercase tracking-wider mb-4 text-emerald-500">Métricas de WhatsApp</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <KPICard label="Cliques em WhatsApp" value={stats.whatsappClicks} icon={MessageCircle} trend="+31%" up={true} color="text-emerald-500" />
-          <KPICard label="Taxa de Conversão WhatsApp" value={`${stats.whatsappConversionRate}%`} icon={Zap} trend="+5.1%" up={true} color="text-green-500" />
-          <KPICard label="Visitante → Lead" value={`${stats.visitorToLeadRate}%`} icon={TrendingUp} trend="+2.4%" up={true} color="text-lime-500" />
-        </div>
-      </div>
-
-      <div>
-        <h3 className="font-bold text-sm uppercase tracking-wider mb-4 text-primary">Métricas de CRM</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <KPICard label="Total de Leads" value={stats.totalLeads} icon={Users} trend="+15%" up={true} color="text-blue-500" />
-          <KPICard label="Pipeline" value={`R$ ${stats.pipelineValue.toLocaleString("pt-BR")}`} icon={DollarSign} trend="+22%" up={true} color="text-emerald-500" />
-          <KPICard label="Taxa de Conversão" value={`${stats.conversionRate}%`} icon={Target} trend="-1.5%" up={false} color="text-amber-500" />
-          <KPICard label="Ticket Médio" value={`R$ ${Number(stats.avgTicket).toLocaleString("pt-BR")}`} icon={TrendingUp} trend="+8%" up={true} color="text-primary" />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass p-6 rounded-2xl border border-border/40">
-          <h3 className="font-bold text-sm uppercase tracking-wider mb-4">Atividade Diária</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <ComposedChart data={stats.dailyChart}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-              <XAxis dataKey="date" stroke="rgba(255,255,255,0.5)" style={{ fontSize: '12px' }} />
-              <YAxis stroke="rgba(255,255,255,0.5)" style={{ fontSize: '12px' }} />
-              <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px' }} labelStyle={{ color: '#fff' }} />
-              <Legend />
-              <Area type="monotone" dataKey="views" fill="rgba(59, 130, 246, 0.2)" stroke="#3b82f6" name="Visualizações" />
-              <Line type="monotone" dataKey="leads" stroke="#10b981" strokeWidth={2} name="Leads" />
-              <Line type="monotone" dataKey="clicks" stroke="#f59e0b" strokeWidth={2} name="Cliques" />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass p-6 rounded-2xl border border-border/40">
-          <h3 className="font-bold text-sm uppercase tracking-wider mb-4">Distribuição por Etapa</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie data={stats.stageChart} cx="50%" cy="50%" labelLine={false} label={({ name, value }) => `${name}: ${value}`} outerRadius={80} fill="#8884d8" dataKey="value">
-                {stats.stageChart.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color || '#8884d8'} />
                 ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </motion.div>
-      </div>
+              </div>
+            </div>
+          </div>
+        </TabsContent>
 
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass p-6 rounded-2xl border border-border/40">
-        <h3 className="font-bold text-sm uppercase tracking-wider mb-4">Cliques por Botão de CTA</h3>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={stats.ctaClicksData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-            <XAxis dataKey="name" stroke="rgba(255,255,255,0.5)" style={{ fontSize: '12px' }} />
-            <YAxis stroke="rgba(255,255,255,0.5)" style={{ fontSize: '12px' }} />
-            <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px' }} labelStyle={{ color: '#fff' }} />
-            <Bar dataKey="value" fill="hsl(45 100% 56%)" radius={[6, 6, 0, 0]} name="Cliques" />
-          </BarChart>
-        </ResponsiveContainer>
-      </motion.div>
+        {/* ═══ CRM & VENDAS ═══ */}
+        <TabsContent value="crm" className="space-y-6 mt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <KPICard label="Receita (Fechados)" value={`R$ ${stats.revenue.toLocaleString("pt-BR")}`} icon={DollarSign} color="text-emerald-500" />
+            <KPICard label="Em Negociação" value={`R$ ${stats.pipelineValue.toLocaleString("pt-BR")}`} icon={Activity} color="text-blue-500" />
+            <KPICard label="Conversão" value={`${stats.conversionRate}%`} icon={Target} color="text-amber-500" />
+            <KPICard label="Ticket Médio" value={`R$ ${stats.avgTicket.toLocaleString("pt-BR")}`} icon={TrendingUp} color="text-primary" />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="p-5 rounded-xl border border-border/40 bg-secondary/10">
+              <h3 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-4">Volume vs. Valor por Etapa</h3>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={stats.stageChart}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" style={{ fontSize: '10px' }} tickLine={false} axisLine={false} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: '10px' }} tickLine={false} axisLine={false} />
+                  <Tooltip {...chartTooltipStyle} />
+                  <Bar dataKey="amount" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} name="Valor (R$)" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="p-5 rounded-xl border border-border/40 bg-secondary/10">
+              <h3 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-4">Top Leads</h3>
+              <div className="space-y-3">
+                {stats.topLeads.map((lead) => (
+                  <div key={lead.id} className="flex items-center justify-between p-3 rounded-lg bg-background/50 border border-border/20">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-semibold text-xs">{lead.name?.[0]}</div>
+                      <div>
+                        <p className="text-xs font-semibold">{lead.name}</p>
+                        <p className="text-[10px] text-muted-foreground">{lead.company || '—'}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs font-bold text-primary">R$ {Number(lead.deal_value || 0).toLocaleString("pt-BR")}</p>
+                      <span className="text-[9px] font-medium text-muted-foreground">{stages?.find(s => s.id === lead.stage_id)?.name}</span>
+                    </div>
+                  </div>
+                ))}
+                {stats.topLeads.length === 0 && <p className="text-center text-muted-foreground text-xs py-8">Nenhum lead no período.</p>}
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* ═══ LANDING PAGES ═══ */}
+        <TabsContent value="lp" className="space-y-6 mt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <KPICard label="Visitantes Únicos" value={stats.uniqueVisits} icon={Eye} color="text-blue-500" />
+            <KPICard label="Visualizações" value={stats.totalPageViews} icon={Activity} color="text-cyan-500" />
+            <KPICard label="Cliques em CTAs" value={stats.totalClicks} icon={MousePointerClick} color="text-amber-500" />
+            <KPICard label="CTR" value={`${stats.clickThroughRate}%`} icon={Gauge} color="text-purple-500" />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="p-5 rounded-xl border border-border/40 bg-secondary/10">
+              <h3 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-4">Tráfego Diário</h3>
+              <ResponsiveContainer width="100%" height={280}>
+                <AreaChart data={stats.dailyChart}>
+                  <defs>
+                    <linearGradient id="viewsGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" style={{ fontSize: '10px' }} tickLine={false} axisLine={false} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: '10px' }} tickLine={false} axisLine={false} />
+                  <Tooltip {...chartTooltipStyle} />
+                  <Area type="monotone" dataKey="views" stroke="hsl(var(--primary))" fill="url(#viewsGrad)" strokeWidth={2} name="Views" />
+                  <Area type="monotone" dataKey="clicks" stroke="#f59e0b" fill="transparent" strokeWidth={2} strokeDasharray="4 4" name="Cliques" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="p-5 rounded-xl border border-border/40 bg-secondary/10">
+              <h3 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-4">Cliques por CTA</h3>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={stats.ctaClicksData} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis type="number" stroke="hsl(var(--muted-foreground))" style={{ fontSize: '10px' }} tickLine={false} axisLine={false} />
+                  <YAxis dataKey="name" type="category" width={120} stroke="hsl(var(--muted-foreground))" style={{ fontSize: '10px' }} tickLine={false} axisLine={false} />
+                  <Tooltip {...chartTooltipStyle} />
+                  <Bar dataKey="value" fill="hsl(var(--primary))" radius={[0, 6, 6, 0]} name="Cliques" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* ═══ QUIZZES ═══ */}
+        <TabsContent value="quizzes" className="space-y-6 mt-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <KPICard label="Quizzes Criados" value={quizzes?.length || 0} icon={ListChecks} color="text-purple-500" />
+            <KPICard label="Respostas Totais" value={fSubs.length} icon={Users} color="text-blue-500" />
+            <KPICard label="Taxa Média" value={quizzes?.length ? `${((fSubs.length / Math.max(quizzes.length, 1))).toFixed(0)} resp/quiz` : "0"} icon={TrendingUp} color="text-emerald-500" />
+          </div>
+
+          <div className="p-5 rounded-xl border border-border/40 bg-secondary/10">
+            <h3 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-4">Respostas por Quiz</h3>
+            {quizzes && quizzes.length > 0 ? (
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={quizzes.map(q => ({
+                  name: q.title?.substring(0, 20) || 'Quiz',
+                  respostas: fSubs.filter(s => s.quiz_id === q.id).length,
+                }))}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" style={{ fontSize: '10px' }} tickLine={false} axisLine={false} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: '10px' }} tickLine={false} axisLine={false} />
+                  <Tooltip {...chartTooltipStyle} />
+                  <Bar dataKey="respostas" fill="#8b5cf6" radius={[6, 6, 0, 0]} name="Respostas" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-center text-muted-foreground text-xs py-12">Nenhum quiz criado.</p>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* ═══ WHATSAPP ═══ */}
+        <TabsContent value="whatsapp" className="space-y-6 mt-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <KPICard label="Cliques em WhatsApp" value={stats.whatsappClicks} icon={MessageCircle} color="text-emerald-500" />
+            <KPICard label="Taxa de Conversão" value={stats.totalClicks > 0 ? `${((stats.whatsappClicks / stats.totalClicks) * 100).toFixed(1)}%` : "0%"} icon={Zap} color="text-green-500" />
+            <KPICard label="Visitante → WhatsApp" value={stats.uniqueVisits > 0 ? `${((stats.whatsappClicks / stats.uniqueVisits) * 100).toFixed(1)}%` : "0%"} icon={TrendingUp} color="text-lime-500" />
+          </div>
+
+          <div className="p-5 rounded-xl border border-border/40 bg-secondary/10">
+            <h3 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-4">WhatsApp Cliques por Dia</h3>
+            <ResponsiveContainer width="100%" height={280}>
+              <AreaChart data={stats.dailyChart}>
+                <defs>
+                  <linearGradient id="waGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" style={{ fontSize: '10px' }} tickLine={false} axisLine={false} />
+                <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: '10px' }} tickLine={false} axisLine={false} />
+                <Tooltip {...chartTooltipStyle} />
+                <Area type="monotone" dataKey="whatsapp" stroke="#10b981" fill="url(#waGrad)" strokeWidth={2} name="WhatsApp" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

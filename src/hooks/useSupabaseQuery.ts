@@ -54,7 +54,7 @@ export const useFunnels = () =>
     },
   });
 
-// Stages for a funnel (pass null for all stages)
+// Stages for a funnel (null = load ALL stages)
 export const useStages = (funnelId: string | null) =>
   useQuery({
     queryKey: ["stages", funnelId],
@@ -65,10 +65,9 @@ export const useStages = (funnelId: string | null) =>
       if (error) throw error;
       return data;
     },
-    enabled: !!funnelId,
   });
 
-// Leads for a funnel (pass null for all leads)
+// Leads for a funnel (null = load ALL leads)
 export const useLeads = (funnelId: string | null) =>
   useQuery({
     queryKey: ["leads", funnelId],
@@ -79,7 +78,6 @@ export const useLeads = (funnelId: string | null) =>
       if (error) throw error;
       return data;
     },
-    enabled: !!funnelId,
   });
 
 // Lead notes
@@ -120,6 +118,19 @@ export const useQuizzes = () =>
     queryKey: ["quizzes"],
     queryFn: async () => {
       const { data, error } = await supabase.from("quizzes").select("*").order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+// Quiz submissions
+export const useQuizSubmissions = (quizId: string | null) =>
+  useQuery({
+    queryKey: ["quiz-submissions", quizId],
+    queryFn: async () => {
+      let query = supabase.from("quiz_submissions").select("*").order("created_at", { ascending: false });
+      if (quizId) query = query.eq("quiz_id", quizId);
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Globe2, Plus, Copy, Check, ExternalLink, AlertTriangle, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
-const AdminDomains = () => {
+const AdminDomains = React.forwardRef<HTMLDivElement>((_, ref) => {
   const [addOpen, setAddOpen] = useState(false);
   const [domain, setDomain] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
@@ -112,6 +112,8 @@ const AdminDomains = () => {
       </Dialog>
     </div>
   );
-};
+});
+
+AdminDomains.displayName = "AdminDomains";
 
 export default AdminDomains;
