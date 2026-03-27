@@ -7,6 +7,12 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   role: "super_admin" | "editor" | null;
+  userLimits: {
+    max_domains: number;
+    max_quizzes: number;
+    max_pages: number;
+    allowed_modules: string[];
+  } | null;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
@@ -18,17 +24,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<"super_admin" | "editor" | null>(null);
+  const [userLimits, setUserLimits] = useState<AuthContextType["userLimits"]>(null);
 
-  const fetchRole = async (userId: string) => {
+  const fetchUserData = async (userId: string) => {
     try {
-      const { data } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", userId)
-        .maybeSingle();
-      setRole((data?.role as "super_admin" | "editor") ?? null);
-    } catch {
+      const [roleRes, mgmtRes] = await Promise.all([
+        supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle(),
+        supabase.from("user_management").select("max_domains, max_quizzes, max_pages, allowed_modules").eq("user_id", userId).maybeSingle()
+      ]);
+
+      if (roleRes.data) {
+        setRole(roleRes.data.role as "super_admin" | "editor");
+      }
+      
+      if (mgmtRes.data) {
+        setUserLimits({
+          max_domains: mgmtRes.data.max_domains,
+          max_quizzes: mgmtRes.data.max_quizzes,
+          max_pages: mgmtRes.data.max_pages,
+          allowed_modules: mgmtRes.data.allowed_modules || [],
+        });
+      }
+    } catch (err) {
+      console.error("Erro ao buscar dados do usuário:", err);
       setRole(null);
+      setUserLimits(null);
     }
   };
 
@@ -38,7 +58,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchRole(session.user.id);
+        fetchUserData(session.user.id);
       }
       setLoading(false);
     });
@@ -49,9 +69,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
         // Usar setTimeout para evitar deadlock com Supabase
-        setTimeout(() => fetchRole(session.user.id), 0);
+        setTimeout(() => fetchUserData(session.user.id), 0);
       } else {
         setRole(null);
+        setUserLimits(null);
       }
       setLoading(false);
     });
@@ -67,12 +88,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = async () => {
     await supabase.auth.signOut();
     setRole(null);
+    setUserLimits(null);
     setUser(null);
     setSession(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, role, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, role, userLimits, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

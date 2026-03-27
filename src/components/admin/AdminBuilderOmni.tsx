@@ -198,6 +198,8 @@ const AdminBuilderOmni = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [newPageTitle, setNewPageTitle] = useState("");
   const [newPageSlug, setNewPageSlug] = useState("");
+  const [selectedDomainId, setSelectedDomainId] = useState<string | null>(null);
+  const [availableDomains, setAvailableDomains] = useState<any[]>([]);
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
 
   /* ── canvas selection ── */
@@ -232,7 +234,17 @@ const AdminBuilderOmni = () => {
   }, [config]);
 
   /* ── load pages ── */
-  useEffect(() => { loadPages(); }, []);
+  useEffect(() => { 
+    loadPages();
+    loadDomains();
+  }, []);
+
+  const loadDomains = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase.from("custom_domains").select("*").eq("user_id", user.id).eq("is_active", true);
+    if (data) setAvailableDomains(data);
+  };
 
   /* ── scroll chat ── */
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMessages]);
@@ -354,7 +366,7 @@ const AdminBuilderOmni = () => {
       iframeRef.current?.contentWindow?.postMessage({ type: "BUILDER_GET_HTML" }, "*");
       await new Promise(r => setTimeout(r, 200));
 
-      const slug = newPageSlug.trim()
+      const finalSlug = newPageSlug.trim()
         ? newPageSlug.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/^-|-$/g, "")
         : (newPageTitle || "pagina")
             .toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -363,6 +375,8 @@ const AdminBuilderOmni = () => {
       const { data: user } = await supabase.auth.getUser();
       const cleanHtml = generatedHtml.replace(/<script[^>]*data-builder-script[^>]*>[\s\S]*?<\/script>/g, "")
         .replace(/<script>[\s\S]*?__builderInjected[\s\S]*?<\/script>/g, "");
+
+      let pageId = activePage?.id;
 
       if (activePage) {
         await supabase.from("generated_pages").update({
@@ -373,19 +387,29 @@ const AdminBuilderOmni = () => {
           meta_pixel_id: pageMetaPixel,
           ga_id: pageGaId,
         }).eq("id", activePage.id);
-        toast.success(publish ? "Publicada!" : "Salva!");
       } else {
-        const { error } = await supabase.from("generated_pages").insert({
-          slug, title: newPageTitle || "Nova Página",
+        const { data, error } = await supabase.from("generated_pages").insert({
+          slug: finalSlug, title: newPageTitle || "Nova Página",
           html_content: cleanHtml,
           status: publish ? "published" : "draft",
           created_by: user?.user?.id,
           meta_pixel_id: pageMetaPixel,
           ga_id: pageGaId,
-        });
+        }).select().single();
         if (error) throw error;
-        toast.success(publish ? "Criada e publicada!" : "Rascunho salvo!");
+        pageId = data.id;
       }
+
+      // Vincular ao domínio se selecionado
+      if (publish && selectedDomainId && pageId) {
+        await supabase.from("custom_domains").update({
+          content_type: "page",
+          content_id: pageId,
+          slug: finalSlug
+        }).eq("id", selectedDomainId);
+      }
+
+      toast.success(publish ? "Publicada!" : "Salva!");
       await loadPages();
     } catch (err) {
       console.error(err);
@@ -854,17 +878,36 @@ Gere o HTML COMPLETO atualizado da landing page com as modificações solicitada
           ) : (
             <div className="flex flex-col flex-1">
               {/* Page title & slug inputs */}
-              <div className="p-4 border-b border-border space-y-2">
-                <div className="flex items-center gap-2 mb-2">
+              <div className="p-4 border-b border-border space-y-3">
+                <div className="flex items-center gap-2 mb-1">
                   <div className="p-1.5 bg-primary/10 rounded-lg text-primary"><Sparkles className="w-3.5 h-3.5" /></div>
                   <h3 className="font-bold text-xs uppercase tracking-wider">Páginas</h3>
                 </div>
-                <input value={newPageTitle} onChange={e => setNewPageTitle(e.target.value)}
-                  placeholder="Título da página..." className="w-full px-3 py-2 rounded-lg bg-secondary/50 border border-border/40 text-xs focus:ring-2 focus:ring-primary/30 outline-none" />
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <span>/p/</span>
-                  <input value={newPageSlug} onChange={e => setNewPageSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))}
-                    placeholder="slug-personalizado" className="flex-1 px-2 py-1 rounded bg-secondary/50 border border-border/40 text-xs focus:ring-1 focus:ring-primary/30 outline-none" />
+                <div>
+                  <label className="text-[10px] text-muted-foreground uppercase font-bold mb-1 block">Título</label>
+                  <input value={newPageTitle} onChange={e => setNewPageTitle(e.target.value)}
+                    placeholder="Título da página..." className="w-full px-3 py-2 rounded-lg bg-secondary/50 border border-border/40 text-xs focus:ring-2 focus:ring-primary/30 outline-none" />
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground uppercase font-bold mb-1 block">Domínio</label>
+                  <select 
+                    value={selectedDomainId || ""} 
+                    onChange={e => setSelectedDomainId(e.target.value || null)}
+                    className="w-full px-3 py-2 rounded-lg bg-secondary/50 border border-border/40 text-[11px] outline-none"
+                  >
+                    <option value="">Apenas URL Nativa</option>
+                    {availableDomains.map(d => (
+                      <option key={d.id} value={d.id}>{d.is_native ? "Nativo" : d.domain} ({d.slug || "raiz"})</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground uppercase font-bold mb-1 block">Slug (URL)</label>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground bg-secondary/50 border border-border/40 rounded-lg px-2 py-1.5">
+                    <span className="opacity-50">/p/</span>
+                    <input value={newPageSlug} onChange={e => setNewPageSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))}
+                      placeholder="slug-personalizado" className="flex-1 bg-transparent text-xs focus:outline-none" />
+                  </div>
                 </div>
               </div>
 

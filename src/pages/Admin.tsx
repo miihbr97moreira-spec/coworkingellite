@@ -16,21 +16,21 @@ import AdminDomains from "@/components/admin/AdminDomains";
 import AdminSettings from "@/components/admin/AdminSettings";
 
 const tabs = [
-  { id: "dashboard", label: "Dashboard", icon: BarChart3 },
-  { id: "content", label: "Builder", icon: Type },
-  { id: "quiz", label: "Quiz Builder", icon: ListChecks },
-  { id: "reviews", label: "Avaliações", icon: Users },
-  { id: "pixels", label: "Pixels", icon: Megaphone },
-  { id: "crm", label: "CRM", icon: Kanban },
-  { id: "domains", label: "Domínios", icon: Globe2 },
-  { id: "settings", label: "Configurações", icon: Settings },
+  { id: "dashboard", label: "Dashboard", icon: BarChart3, module: "dashboard" },
+  { id: "content", label: "Builder", icon: Type, module: "builder" },
+  { id: "quiz", label: "Quiz Builder", icon: ListChecks, module: "quiz_builder" },
+  { id: "reviews", label: "Avaliações", icon: Users, module: "reviews" },
+  { id: "pixels", label: "Pixels", icon: Megaphone, module: "pixels" },
+  { id: "crm", label: "CRM", icon: Kanban, module: "crm" },
+  { id: "domains", label: "Domínios", icon: Globe2, module: "domains" },
+  { id: "settings", label: "Configurações", icon: Settings, module: "settings" },
 ];
 
 const SIDEBAR_KEY = "omni_sidebar_collapsed";
 
 const Admin = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
-  const { user, role, signOut, loading } = useAuth();
+  const { user, role, signOut, loading, userLimits } = useAuth();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(SIDEBAR_KEY) === "true"; } catch { return false; }
@@ -85,7 +85,11 @@ const Admin = () => {
         </div>
 
         <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
-          {tabs.map((t) => (
+          {tabs.filter(t => 
+            t.module === 'dashboard' || 
+            role === 'super_admin' || 
+            userLimits?.allowed_modules?.includes(t.module)
+          ).map((t) => (
             <button
               key={t.id}
               onClick={() => setActiveTab(t.id)}

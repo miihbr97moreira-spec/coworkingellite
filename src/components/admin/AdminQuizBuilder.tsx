@@ -568,27 +568,59 @@ function nextQ(i){var slides=document.querySelectorAll('.q-slide');if(i<slides.l
 
           {/* ── Integration Tab ── */}
           {tab === "integration" && (
-            <div className="max-w-lg mx-auto space-y-4">
-              <h4 className="font-semibold text-sm mb-2">Integração CRM</h4>
-              <p className="text-xs text-muted-foreground mb-4">Ao finalizar o quiz, o lead será automaticamente adicionado à pipeline e etapa selecionadas.</p>
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">Pipeline</label>
-                <select value={crmFunnelId || ""} onChange={e => { setCrmFunnelId(e.target.value || null); setCrmStageId(null); }}
-                  className="w-full px-3 py-2 rounded-lg bg-secondary/50 border border-border/40 text-sm">
-                  <option value="">Nenhuma (sem integração)</option>
-                  {funnels?.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-                </select>
-              </div>
-              {crmFunnelId && (
+            <div className="max-w-lg mx-auto space-y-6">
+              <div className="bg-secondary/20 p-5 rounded-xl border border-border/30 space-y-4">
+                <h4 className="font-semibold text-sm flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-primary" /> Publicação e Domínio
+                </h4>
                 <div>
-                  <label className="text-xs text-muted-foreground block mb-1">Etapa de Destino</label>
-                  <select value={crmStageId || ""} onChange={e => setCrmStageId(e.target.value || null)}
-                    className="w-full px-3 py-2 rounded-lg bg-secondary/50 border border-border/40 text-sm">
-                    <option value="">Primeira etapa</option>
-                    {crmStages?.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  <label className="text-xs text-muted-foreground block mb-1.5">Onde publicar este Quiz?</label>
+                  <select 
+                    value={selectedDomainId || ""} 
+                    onChange={e => setSelectedDomainId(e.target.value || null)}
+                    className="w-full px-3 py-2 rounded-lg bg-secondary/50 border border-border/40 text-sm outline-none"
+                  >
+                    <option value="">Apenas URL do Sistema (Slug Nativo)</option>
+                    {availableDomains.map(d => (
+                      <option key={d.id} value={d.id}>{d.is_native ? "Domínio Nativo" : d.domain} ({d.slug || "raiz"})</option>
+                    ))}
                   </select>
                 </div>
-              )}
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1.5">Slug Personalizado (Caminho)</label>
+                  <input 
+                    value={slug} 
+                    onChange={e => setSlug(e.target.value)}
+                    placeholder="meu-quiz-exclusivo" 
+                    className="w-full px-3 py-2 rounded-lg bg-secondary/50 border border-border/40 text-sm outline-none" 
+                  />
+                </div>
+              </div>
+
+              <div className="bg-secondary/20 p-5 rounded-xl border border-border/30 space-y-4">
+                <h4 className="font-semibold text-sm flex items-center gap-2">
+                  <Kanban className="w-4 h-4 text-primary" /> Integração CRM
+                </h4>
+                <p className="text-[11px] text-muted-foreground">Ao finalizar o quiz, o lead será automaticamente adicionado à pipeline e etapa selecionadas.</p>
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">Pipeline</label>
+                  <select value={crmFunnelId || ""} onChange={e => { setCrmFunnelId(e.target.value || null); setCrmStageId(null); }}
+                    className="w-full px-3 py-2 rounded-lg bg-secondary/50 border border-border/40 text-sm">
+                    <option value="">Nenhuma (sem integração)</option>
+                    {funnels?.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                  </select>
+                </div>
+                {crmFunnelId && (
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1">Etapa de Destino</label>
+                    <select value={crmStageId || ""} onChange={e => setCrmStageId(e.target.value || null)}
+                      className="w-full px-3 py-2 rounded-lg bg-secondary/50 border border-border/40 text-sm">
+                      <option value="">Primeira etapa</option>
+                      {crmStages?.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

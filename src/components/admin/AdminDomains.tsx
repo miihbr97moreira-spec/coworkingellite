@@ -11,6 +11,8 @@ import { useDNSResolver } from "@/hooks/useDNSResolver";
 const AdminDomains = React.forwardRef<HTMLDivElement>((_, ref) => {
   const [addOpen, setAddOpen] = useState(false);
   const [domain, setDomain] = useState("");
+  const [slug, setSlug] = useState("");
+  const [isNative, setIsNative] = useState(false);
   const [contentType, setContentType] = useState("main_lp");
   const [contentId, setContentId] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
@@ -79,7 +81,9 @@ const AdminDomains = React.forwardRef<HTMLDivElement>((_, ref) => {
   };
 
   const handleAddDomain = async () => {
-    if (!domain.trim()) return toast.error("Informe o domínio");
+    const finalDomain = isNative ? window.location.hostname : domain.toLowerCase().trim();
+    if (!finalDomain) return toast.error("Informe o domínio");
+    if (isNative && !slug.trim()) return toast.error("Informe o slug para o domínio nativo");
     if (contentType !== "main_lp" && !contentId) return toast.error("Selecione o conteúdo");
     
     try {
@@ -87,7 +91,9 @@ const AdminDomains = React.forwardRef<HTMLDivElement>((_, ref) => {
       if (!user) throw new Error("Usuário não autenticado");
 
       const { error } = await supabase.from("custom_domains").insert({
-        domain: domain.toLowerCase().trim(),
+        domain: finalDomain,
+        slug: slug.trim() || null,
+        is_native: isNative,
         content_type: contentType,
         content_id: contentType === "main_lp" ? null : contentId,
         is_active: true,
@@ -96,9 +102,11 @@ const AdminDomains = React.forwardRef<HTMLDivElement>((_, ref) => {
 
       if (error) throw error;
 
-      toast.success("Domínio conectado com sucesso!");
+      toast.success("Domínio configurado com sucesso!");
       setAddOpen(false);
       setDomain("");
+      setSlug("");
+      setIsNative(false);
       setDnsInfo(null);
       loadData();
     } catch (err: any) {
@@ -230,27 +238,67 @@ const AdminDomains = React.forwardRef<HTMLDivElement>((_, ref) => {
             <DialogDescription>Vincule um domínio próprio a um conteúdo específico do seu projeto.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div>
-              <label className="text-xs font-semibold block mb-1.5">Domínio</label>
-              <div className="flex gap-2">
-                <input 
-                  value={domain} 
-                  onChange={e => setDomain(e.target.value)}
-                  placeholder="ex: promocao.meusite.com.br" 
-                  className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm outline-none focus:ring-1 focus:ring-primary/30" 
-                />
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  onClick={handleCheckDns}
-                  disabled={checkingDns || !domain.trim()}
-                  className="gap-1"
-                >
-                  {checkingDns ? <Loader2 className="w-3 h-3 animate-spin" /> : <Search className="w-3 h-3" />}
-                  Verificar
-                </Button>
+            <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 border border-border/50">
+              <div className="flex items-center gap-2">
+                <Globe2 className="w-4 h-4 text-primary" />
+                <span className="text-xs font-semibold">Usar Domínio Nativo do Sistema?</span>
               </div>
+              <input 
+                type="checkbox" 
+                checked={isNative} 
+                onChange={e => setIsNative(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+              />
             </div>
+
+            {!isNative ? (
+              <div>
+                <label className="text-xs font-semibold block mb-1.5">Seu Domínio Customizado</label>
+                <div className="flex gap-2">
+                  <input 
+                    value={domain} 
+                    onChange={e => setDomain(e.target.value)}
+                    placeholder="ex: promocao.meusite.com.br" 
+                    className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm outline-none focus:ring-1 focus:ring-primary/30" 
+                  />
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={handleCheckDns}
+                    disabled={checkingDns || !domain.trim()}
+                    className="gap-1"
+                  >
+                    {checkingDns ? <Loader2 className="w-3 h-3 animate-spin" /> : <Search className="w-3 h-3" />}
+                    Verificar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <label className="text-xs font-semibold block mb-1.5">Slug (Caminho)</label>
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary border border-border text-sm">
+                  <span className="text-muted-foreground">{window.location.hostname}/</span>
+                  <input 
+                    value={slug} 
+                    onChange={e => setSlug(e.target.value)}
+                    placeholder="minha-pagina" 
+                    className="flex-1 bg-transparent outline-none" 
+                  />
+                </div>
+              </div>
+            )}
+
+            {!isNative && (
+              <div>
+                <label className="text-xs font-semibold block mb-1.5">Slug Opcional (Caminho)</label>
+                <input 
+                  value={slug} 
+                  onChange={e => setSlug(e.target.value)}
+                  placeholder="slug (opcional)" 
+                  className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm outline-none" 
+                />
+              </div>
+            )}
 
             {/* DNS Status */}
             {dnsInfo && (
