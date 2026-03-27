@@ -356,6 +356,19 @@ const AdminCRM = () => {
     toast.success("Lead atualizado!");
   };
 
+  const deleteLead = async (leadId: string) => {
+    if (!confirm("Tem certeza que deseja excluir este lead?")) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return toast.error("Usuário não autenticado");
+    const { error } = await supabase.from("leads").delete().eq("id", leadId);
+    if (error) return toast.error("Erro ao excluir lead: " + error.message);
+    qc.invalidateQueries({ queryKey: ["leads", selectedFunnel] });
+    setEditLeadOpen(false);
+    setEditLeadData(null);
+    setSelectedLead(null);
+    toast.success("Lead excluído!");
+  };
+
   /* ── CRUD: Delete Funnel ── */
   const deleteFunnel = async (funnelId: string) => {
     if (!confirm("Excluir pipeline e todos os dados?")) return;
@@ -387,22 +400,42 @@ const AdminCRM = () => {
     if (!over) return;
 
     if (activeType === "Lead") {
-      const overLead = leads?.find(l => l.id === over.id);
-      const overStage = stages?.find(s => s.id === over.id);
+      const activeLeadId = active.id as string;
+      const overId = over.id as string;
+      
+      // Encontrar a etapa de destino
+      const overLead = leads?.find(l => l.id === overId);
+      const overStage = stages?.find(s => s.id === overId);
       const targetStageId = overLead ? overLead.stage_id : (overStage ? overStage.id : null);
+      
       if (targetStageId) {
-        await supabase.from("leads").update({ stage_id: targetStageId, updated_at: new Date().toISOString() }).eq("id", active.id as string);
-        qc.invalidateQueries({ queryKey: ["leads", selectedFunnel] });
+        const { error } = await supabase.from("leads").update({ 
+          stage_id: targetStageId, 
+          updated_at: new Date().toISOString() 
+        }).eq("id", activeLeadId);
+        
+        if (error) {
+          toast.error("Erro ao mover lead: " + error.message);
+        } else {
+          qc.invalidateQueries({ queryKey: ["leads", selectedFunnel] });
+          toast.success("Lead movido!");
+        }
       }
     } else if (activeType === "Stage") {
       const oldIndex = stages?.findIndex(s => s.id === active.id);
       const newIndex = stages?.findIndex(s => s.id === over.id);
-      if (oldIndex !== undefined && newIndex !== undefined && oldIndex !== newIndex) {
-        const newStages = arrayMove(stages!, oldIndex, newIndex);
-        for (let i = 0; i < newStages.length; i++) {
-          await supabase.from("stages").update({ sort_order: i }).eq("id", newStages[i].id);
-        }
+      
+      if (oldIndex !== undefined && newIndex !== undefined && oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+        const newStages = arrayMove([...(stages || [])], oldIndex, newIndex);
+        
+        // Atualização otimista no cache seria ideal, mas vamos atualizar no banco
+        const updates = newStages.map((s, i) => 
+          supabase.from("stages").update({ sort_order: i }).eq("id", s.id)
+        );
+        
+        await Promise.all(updates);
         qc.invalidateQueries({ queryKey: ["stages", selectedFunnel] });
+        toast.success("Etapas reordenadas!");
       }
     }
   };
@@ -683,7 +716,10 @@ const AdminCRM = () => {
                 {stages?.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>
-            <Button onClick={updateLead} className="w-full">Salvar Alterações</Button>
+            <div className="flex gap-2 pt-2">
+              <Button variant="destructive" onClick={() => deleteLead(editLeadData.id)} className="flex-1">Excluir</Button>
+              <Button onClick={updateLead} className="flex-[2]">Salvar Alterações</Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
