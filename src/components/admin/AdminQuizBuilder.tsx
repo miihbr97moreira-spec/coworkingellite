@@ -177,40 +177,67 @@ Pedido do usuário: "${input}"
 
 Retorne APENAS o JSON puro, sem markdown ou explicações.`;
 
-    let fullRaw = "";
-    await generatePage(systemPrompt, (delta) => { fullRaw += delta; }, () => {
-      try {
-        const cleaned = fullRaw.replace(/\`\`\`json?\s*/g, "").replace(/\`\`\`/g, "").trim();
-        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
+    try {
+      let fullRaw = "";
+      await generatePage(systemPrompt, (delta) => { fullRaw += delta; }, () => {
+        if (!fullRaw.trim()) {
+          setChatMsgs(prev => [...prev, {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: "❌ Erro: Nenhuma resposta recebida da IA. Tente novamente."
+          }]);
+          return;
+        }
+
+        try {
+          const cleaned = fullRaw.replace(/\`\`\`json?\s*/g, "").replace(/\`\`\`/g, "").trim();
+          const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+          
+          if (!jsonMatch) {
+            throw new Error("JSON não encontrado na resposta");
+          }
+
           const parsed = JSON.parse(jsonMatch[0]);
+          
+          if (!parsed.questions || !Array.isArray(parsed.questions)) {
+            throw new Error("Estrutura de perguntas inválida");
+          }
+
           if (parsed.title) setTitle(parsed.title);
           if (parsed.description) setDescription(parsed.description);
-          if (parsed.questions?.length) {
-            setQuestions(parsed.questions.map((q: any, i: number) => ({
-              id: q.id || `q${i}`,
-              type: q.type || "multiple_choice",
-              title: q.title || "",
-              options: q.options,
-              image_options: q.image_options,
-              required: q.required !== false,
-              logic: q.logic || []
-            })));
-          }
+          
+          setQuestions(parsed.questions.map((q: any, i: number) => ({
+            id: q.id || `q${i}`,
+            type: q.type || "multiple_choice",
+            title: q.title || "",
+            options: q.options || [],
+            image_options: q.image_options || [],
+            required: q.required !== false,
+            logic: q.logic || []
+          })));
+
           setChatMsgs(prev => [...prev, {
             id: Date.now().toString(),
             role: "assistant",
             content: `✅ **Quiz gerado com sucesso!**\n\n📊 ${parsed.questions?.length || 0} perguntas criadas com lógica condicional, gamificação e piping de variáveis.\n\nVocê pode agora:\n- Editar as perguntas e adicionar mais lógica\n- Configurar cores e tipografia na aba **Design**\n- Ativar Auto-Advance, Fake Loading e Timer na aba **Configurações**\n- Ver o funil de drop-off na aba **Analytics**`
           }]);
+        } catch (err: any) {
+          console.error("Erro ao parsear JSON:", err, "Raw:", fullRaw);
+          setChatMsgs(prev => [...prev, {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: "❌ Erro ao processar a resposta da IA. Tente descrever de forma mais clara.\n\nDicas:\n- Especifique o tipo de negócio\n- Mencione quantas perguntas deseja\n- Peça para usar lógica condicional, imagens ou fake loading"
+          }]);
         }
-      } catch (err) {
-        setChatMsgs(prev => [...prev, {
-          id: Date.now().toString(),
-          role: "assistant",
-          content: "❌ Desculpe, nao consegui gerar o quiz. Tente descrever de forma mais clara.\n\nDicas:\n- Especifique o tipo de negocio\n- Mencione quantas perguntas deseja\n- Peca para usar logica condicional, imagens ou fake loading\n- Exemplo: Quiz de fitness com 5 perguntas, imagens para objetivos e logica condicional"
-        }]);
-      }
-    });
+      });
+    } catch (err: any) {
+      console.error("Erro geral:", err);
+      setChatMsgs(prev => [...prev, {
+        id: Date.now().toString(),
+        role: "assistant",
+        content: "❌ Erro ao conectar com a IA. Verifique sua conexão e tente novamente."
+      }]);
+    }
     setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
   };
 
