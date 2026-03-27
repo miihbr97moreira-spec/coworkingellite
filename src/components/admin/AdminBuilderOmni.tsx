@@ -5,7 +5,7 @@ import {
   MousePointer2, Undo2, Redo2, Send, RotateCcw, Sparkles,
   Plus, FileText, Globe, Download, Trash2,
   ExternalLink, Eye, Copy, Check, Settings, Image, Link2,
-  Type, Palette, X, Upload, MessageCircle, Key, Bot, Code
+  Type, Palette, X, Upload, MessageCircle, Key, Bot, Code, DollarSign
 } from "lucide-react";
 import { toast } from "sonner";
 import { useLPConfig, useUpdateLPConfig } from "@/hooks/useSupabaseQuery";
@@ -16,6 +16,8 @@ import ReactMarkdown from "react-markdown";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
+import { CheckoutSidebar } from "@/components/builder/CheckoutSidebar";
+import { useCheckoutBlocks } from "@/hooks/useCheckoutBlocks";
 
 /* ───────── types ───────── */
 interface Message {
@@ -219,6 +221,10 @@ const AdminBuilderOmni = () => {
   const [pagePixelOpen, setPagePixelOpen] = useState(false);
   const [pageMetaPixel, setPageMetaPixel] = useState("");
   const [pageGaId, setPageGaId] = useState("");
+
+  /* ── checkout sidebar ── */
+  const [checkoutSidebarOpen, setCheckoutSidebarOpen] = useState(false);
+  const { blocks: checkoutBlocks } = useCheckoutBlocks();
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -486,14 +492,26 @@ const AdminBuilderOmni = () => {
         if (error) throw error;
       }
 
-      // 4. Also save the full HTML as a fallback/override if needed
+      // 4. Save checkout blocks configuration
+      if (checkoutBlocks.length > 0) {
+        const { error: checkoutError } = await supabase
+          .from('landing_page_config')
+          .upsert(
+            { key: 'checkout_blocks', value: JSON.stringify(checkoutBlocks) },
+            { onConflict: 'key' }
+          );
+        
+        if (checkoutError) throw checkoutError;
+      }
+
+      // 5. Also save the full HTML as a fallback/override if needed
       if (lpHtml) {
         await supabase
           .from('landing_page_config')
           .upsert({ key: 'custom_html', value: lpHtml }, { onConflict: 'key' });
       }
 
-      toast.success("Landing Page publicada com sucesso!");
+      toast.success("Landing Page publicada com sucesso! Checkouts salvos.");
     } catch (err) { 
       console.error("Erro ao salvar LP:", err);
       toast.error("Erro ao salvar as alterações."); 
@@ -807,6 +825,20 @@ Gere o HTML COMPLETO atualizado da landing page com as modificações solicitada
         </div>
 
         <div className="flex items-center gap-2">
+          {mode === "edit-lp" && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 rounded-lg h-7 text-xs"
+                onClick={() => setCheckoutSidebarOpen(true)}
+                title="Gerenciar Checkouts"
+              >
+                <DollarSign className="w-3 h-3" /> Checkouts ({checkoutBlocks.length})
+              </Button>
+              <div className="h-5 w-px bg-border mx-1" />
+            </>
+          )}
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setBYOKOpen(true)} title="Configurar IA">
             <Key className="w-3.5 h-3.5" />
           </Button>
@@ -1132,6 +1164,12 @@ Gere o HTML COMPLETO atualizado da landing page com as modificações solicitada
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ─── Checkout Sidebar ─── */}
+      <CheckoutSidebar
+        isOpen={checkoutSidebarOpen}
+        onClose={() => setCheckoutSidebarOpen(false)}
+      />
     </div>
   );
 };
