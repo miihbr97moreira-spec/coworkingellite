@@ -1,42 +1,39 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
-  BarChart3, Type, Megaphone, LogOut,
-  Settings, Users, Kanban, ListChecks, PanelLeftClose, PanelLeft, Globe2, Zap,
+  BarChart3, Type, ListChecks, LogOut,
+  Settings, Kanban, Zap, PanelLeftClose, PanelLeft, ShieldAlert,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import AdminDashboardExpanded from "@/components/admin/AdminDashboardExpanded";
 import AdminBuilderOmni from "@/components/admin/AdminBuilderOmni";
-import AdminPixelManager from "@/components/admin/AdminPixelManager";
 import AdminCRM from "@/components/admin/AdminCRM";
-import AdminReviews from "@/components/admin/AdminReviews";
 import AdminQuizBuilder from "@/components/admin/AdminQuizBuilder";
-import AdminDomains from "@/components/admin/AdminDomains";
-import AdminSettings from "@/components/admin/AdminSettings";
 import OmniFlow from "@/components/admin/OmniFlow";
+import AdminSettings from "@/components/admin/AdminSettings";
 
-const tabs = [
+// Main navigation tabs (top-down order)
+const mainTabs = [
   { id: "dashboard", label: "Dashboard", icon: BarChart3, module: "dashboard" },
-  { id: "content", label: "Builder", icon: Type, module: "builder" },
-  { id: "quiz", label: "Quiz Builder", icon: ListChecks, module: "quiz_builder" },
-  { id: "reviews", label: "Avaliações", icon: Users, module: "reviews" },
-  { id: "pixels", label: "Pixels", icon: Megaphone, module: "pixels" },
   { id: "crm", label: "CRM", icon: Kanban, module: "crm" },
-  { id: "domains", label: "Domínios", icon: Globe2, module: "domains" },
+  { id: "content", label: "Builder Pages", icon: Type, module: "builder" },
+  { id: "quiz", label: "Quizzes", icon: ListChecks, module: "quiz_builder" },
   { id: "omni_flow", label: "Omni Flow", icon: Zap, module: "omni_flow", badge: "BETA" },
-  { id: "settings", label: "Configurações", icon: Settings, module: "settings" },
 ];
 
 const SIDEBAR_KEY = "omni_sidebar_collapsed";
+const SUPER_ADMIN_EMAIL = "jpm19990@gmail.com";
 
 const Admin = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
-  const { user, role, signOut, loading, userLimits } = useAuth();
+  const { user, role, signOut, loading } = useAuth();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(SIDEBAR_KEY) === "true"; } catch { return false; }
   });
+
+  const isSuperAdmin = user?.email === SUPER_ADMIN_EMAIL;
 
   const toggleSidebar = () => {
     setCollapsed(p => {
@@ -67,6 +64,7 @@ const Admin = () => {
   return (
     <div className="min-h-screen bg-background flex admin-theme">
       <aside className={`border-r border-border bg-secondary/30 flex flex-col shrink-0 transition-all duration-300 ${collapsed ? "w-16" : "w-64"}`}>
+        {/* Header */}
         <div className="p-4 border-b border-border flex items-center justify-between">
           {!collapsed && (
             <div>
@@ -86,8 +84,9 @@ const Admin = () => {
           </button>
         </div>
 
+        {/* Main Navigation */}
         <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
-          {tabs.map((t) => (
+          {mainTabs.map((t) => (
             <button
               key={t.id}
               onClick={() => setActiveTab(t.id)}
@@ -113,7 +112,39 @@ const Admin = () => {
           ))}
         </nav>
 
-        <div className="p-3 border-t border-border">
+        {/* Bottom Actions */}
+        <div className="p-3 border-t border-border space-y-1">
+          {/* Settings - Always visible */}
+          <button
+            onClick={() => setActiveTab("settings")}
+            title={collapsed ? "Configurações" : undefined}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+              activeTab === "settings"
+                ? "bg-primary/10 text-primary font-medium"
+                : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+            } ${collapsed ? "justify-center" : ""}`}
+          >
+            <Settings className="w-4 h-4 shrink-0" />
+            {!collapsed && "Configurações"}
+          </button>
+
+          {/* Super Admin - Conditional */}
+          {isSuperAdmin && (
+            <button
+              onClick={() => setActiveTab("super_admin")}
+              title={collapsed ? "Super Admin" : undefined}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                activeTab === "super_admin"
+                  ? "bg-red-500/10 text-red-400 font-medium"
+                  : "text-muted-foreground hover:text-red-400 hover:bg-red-950/20"
+              } ${collapsed ? "justify-center" : ""}`}
+            >
+              <ShieldAlert className="w-4 h-4 shrink-0" />
+              {!collapsed && "Super Admin"}
+            </button>
+          )}
+
+          {/* Logout */}
           <button
             onClick={logout}
             title={collapsed ? "Sair" : undefined}
@@ -125,6 +156,7 @@ const Admin = () => {
         </div>
       </aside>
 
+      {/* Main Content */}
       <main className="flex-1 overflow-auto">
         <motion.div
           key={activeTab}
@@ -134,14 +166,18 @@ const Admin = () => {
           className="p-8"
         >
           {activeTab === "dashboard" && <AdminDashboardExpanded />}
+          {activeTab === "crm" && <AdminCRM />}
           {activeTab === "content" && <AdminBuilderOmni />}
           {activeTab === "quiz" && <AdminQuizBuilder />}
-          {activeTab === "reviews" && <AdminReviews />}
-          {activeTab === "pixels" && <AdminPixelManager />}
-          {activeTab === "crm" && <AdminCRM />}
-          {activeTab === "domains" && <AdminDomains />}
           {activeTab === "omni_flow" && <OmniFlow />}
           {activeTab === "settings" && <AdminSettings />}
+          {activeTab === "super_admin" && isSuperAdmin && (
+            <div className="text-center py-12">
+              <ShieldAlert className="w-12 h-12 text-red-500 mx-auto mb-4" />
+              <h1 className="text-2xl font-bold text-white mb-2">Painel Super Admin</h1>
+              <p className="text-muted-foreground">Carregando...</p>
+            </div>
+          )}
         </motion.div>
       </main>
     </div>

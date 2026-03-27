@@ -34,10 +34,9 @@ interface QueueItem {
 const MODULES = [
   { id: 'builder', label: 'Builder (Omni)' },
   { id: 'quiz_builder', label: 'Quiz Builder' },
-  { id: 'reviews', label: 'Avaliações' },
   { id: 'pixels', label: 'Pixels' },
   { id: 'crm', label: 'CRM' },
-  { id: 'domains', label: 'Domínios' },
+  { id: 'omni_flow', label: 'Omni Flow' },
   { id: 'settings', label: 'Configurações' },
 ];
 
@@ -60,7 +59,7 @@ const AdminSettings = () => {
     max_domains: 1,
     max_quizzes: 5,
     max_pages: 10,
-    allowed_modules: ['builder', 'quiz_builder', 'reviews', 'pixels', 'crm', 'domains'] as string[],
+    allowed_modules: ['builder', 'quiz_builder', 'pixels', 'crm', 'omni_flow'] as string[],
   });
 
   const isSuperAdmin = role === "super_admin";
@@ -219,7 +218,7 @@ const AdminSettings = () => {
             setFormData({ 
               email: "", full_name: "", password: "", role: "editor", 
               max_domains: 1, max_quizzes: 5, max_pages: 10,
-              allowed_modules: ['builder', 'quiz_builder', 'reviews', 'pixels', 'crm', 'domains']
+              allowed_modules: ['builder', 'quiz_builder', 'pixels', 'crm', 'omni_flow']
             }); 
             setNewUserOpen(true); 
           }} className="gap-2">
