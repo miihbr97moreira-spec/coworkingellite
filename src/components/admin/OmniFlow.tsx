@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   MessageCircle, Webhook, Brain, ChevronRight, Loader2, AlertCircle,
-  CheckCircle2, Circle, Settings2, Zap, BarChart3, Bell
+  CheckCircle2, Circle, Settings2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -10,12 +10,6 @@ import { supabase } from "@/integrations/supabase/client";
 import OmniFlowWhatsApp from "./OmniFlow/OmniFlowWhatsApp";
 import OmniFlowWebhooks from "./OmniFlow/OmniFlowWebhooks";
 import OmniFlowAgent from "./OmniFlow/OmniFlowAgent";
-import OmniFlowBuilder from "./OmniFlow/OmniFlowBuilder";
-import Integrations from "./OmniFlow/Integrations";
-import Inbox from "./OmniFlow/Inbox";
-import Analytics from "./OmniFlow/Analytics";
-import NotificationCenter from "./OmniFlow/NotificationCenter";
-import TooltipHelp from "@/components/ui/tooltip-help";
 
 interface IntegrationStatus {
   whatsapp: "connected" | "disconnected" | "connecting";
@@ -24,7 +18,7 @@ interface IntegrationStatus {
 }
 
 const OmniFlow = React.forwardRef<HTMLDivElement>((_, ref) => {
-  const [activeModule, setActiveModule] = useState<string>("dashboard");
+  const [activeModule, setActiveModule] = useState<string | null>(null);
   const [status, setStatus] = useState<IntegrationStatus>({
     whatsapp: "disconnected",
     webhooks: "inactive",
@@ -116,96 +110,31 @@ const OmniFlow = React.forwardRef<HTMLDivElement>((_, ref) => {
     );
   }
 
-  // Renderizar módulos específicos
   if (activeModule === "whatsapp") {
-    return <OmniFlowWhatsApp onBack={() => { setActiveModule("dashboard"); loadIntegrationStatus(); }} />;
+    return <OmniFlowWhatsApp onBack={() => { setActiveModule(null); loadIntegrationStatus(); }} />;
   }
 
   if (activeModule === "webhooks") {
-    return <OmniFlowWebhooks onBack={() => { setActiveModule("dashboard"); loadIntegrationStatus(); }} />;
+    return <OmniFlowWebhooks onBack={() => { setActiveModule(null); loadIntegrationStatus(); }} />;
   }
 
   if (activeModule === "agent") {
-    return <OmniFlowAgent onBack={() => { setActiveModule("dashboard"); loadIntegrationStatus(); }} />;
+    return <OmniFlowAgent onBack={() => { setActiveModule(null); loadIntegrationStatus(); }} />;
   }
 
-  if (activeModule === "builder") {
-    return <OmniFlowBuilder onBack={() => { setActiveModule("dashboard"); loadIntegrationStatus(); }} />;
-  }
-
-  if (activeModule === "integrations") {
-    return <Integrations onBack={() => { setActiveModule("dashboard"); }} />;
-  }
-
-  if (activeModule === "inbox") {
-    return <Inbox onBack={() => { setActiveModule("dashboard"); }} />;
-  }
-
-  if (activeModule === "analytics") {
-    return <Analytics onBack={() => { setActiveModule("dashboard"); }} />;
-  }
-
-  if (activeModule === "notifications") {
-    return <NotificationCenter onBack={() => { setActiveModule("dashboard"); }} />;
-  }
-
-  // Dashboard principal
   return (
     <div ref={ref} className="space-y-8">
-      {/* Header com Navegação */}
+      {/* Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-gradient-to-br from-[#D97757]/20 to-[#D97757]/10 border border-[#D97757]/30">
-            <Settings2 className="w-6 h-6 text-[#D97757]" />
+          <div className="p-2 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-amber-500/30">
+            <Settings2 className="w-6 h-6 text-amber-600" />
           </div>
           Omni Flow
-          <TooltipHelp content="Hub central para gerenciar integrações (WhatsApp, Webhooks) e criar automações com IA. Tudo isolado e seguro por tenant." />
         </h1>
         <p className="text-sm text-muted-foreground mt-2">
           Hub central de integrações e automações para seu projeto. Conecte WhatsApp, configure webhooks e ative sua IA.
         </p>
-
-        {/* Navigation Tabs */}
-        <div className="flex gap-2 mt-6 flex-wrap">
-          <Button
-            variant={activeModule === "dashboard" ? "default" : "outline"}
-            onClick={() => setActiveModule("dashboard")}
-            className={activeModule === "dashboard" ? "bg-[#D97757]" : ""}
-          >
-            Dashboard
-          </Button>
-          <Button
-            variant={activeModule === "inbox" ? "default" : "outline"}
-            onClick={() => setActiveModule("inbox")}
-            className={activeModule === "inbox" ? "bg-[#D97757]" : ""}
-          >
-            <MessageCircle className="w-4 h-4 mr-2" />
-            Inbox
-          </Button>
-          <Button
-            variant={activeModule === "integrations" ? "default" : "outline"}
-            onClick={() => setActiveModule("integrations")}
-            className={activeModule === "integrations" ? "bg-[#D97757]" : ""}
-          >
-            Integrações
-          </Button>
-          <Button
-            variant={activeModule === "analytics" ? "default" : "outline"}
-            onClick={() => setActiveModule("analytics")}
-            className={activeModule === "analytics" ? "bg-[#D97757]" : ""}
-          >
-            <BarChart3 className="w-4 h-4 mr-2" />
-            Analytics
-          </Button>
-          <Button
-            variant={activeModule === "notifications" ? "default" : "outline"}
-            onClick={() => setActiveModule("notifications")}
-            className={activeModule === "notifications" ? "bg-[#D97757]" : ""}
-          >
-            <Bell className="w-4 h-4 mr-2" />
-            Notificações
-          </Button>
-        </div>
       </div>
 
       {/* Status Overview */}
@@ -237,7 +166,7 @@ const OmniFlow = React.forwardRef<HTMLDivElement>((_, ref) => {
       </div>
 
       {/* Bento Grid - Integration Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 auto-rows-max">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-max">
         {integrations.map((integration, idx) => (
           <motion.div
             key={integration.id}
@@ -293,42 +222,6 @@ const OmniFlow = React.forwardRef<HTMLDivElement>((_, ref) => {
             </div>
           </motion.div>
         ))}
-
-        {/* Flow Builder Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="group relative overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-orange-500/10 backdrop-blur-sm p-6 cursor-pointer hover:shadow-lg transition-all"
-          onClick={() => setActiveModule("builder")}
-        >
-          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent" />
-          </div>
-
-          <div className="relative z-10 flex flex-col h-full">
-            <div className="flex items-start justify-between mb-4">
-              <div className="p-3 rounded-xl bg-background/50 group-hover:bg-background/70 transition-colors">
-                <Zap className="w-6 h-6 text-amber-600" />
-              </div>
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-700 border border-amber-500/30">
-                <CheckCircle2 className="w-3 h-3" />
-                Ativo
-              </div>
-            </div>
-
-            <h3 className="text-lg font-bold mb-2">Flow Builder</h3>
-            <p className="text-sm text-muted-foreground mb-6 flex-1">Crie automações conectando gatilhos e ações</p>
-
-            <Button
-              className="w-full gap-2 group/btn"
-              variant="default"
-            >
-              Abrir Builder
-              <ChevronRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
-            </Button>
-          </div>
-        </motion.div>
       </div>
 
       {/* Info Section */}
