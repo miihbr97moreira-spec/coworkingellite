@@ -52,8 +52,9 @@ const AdminDashboard = () => {
     });
     
     const conversionRate = totalLeads > 0 ? ((closedLeads.length / totalLeads) * 100).toFixed(1) : "0";
+    const totalRevenue = closedLeads.reduce((acc, curr) => acc + Number(curr.deal_value || 0), 0);
     const avgTicket = closedLeads.length > 0 
-      ? (closedLeads.reduce((acc, curr) => acc + Number(curr.deal_value || 0), 0) / closedLeads.length).toFixed(0)
+      ? (totalRevenue / closedLeads.length).toFixed(0)
       : "0";
 
     // Gráfico de Leads por Dia (últimos 30 dias ou range selecionado)
@@ -80,6 +81,7 @@ const AdminDashboard = () => {
     return {
       totalLeads,
       pipelineValue,
+      totalRevenue,
       conversionRate,
       avgTicket,
       dailyChart: Object.values(dailyData).sort((a, b) => a.date.localeCompare(b.date)),
@@ -98,16 +100,18 @@ const AdminDashboard = () => {
       : "Todo o período";
     doc.text(`Período: ${rangeText}`, 20, 30);
     doc.text(`Total de Leads: ${stats.totalLeads}`, 20, 45);
-    doc.text(`Valor em Pipeline: R$ ${stats.pipelineValue.toLocaleString("pt-BR")}`, 20, 55);
-    doc.text(`Taxa de Conversão: ${stats.conversionRate}%`, 20, 65);
-    doc.text(`Ticket Médio: R$ ${Number(stats.avgTicket).toLocaleString("pt-BR")}`, 20, 75);
+    doc.text(`Receita Total: R$ ${stats.totalRevenue.toLocaleString("pt-BR")}`, 20, 55);
+    doc.text(`Valor em Pipeline: R$ ${stats.pipelineValue.toLocaleString("pt-BR")}`, 20, 65);
+    doc.text(`Taxa de Conversão: ${stats.conversionRate}%`, 20, 75);
+    doc.text(`Ticket Médio: R$ ${Number(stats.avgTicket).toLocaleString("pt-BR")}`, 20, 85);
     doc.save(`relatorio-ellite-${format(new Date(), "yyyy-MM-dd")}.pdf`);
   };
 
   const kpis = [
     { label: "Total de Leads", value: stats.totalLeads, icon: Users, trend: "+12%", up: true, color: "text-blue-500" },
-    { label: "Pipeline", value: `R$ ${stats.pipelineValue.toLocaleString("pt-BR")}`, icon: DollarSign, trend: "+8%", up: true, color: "text-emerald-500" },
-    { label: "Conversão", value: `${stats.conversionRate}%`, icon: Target, trend: "-2%", up: false, color: "text-amber-500" },
+    { label: "Receita Total", value: `R$ ${stats.totalRevenue.toLocaleString("pt-BR")}`, icon: DollarSign, trend: "+18%", up: true, color: "text-emerald-500" },
+    { label: "Pipeline", value: `R$ ${stats.pipelineValue.toLocaleString("pt-BR")}`, icon: DollarSign, trend: "+8%", up: true, color: "text-amber-500" },
+    { label: "Conversão", value: `${stats.conversionRate}%`, icon: Target, trend: "-2%", up: false, color: "text-red-500" },
     { label: "Ticket Médio", value: `R$ ${Number(stats.avgTicket).toLocaleString("pt-BR")}`, icon: TrendingUp, trend: "+5%", up: true, color: "text-primary" },
   ];
 

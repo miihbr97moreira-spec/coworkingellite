@@ -186,6 +186,7 @@ export type Database = {
           email: string | null
           funnel_id: string
           id: string
+          lead_score: number
           name: string
           notes: string | null
           phone: string | null
@@ -202,6 +203,7 @@ export type Database = {
           email?: string | null
           funnel_id: string
           id?: string
+          lead_score?: number
           name: string
           notes?: string | null
           phone?: string | null
@@ -218,6 +220,7 @@ export type Database = {
           email?: string | null
           funnel_id?: string
           id?: string
+          lead_score?: number
           name?: string
           notes?: string | null
           phone?: string | null

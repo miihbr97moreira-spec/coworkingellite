@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
-import { Plus, Loader2, GripVertical, X, MessageSquare, DollarSign, Phone, Mail, MoreVertical, Search, LayoutGrid, List, Trash2, Pencil, Calendar as CalendarIcon, Tag } from "lucide-react";
+import { Plus, Loader2, GripVertical, X, MessageSquare, DollarSign, Phone, Mail, MoreVertical, Search, LayoutGrid, List, Trash2, Pencil, Calendar as CalendarIcon, Tag, Flame } from "lucide-react";
+import { getScoreGlowClass, getScoreLabel, getScoreColor } from "@/utils/leadScoring";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -24,10 +25,16 @@ const LeadCard = ({ lead, onClick, onEdit, isOverlay = false }: { lead: any; onC
   });
   const style = { transform: CSS.Translate.toString(transform), transition, opacity: isDragging ? 0.3 : 1 };
   const initials = lead.name?.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2) || "?";
+  const score = lead.lead_score || 0;
+  const scoreLabel = getScoreLabel(score);
+  const glowClass = getScoreGlowClass(score);
+  const scoreColor = getScoreColor(score);
 
   return (
     <div ref={setNodeRef} style={style} {...attributes}
-      className={`p-3 mb-2 rounded-lg border border-border/30 bg-background cursor-pointer hover:border-primary/30 transition-all group ${isOverlay ? "border-primary shadow-xl scale-[1.02]" : ""}`}
+      className={`p-3 mb-2 rounded-lg border-2 bg-background cursor-pointer transition-all group ${isOverlay ? "border-primary shadow-xl scale-[1.02]" : ""} ${
+        score >= 80 ? `border-red-500/50 ${glowClass}` : score >= 40 ? "border-amber-500/30" : "border-border/30 hover:border-primary/30"
+      }`}
       onClick={onClick}>
       <div className="flex items-center gap-3">
         <div className="w-7 h-7 rounded-md bg-primary/10 text-primary flex items-center justify-center text-[10px] font-semibold shrink-0">{initials}</div>
@@ -36,6 +43,7 @@ const LeadCard = ({ lead, onClick, onEdit, isOverlay = false }: { lead: any; onC
           <p className="text-[11px] text-muted-foreground truncate">{lead.email || lead.phone || "—"}</p>
         </div>
         <div className="flex items-center gap-0.5">
+          {score >= 80 && <Flame className={`w-3.5 h-3.5 ${scoreColor}`} />}
           {onEdit && (
             <button onClick={onEdit} className="opacity-0 group-hover:opacity-100 p-1 hover:bg-secondary rounded transition-all">
               <Pencil className="w-3 h-3 text-muted-foreground" />
@@ -46,11 +54,16 @@ const LeadCard = ({ lead, onClick, onEdit, isOverlay = false }: { lead: any; onC
           </div>
         </div>
       </div>
-      {/* Tags, date, value */}
+      {/* Score Badge, Tags, date, value */}
       <div className="mt-2 pt-2 border-t border-border/20 space-y-1.5">
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-semibold text-primary">R$ {Number(lead.deal_value || 0).toLocaleString("pt-BR")}</span>
-          <span className="text-[10px] text-muted-foreground">{format(new Date(lead.created_at), "dd/MM/yy")}</span>
+          <div className="flex items-center gap-2">
+            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${score >= 80 ? "bg-red-500/20 text-red-500" : score >= 40 ? "bg-amber-500/20 text-amber-500" : "bg-blue-500/20 text-blue-500"}`}>
+              {scoreLabel}
+            </span>
+            <span className="text-[10px] text-muted-foreground">{format(new Date(lead.created_at), "dd/MM/yy")}</span>
+          </div>
         </div>
         {lead.tags?.length > 0 && (
           <div className="flex flex-wrap gap-1">
@@ -71,6 +84,8 @@ const StageColumn = ({ stage, leads, onAddLead, onDeleteStage, onSelectLead, onE
   });
   const style = { transform: CSS.Translate.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
   const totalValue = leads.reduce((acc, curr) => acc + Number(curr.deal_value || 0), 0);
+  // Ordenar leads por score decrescente (Hot leads no topo)
+  const sortedLeads = [...leads].sort((a, b) => (b.lead_score || 0) - (a.lead_score || 0));
 
   return (
     <div ref={setNodeRef} style={style} className="min-w-[280px] w-[280px] shrink-0 flex flex-col h-full max-h-[calc(100vh-320px)]">
@@ -92,8 +107,8 @@ const StageColumn = ({ stage, leads, onAddLead, onDeleteStage, onSelectLead, onE
       </div>
 
       <div className="flex-1 overflow-y-auto pr-1 min-h-[120px] rounded-lg bg-secondary/20 p-2">
-        <SortableContext items={leads.map(l => l.id)} strategy={verticalListSortingStrategy}>
-          {leads.map((lead) => <LeadCard key={lead.id} lead={lead} onClick={() => onSelectLead(lead)} onEdit={(e) => { e.stopPropagation(); onEditLead(lead); }} />)}
+        <SortableContext items={sortedLeads.map(l => l.id)} strategy={verticalListSortingStrategy}>
+          {sortedLeads.map((lead) => <LeadCard key={lead.id} lead={lead} onClick={() => onSelectLead(lead)} onEdit={(e) => { e.stopPropagation(); onEditLead(lead); }} />)}
         </SortableContext>
         <button onClick={onAddLead}
           className="w-full py-2.5 text-[11px] font-medium text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all rounded-md border border-dashed border-border/40 hover:border-primary/30 flex items-center justify-center gap-1.5 mt-1">
