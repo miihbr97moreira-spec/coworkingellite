@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   BarChart3, Type, Megaphone, LogOut,
-  Settings, Users, Kanban, ListChecks, PanelLeftClose, PanelLeft, Globe2,
+  Settings, Users, Kanban, ListChecks, PanelLeftClose, PanelLeft, Globe2, Zap,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -14,6 +14,7 @@ import AdminReviews from "@/components/admin/AdminReviews";
 import AdminQuizBuilder from "@/components/admin/AdminQuizBuilder";
 import AdminDomains from "@/components/admin/AdminDomains";
 import AdminSettings from "@/components/admin/AdminSettings";
+import OmniFlow from "@/components/admin/OmniFlow";
 
 const tabs = [
   { id: "dashboard", label: "Dashboard", icon: BarChart3, module: "dashboard" },
@@ -23,6 +24,7 @@ const tabs = [
   { id: "pixels", label: "Pixels", icon: Megaphone, module: "pixels" },
   { id: "crm", label: "CRM", icon: Kanban, module: "crm" },
   { id: "domains", label: "Domínios", icon: Globe2, module: "domains" },
+  { id: "omni_flow", label: "Omni Flow", icon: Zap, module: "omni_flow", badge: "BETA" },
   { id: "settings", label: "Configurações", icon: Settings, module: "settings" },
 ];
 
@@ -101,7 +103,16 @@ const Admin = () => {
               } ${collapsed ? "justify-center" : ""}`}
             >
               <t.icon className="w-4 h-4 shrink-0" />
-              {!collapsed && t.label}
+              {!collapsed && (
+                <span className="flex items-center gap-2">
+                  {t.label}
+                  {t.badge && (
+                    <span className="ml-auto px-1.5 py-0.5 text-[9px] font-bold uppercase rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                      {t.badge}
+                    </span>
+                  )}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -133,6 +144,7 @@ const Admin = () => {
           {activeTab === "pixels" && <AdminPixelManager />}
           {activeTab === "crm" && <AdminCRM />}
           {activeTab === "domains" && <AdminDomains />}
+          {activeTab === "omni_flow" && <OmniFlow />}
           {activeTab === "settings" && <AdminSettings />}
         </motion.div>
       </main>
