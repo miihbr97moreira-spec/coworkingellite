@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Loader2, Shield, Plus, Edit2, Trash2, Eye, EyeOff, RefreshCw } from "lucide-react";
+import { Loader2, Shield, Plus, Edit2, Trash2, Eye, EyeOff, RefreshCw, Clock } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 interface ManagedUser {
@@ -16,60 +16,20 @@ interface ManagedUser {
   created_at: string;
 }
 
-async function callManageUsers(action: string, payload: Record<string, unknown> = {}) {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  
-  // 1. Tentar obter a sessão atual para o token de autorização
-  const { data: { session } } = await supabase.auth.getSession();
-  
-  // 2. Construir URL manualmente para evitar problemas de roteamento do SDK
-  // O formato padrão do Supabase é https://[project-id].supabase.co/functions/v1/[function-name]
-  const functionUrl = `${supabaseUrl}/functions/v1/manage-users`;
-
-  console.log(`[DEBUG] Iniciando chamada manual para: ${functionUrl}`);
-
-  try {
-    // 3. Bypass Total: Usar fetch direto com cabeçalhos explícitos
-    // Isso ignora qualquer erro de "Failed to send a request" vindo do SDK
-    const response = await fetch(functionUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': supabaseKey,
-        'Authorization': `Bearer ${session?.access_token || ''}`,
-        'x-client-info': 'supabase-js-custom-fetch',
-      },
-      body: JSON.stringify({ action, ...payload }),
-    });
-
-    // 4. Se der 404, a função realmente não foi publicada
-    if (response.status === 404) {
-      throw new Error("A função 'manage-users' não foi encontrada no servidor (404). Certifique-se de ter executado 'supabase functions deploy manage-users'.");
-    }
-
-    // 5. Tratar resposta
-    const result = await response.json();
-    if (!response.ok) {
-      throw new Error(result.error || `Erro do servidor (${response.status})`);
-    }
-
-    return result;
-  } catch (err: any) {
-    console.error("[ERRO CRÍTICO] Falha na comunicação direta:", err);
-    
-    // Erro de rede (CORS ou DNS)
-    if (err instanceof TypeError && (err.message === "Failed to fetch" || err.message.includes("NetworkError"))) {
-      throw new Error("Erro de rede persistente. Isso acontece quando o navegador bloqueia a conexão. Verifique se a função foi publicada e se as configurações de CORS na função estão corretas.");
-    }
-    
-    throw err;
-  }
+interface QueueItem {
+  id: string;
+  email: string;
+  full_name: string;
+  role: string;
+  status: 'pending' | 'processing' | 'completed' | 'error';
+  error_message?: string;
+  created_at: string;
 }
 
 const AdminSettings = () => {
   const { user, role } = useAuth();
   const [users, setUsers] = useState<ManagedUser[]>([]);
+  const [queue, setQueue] = useState<QueueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [newUserOpen, setNewUserOpen] = useState(false);
@@ -86,17 +46,44 @@ const AdminSettings = () => {
   const isSuperAdmin = role === "super_admin";
 
   useEffect(() => {
-    loadUsers();
-  }, []);
+    if (isSuperAdmin) {
+      loadData();
+      // Inscrever para atualizações em tempo real
+      const channel = supabase
+        .channel('admin_users_changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'user_management' }, () => loadData())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'user_creation_queue' }, () => loadData())
+        .subscribe();
 
-  const loadUsers = async () => {
+      return () => { supabase.removeChannel(channel); };
+    }
+  }, [isSuperAdmin]);
+
+  const loadData = async () => {
     setLoading(true);
     try {
-      const data = await callManageUsers("list");
-      setUsers(data.users ?? []);
-    } catch (error) {
-      console.error("Erro ao carregar usuários:", error);
-      toast.error(error instanceof Error ? error.message : "Erro ao carregar usuários");
+      // 1. Carregar usuários reais da tabela user_management
+      const { data: userData, error: userError } = await supabase
+        .from('user_management')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (userError) throw userError;
+      setUsers(userData || []);
+
+      // 2. Carregar fila de criação pendente
+      const { data: queueData, error: queueError } = await supabase
+        .from('user_creation_queue')
+        .select('*')
+        .neq('status', 'completed')
+        .order('created_at', { ascending: false });
+
+      if (queueError) throw queueError;
+      setQueue(queueData || []);
+
+    } catch (error: any) {
+      console.error("Erro ao carregar dados:", error);
+      toast.error("Erro ao carregar usuários: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -114,18 +101,26 @@ const AdminSettings = () => {
 
     setSaving(true);
     try {
-      await callManageUsers("create", {
-        email: formData.email.trim(),
-        full_name: formData.full_name.trim(),
-        password: formData.password,
-        role: formData.role,
-      });
-      toast.success("Usuário criado com sucesso! Ele já pode fazer login.");
+      // Inserir na fila de criação (Queue)
+      // Isso é puramente banco de dados, SEM chamadas HTTP de Edge Functions
+      const { error } = await supabase
+        .from('user_creation_queue')
+        .insert({
+          email: formData.email.trim(),
+          full_name: formData.full_name.trim(),
+          password: formData.password,
+          role: formData.role,
+          status: 'pending'
+        });
+
+      if (error) throw error;
+
+      toast.success("Solicitação enviada! O usuário será criado em instantes.");
       setFormData({ email: "", full_name: "", password: "", role: "editor" });
       setNewUserOpen(false);
-      await loadUsers();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao criar usuário");
+      await loadData();
+    } catch (error: any) {
+      toast.error("Erro ao solicitar criação: " + error.message);
     } finally {
       setSaving(false);
     }
@@ -133,50 +128,26 @@ const AdminSettings = () => {
 
   const handleEditUser = async () => {
     if (!editingUser) return;
-    if (!formData.email.trim() || !formData.full_name.trim()) {
-      toast.error("Preencha os campos obrigatórios");
-      return;
-    }
-    if (formData.password && formData.password.length < 6) {
-      toast.error("A senha deve ter no mínimo 6 caracteres");
-      return;
-    }
-
     setSaving(true);
     try {
-      const payload: Record<string, unknown> = {
-        user_id: editingUser.user_id,
-        email: formData.email.trim(),
-        full_name: formData.full_name.trim(),
-        role: formData.role,
-      };
-      if (formData.password) payload.password = formData.password;
+      // Atualizar diretamente no banco (tabela user_management)
+      const { error } = await supabase
+        .from('user_management')
+        .update({
+          full_name: formData.full_name.trim(),
+          role: formData.role
+        })
+        .eq('user_id', editingUser.user_id);
 
-      await callManageUsers("update", payload);
+      if (error) throw error;
+
       toast.success("Usuário atualizado com sucesso!");
       setEditingUser(null);
-      setFormData({ email: "", full_name: "", password: "", role: "editor" });
-      await loadUsers();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao atualizar usuário");
+      await loadData();
+    } catch (error: any) {
+      toast.error("Erro ao atualizar: " + error.message);
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleDeleteUser = async (managedUser: ManagedUser) => {
-    if (managedUser.user_id === user?.id) {
-      toast.error("Você não pode deletar sua própria conta");
-      return;
-    }
-    if (!confirm(`Tem certeza que deseja remover o usuário "${managedUser.full_name}"? Esta ação é irreversível.`)) return;
-
-    try {
-      await callManageUsers("delete", { user_id: managedUser.user_id });
-      toast.success("Usuário removido com sucesso!");
-      await loadUsers();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao remover usuário");
     }
   };
 
@@ -188,85 +159,99 @@ const AdminSettings = () => {
 
     const newStatus = !managedUser.is_active;
     try {
-      await callManageUsers("toggle_status", {
-        user_id: managedUser.user_id,
-        is_active: newStatus,
-      });
+      const { error } = await supabase
+        .from('user_management')
+        .update({ is_active: newStatus })
+        .eq('user_id', managedUser.user_id);
+
+      if (error) throw error;
       toast.success(newStatus ? "Usuário ativado!" : "Usuário desativado!");
-      await loadUsers();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao alterar status");
+      await loadData();
+    } catch (error: any) {
+      toast.error("Erro ao alterar status: " + error.message);
     }
   };
 
-  const openEditDialog = (managedUser: ManagedUser) => {
-    setEditingUser(managedUser);
-    setFormData({
-      email: managedUser.email,
-      full_name: managedUser.full_name,
-      password: "",
-      role: managedUser.role,
-    });
-  };
+  const handleDeleteUser = async (managedUser: ManagedUser) => {
+    if (managedUser.user_id === user?.id) {
+      toast.error("Você não pode deletar sua própria conta");
+      return;
+    }
+    if (!confirm(`Remover "${managedUser.full_name}"?`)) return;
 
-  const closeDialog = () => {
-    setNewUserOpen(false);
-    setEditingUser(null);
-    setFormData({ email: "", full_name: "", password: "", role: "editor" });
-    setShowPassword(false);
+    try {
+      // Deletar da tabela (RLS deve estar configurado)
+      const { error } = await supabase
+        .from('user_management')
+        .delete()
+        .eq('user_id', managedUser.user_id);
+
+      if (error) throw error;
+      toast.success("Usuário removido!");
+      await loadData();
+    } catch (error: any) {
+      toast.error("Erro ao remover: " + error.message);
+    }
   };
 
   if (!isSuperAdmin) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4 text-center">
         <Shield className="w-12 h-12 text-muted-foreground/50" />
-        <div>
-          <p className="font-semibold text-lg">Acesso Restrito</p>
-          <p className="text-muted-foreground text-sm mt-1">
-            Apenas o Super Admin pode gerenciar usuários.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando usuários...
+        <p className="font-semibold text-lg">Acesso Restrito ao Super Admin</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-8">
-      <div>
-        <h2 className="text-2xl font-bold mb-2">Configurações</h2>
-        <p className="text-muted-foreground">Gerencie usuários e permissões do sistema</p>
+      <div className="flex justify-between items-end">
+        <div>
+          <h2 className="text-2xl font-bold mb-2">Configurações</h2>
+          <p className="text-muted-foreground text-sm">Gerencie usuários via Banco de Dados (Arquitetura Resiliente)</p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={loadData} className="p-2 hover:bg-secondary rounded-lg transition-colors" title="Atualizar">
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+          <Button onClick={() => { setEditingUser(null); setFormData({ email: "", full_name: "", password: "", role: "editor" }); setNewUserOpen(true); }} className="gap-2">
+            <Plus className="w-4 h-4" /> Novo Usuário
+          </Button>
+        </div>
       </div>
 
-      {/* Ações */}
-      <div className="flex justify-between items-center">
-        <button
-          onClick={loadUsers}
-          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <RefreshCw className="w-4 h-4" /> Atualizar lista
-        </button>
-        <Button
-          onClick={() => {
-            setEditingUser(null);
-            setFormData({ email: "", full_name: "", password: "", role: "editor" });
-            setNewUserOpen(true);
-          }}
-          className="gap-2"
-        >
-          <Plus className="w-4 h-4" /> Novo Usuário
-        </Button>
-      </div>
+      {/* Fila de Processamento (Queue) */}
+      {queue.length > 0 && (
+        <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-3">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-2">
+            <Clock className="w-3 h-3" /> Processando Criações ({queue.length})
+          </h3>
+          <div className="grid gap-2">
+            {queue.map(item => (
+              <div key={item.id} className="bg-background/50 p-3 rounded-lg flex items-center justify-between text-sm border border-border/50">
+                <div>
+                  <p className="font-medium">{item.full_name}</p>
+                  <p className="text-xs text-muted-foreground">{item.email}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  {item.status === 'error' ? (
+                    <span className="text-destructive text-xs flex items-center gap-1" title={item.error_message}>
+                      Erro no servidor
+                    </span>
+                  ) : (
+                    <span className="text-primary text-xs flex items-center gap-2">
+                      <Loader2 className="w-3 h-3 animate-spin" /> Aguardando Supabase...
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
-      {/* Tabela de Usuários */}
-      <div className="bg-secondary/30 rounded-lg border border-border/30 overflow-hidden">
+      {/* Tabela de Usuários Reais */}
+      <div className="bg-secondary/30 rounded-xl border border-border/30 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -279,66 +264,27 @@ const AdminSettings = () => {
               </tr>
             </thead>
             <tbody>
-              {users.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="p-8 text-center text-muted-foreground">
-                    Nenhum usuário cadastrado. Clique em "Novo Usuário" para adicionar.
-                  </td>
-                </tr>
+              {users.length === 0 && !loading ? (
+                <tr><td colSpan={5} className="p-12 text-center text-muted-foreground">Nenhum usuário ativo.</td></tr>
               ) : (
                 users.map((u) => (
-                  <tr
-                    key={u.id}
-                    className="border-b border-border/10 hover:bg-secondary/20 transition-colors"
-                  >
-                    <td className="p-4 font-medium">
-                      {u.full_name}
-                      {u.user_id === user?.id && (
-                        <span className="ml-2 text-[10px] text-primary font-semibold uppercase">(você)</span>
-                      )}
-                    </td>
+                  <tr key={u.id} className="border-b border-border/10 hover:bg-secondary/20 transition-colors">
+                    <td className="p-4 font-medium">{u.full_name} {u.user_id === user?.id && <span className="text-[10px] text-primary">(você)</span>}</td>
                     <td className="p-4 text-muted-foreground">{u.email}</td>
                     <td className="p-4 text-center">
-                      <span
-                        className={`px-2 py-0.5 rounded text-xs font-semibold uppercase ${
-                          u.role === "super_admin"
-                            ? "bg-primary/20 text-primary"
-                            : "bg-blue-500/20 text-blue-500"
-                        }`}
-                      >
-                        {u.role === "super_admin" ? "Super Admin" : "Editor"}
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${u.role === 'super_admin' ? 'bg-primary/20 text-primary' : 'bg-blue-500/20 text-blue-500'}`}>
+                        {u.role === 'super_admin' ? 'Super Admin' : 'Editor'}
                       </span>
                     </td>
                     <td className="p-4 text-center">
-                      <button
-                        onClick={() => toggleUserStatus(u)}
-                        disabled={u.user_id === user?.id}
-                        className={`px-3 py-1 rounded text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                          u.is_active
-                            ? "bg-green-500/20 text-green-600 hover:bg-green-500/30"
-                            : "bg-red-500/20 text-red-600 hover:bg-red-500/30"
-                        }`}
-                      >
-                        {u.is_active ? "✓ Ativo" : "✗ Inativo"}
+                      <button onClick={() => toggleUserStatus(u)} disabled={u.user_id === user?.id} className={`px-3 py-1 rounded text-xs font-medium ${u.is_active ? 'bg-green-500/10 text-green-600' : 'bg-red-500/10 text-red-600'}`}>
+                        {u.is_active ? 'Ativo' : 'Inativo'}
                       </button>
                     </td>
                     <td className="p-4 text-right">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => openEditDialog(u)}
-                          className="p-1.5 hover:bg-secondary rounded transition-colors"
-                          title="Editar"
-                        >
-                          <Edit2 className="w-4 h-4 text-muted-foreground" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteUser(u)}
-                          disabled={u.user_id === user?.id}
-                          className="p-1.5 hover:bg-destructive/10 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Excluir"
-                        >
-                          <Trash2 className="w-4 h-4 text-muted-foreground hover:text-destructive" />
-                        </button>
+                      <div className="flex justify-end gap-1">
+                        <button onClick={() => { setEditingUser(u); setFormData({ email: u.email, full_name: u.full_name, password: "", role: u.role }); }} className="p-2 hover:bg-secondary rounded-lg"><Edit2 className="w-4 h-4 text-muted-foreground" /></button>
+                        <button onClick={() => handleDeleteUser(u)} disabled={u.user_id === user?.id} className="p-2 hover:bg-destructive/10 rounded-lg"><Trash2 className="w-4 h-4 text-muted-foreground hover:text-destructive" /></button>
                       </div>
                     </td>
                   </tr>
@@ -349,112 +295,63 @@ const AdminSettings = () => {
         </div>
       </div>
 
-      {/* Modal Adicionar/Editar Usuário */}
-      <Dialog
-        open={newUserOpen || editingUser !== null}
-        onOpenChange={(open) => { if (!open) closeDialog(); }}
-      >
+      <Dialog open={newUserOpen || editingUser !== null} onOpenChange={(open) => { if (!open) { setNewUserOpen(false); setEditingUser(null); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{editingUser ? "Editar Usuário" : "Novo Usuário"}</DialogTitle>
             <DialogDescription>
-              {editingUser
-                ? "Atualize as informações do usuário. Deixe a senha em branco para não alterá-la."
-                : "Preencha os dados para criar um novo usuário. Ele poderá fazer login imediatamente."}
+              {editingUser ? "Atualize os dados básicos do usuário." : "O usuário será criado via fila de processamento automática."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <label className="text-xs text-muted-foreground block mb-1.5 font-medium">
-                Nome Completo *
-              </label>
-              <input
-                type="text"
-                value={formData.full_name}
-                onChange={(e) => setFormData((p) => ({ ...p, full_name: e.target.value }))}
-                placeholder="João Silva"
-                className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm outline-none focus:ring-1 focus:ring-primary/30"
-              />
+              <label className="text-xs text-muted-foreground block mb-1.5 font-medium">Nome Completo *</label>
+              <input type="text" value={formData.full_name} onChange={(e) => setFormData(p => ({ ...p, full_name: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm outline-none focus:ring-1 focus:ring-primary/30" placeholder="Ex: João Silva" />
             </div>
+            {!editingUser && (
+              <>
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1.5 font-medium">Email *</label>
+                  <input type="email" value={formData.email} onChange={(e) => setFormData(p => ({ ...p, email: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm outline-none focus:ring-1 focus:ring-primary/30" placeholder="email@exemplo.com" />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1.5 font-medium">Senha *</label>
+                  <div className="relative">
+                    <input type={showPassword ? "text" : "password"} value={formData.password} onChange={(e) => setFormData(p => ({ ...p, password: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm outline-none focus:ring-1 focus:ring-primary/30" placeholder="••••••••" />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
             <div>
-              <label className="text-xs text-muted-foreground block mb-1.5 font-medium">
-                Email *
-              </label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))}
-                placeholder="joao@exemplo.com"
-                className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm outline-none focus:ring-1 focus:ring-primary/30"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground block mb-1.5 font-medium">
-                {editingUser ? "Nova Senha (deixe em branco para manter)" : "Senha * (mínimo 6 caracteres)"}
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={formData.password}
-                  onChange={(e) => setFormData((p) => ({ ...p, password: e.target.value }))}
-                  placeholder="••••••••"
-                  className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm outline-none focus:ring-1 focus:ring-primary/30 pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground block mb-1.5 font-medium">
-                Perfil de Acesso *
-              </label>
-              <select
-                value={formData.role}
-                onChange={(e) =>
-                  setFormData((p) => ({
-                    ...p,
-                    role: e.target.value as "super_admin" | "editor",
-                  }))
-                }
-                className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm outline-none focus:ring-1 focus:ring-primary/30"
-              >
-                <option value="editor">Editor — acesso ao painel, sem gerenciar usuários</option>
-                <option value="super_admin">Super Admin — acesso total ao sistema</option>
+              <label className="text-xs text-muted-foreground block mb-1.5 font-medium">Perfil de Acesso *</label>
+              <select value={formData.role} onChange={(e) => setFormData(p => ({ ...p, role: e.target.value as any }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm outline-none focus:ring-1 focus:ring-primary/30">
+                <option value="editor">Editor (Painel Admin)</option>
+                <option value="super_admin">Super Admin (Acesso Total)</option>
               </select>
             </div>
             <div className="flex gap-2 pt-4">
-              <Button
-                variant="outline"
-                onClick={closeDialog}
-                className="flex-1"
-                disabled={saving}
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={editingUser ? handleEditUser : handleAddUser}
-                className="flex-1 gap-2"
-                disabled={saving}
-              >
+              <Button variant="outline" onClick={() => { setNewUserOpen(false); setEditingUser(null); }} className="flex-1" disabled={saving}>Cancelar</Button>
+              <Button onClick={editingUser ? handleEditUser : handleAddUser} className="flex-1 gap-2" disabled={saving}>
                 {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-                {editingUser ? "Atualizar" : "Criar Usuário"}
+                {editingUser ? "Salvar" : "Criar na Fila"}
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Info */}
-      <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
-        <p className="text-sm text-green-600">
-          <Shield className="w-4 h-4 inline mr-2" />
-          <strong>Segurança:</strong> Usuários são criados diretamente no Supabase Auth. Ao criar um usuário, ele pode fazer login imediatamente com as credenciais definidas.
-        </p>
+      <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 flex gap-3 items-start">
+        <Shield className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+        <div>
+          <p className="text-sm font-bold text-blue-700">Arquitetura Resiliente Ativada</p>
+          <p className="text-xs text-blue-600 mt-1">
+            Para evitar erros de rede do navegador, a criação de usuários agora é feita via <strong>Fila de Banco de Dados</strong>. 
+            Você solicita a criação e o Supabase processa em background. A lista atualiza automaticamente.
+          </p>
+        </div>
       </div>
     </div>
   );
