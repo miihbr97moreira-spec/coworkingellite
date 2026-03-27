@@ -4,6 +4,7 @@ import {
   ArrowLeft, Brain, Loader2, AlertCircle, CheckCircle2, Eye, EyeOff,
   Save, RotateCcw, Copy, MessageSquare
 } from "lucide-react";
+import TooltipHelp from "@/components/ui/tooltip-help";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,10 +26,48 @@ const OmniFlowAgent: React.FC<OmniFlowAgentProps> = ({ onBack }) => {
     zapi_sync_enabled: false,
   });
 
-  const aiModels = {
-    openai: ["gpt-4o", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"],
-    anthropic: ["claude-3-5-sonnet", "claude-3-opus", "claude-3-sonnet", "claude-3-haiku"],
-  };
+  const aiProviders = [
+    {
+      id: "openai",
+      name: "OpenAI",
+      description: "GPT-4o, GPT-4, GPT-3.5",
+      keyFormat: "sk-",
+      helpText: "Crie sua chave de API gratuitamente no painel do OpenAI (https://platform.openai.com/api-keys) e cole aqui para dar vida ao seu Agente.",
+      models: ["gpt-4o", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"],
+    },
+    {
+      id: "anthropic",
+      name: "Anthropic",
+      description: "Claude 3.5, Claude 3",
+      keyFormat: "sk-ant-",
+      helpText: "Gere sua chave de API no console do Anthropic (https://console.anthropic.com) e configure aqui para usar Claude.",
+      models: ["claude-3-5-sonnet", "claude-3-opus", "claude-3-sonnet", "claude-3-haiku"],
+    },
+    {
+      id: "groq",
+      name: "Groq",
+      description: "Inferência Ultrarrápida",
+      keyFormat: "gsk_",
+      helpText: "Obtenha sua chave de API em https://console.groq.com/keys. Groq oferece inferência extremamente rápida com modelos abertos.",
+      models: ["mixtral-8x7b-32768", "llama2-70b-4096", "gemma-7b-it"],
+    },
+    {
+      id: "openrouter",
+      name: "OpenRouter",
+      description: "Hub de Múltiplos Modelos",
+      keyFormat: "sk-or-",
+      helpText: "Acesse https://openrouter.ai/keys para gerar sua chave. OpenRouter oferece acesso a centenas de modelos diferentes.",
+      models: ["openai/gpt-4-turbo", "anthropic/claude-3-opus", "groq/mixtral-8x7b-32768", "meta-llama/llama-2-70b-chat"],
+    },
+    {
+      id: "deepseek",
+      name: "DeepSeek",
+      description: "Modelos de Raciocínio Avançado",
+      keyFormat: "sk-",
+      helpText: "Crie sua chave em https://platform.deepseek.com/api_keys. DeepSeek oferece modelos com raciocínio avançado.",
+      models: ["deepseek-chat", "deepseek-coder"],
+    },
+  ];
 
   useEffect(() => {
     loadConfig();
@@ -163,29 +202,28 @@ const OmniFlowAgent: React.FC<OmniFlowAgentProps> = ({ onBack }) => {
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <Brain className="w-5 h-5 text-purple-600" />
             Provedor de IA
+            <TooltipHelp content="Escolha o provedor de IA que melhor se adequa ao seu caso de uso. Cada provedor oferece diferentes modelos e preços." />
           </h3>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {["openai", "anthropic"].map((provider) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {aiProviders.map((provider) => (
               <button
-                key={provider}
+                key={provider.id}
                 onClick={() => {
                   setFormData({
                     ...formData,
-                    ai_provider: provider as any,
-                    ai_model: aiModels[provider as keyof typeof aiModels][0],
+                    ai_provider: provider.id as any,
+                    ai_model: provider.models[0],
                   });
                 }}
                 className={`p-4 rounded-lg border-2 transition-all ${
-                  formData.ai_provider === provider
+                  formData.ai_provider === provider.id
                     ? "border-purple-500 bg-purple-500/10"
                     : "border-border/50 hover:border-border"
                 }`}
               >
-                <div className="font-semibold capitalize mb-1">{provider === "openai" ? "OpenAI" : "Anthropic"}</div>
-                <p className="text-xs text-muted-foreground">
-                  {provider === "openai" ? "GPT-4o, GPT-4, GPT-3.5" : "Claude 3.5, Claude 3"}
-                </p>
+                <div className="font-semibold mb-1">{provider.name}</div>
+                <p className="text-xs text-muted-foreground">{provider.description}</p>
               </button>
             ))}
           </div>
@@ -193,8 +231,9 @@ const OmniFlowAgent: React.FC<OmniFlowAgentProps> = ({ onBack }) => {
 
         {/* API Key Input */}
         <div className="rounded-lg border border-border/50 bg-secondary/20 p-6">
-          <label className="text-sm font-semibold uppercase text-muted-foreground block mb-3">
-            API Key ({formData.ai_provider === "openai" ? "OpenAI" : "Anthropic"})
+          <label className="text-sm font-semibold uppercase text-muted-foreground block mb-3 flex items-center gap-2">
+            API Key ({aiProviders.find(p => p.id === formData.ai_provider)?.name})
+            <TooltipHelp content={aiProviders.find(p => p.id === formData.ai_provider)?.helpText || ""} />
           </label>
           <div className="flex gap-2">
             <input
@@ -237,18 +276,21 @@ const OmniFlowAgent: React.FC<OmniFlowAgentProps> = ({ onBack }) => {
             onChange={(e) => setFormData({ ...formData, ai_model: e.target.value })}
             className="w-full px-4 py-2.5 rounded-lg bg-background border border-border text-sm"
           >
-            {aiModels[formData.ai_provider as keyof typeof aiModels].map((model) => (
-              <option key={model} value={model}>
-                {model}
-              </option>
-            ))}
+            {aiProviders
+              .find(p => p.id === formData.ai_provider)
+              ?.models.map((model) => (
+                <option key={model} value={model}>
+                  {model}
+                </option>
+              ))}
           </select>
         </div>
 
         {/* System Prompt */}
         <div className="rounded-lg border border-border/50 bg-secondary/20 p-6">
-          <label className="text-sm font-semibold uppercase text-muted-foreground block mb-3">
+          <label className="text-sm font-semibold uppercase text-muted-foreground block mb-3 flex items-center gap-2">
             System Prompt (Personalidade da IA)
+            <TooltipHelp content="Define o comportamento, tom e objetivo da sua IA. Seja específico: mencione o contexto do seu negócio, como ela deve se comportar e que tipo de respostas deve dar." />
           </label>
           <textarea
             value={formData.ai_system_prompt}
@@ -268,6 +310,7 @@ const OmniFlowAgent: React.FC<OmniFlowAgentProps> = ({ onBack }) => {
               <h4 className="font-semibold flex items-center gap-2 mb-2">
                 <MessageSquare className="w-5 h-5 text-green-600" />
                 Sincronizar com WhatsApp (Z-API)
+                <TooltipHelp content="Quando ativado, sua IA responderá automaticamente a mensagens recebidas no WhatsApp. Certifique-se de ter um número conectado primeiro." />
               </h4>
               <p className="text-sm text-muted-foreground">
                 Ative para que a IA responda automaticamente às mensagens recebidas no WhatsApp.

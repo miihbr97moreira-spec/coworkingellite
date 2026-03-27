@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   MessageCircle, Webhook, Brain, ChevronRight, Loader2, AlertCircle,
-  CheckCircle2, Circle, Settings2
+  CheckCircle2, Circle, Settings2, Zap
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -10,6 +10,8 @@ import { supabase } from "@/integrations/supabase/client";
 import OmniFlowWhatsApp from "./OmniFlow/OmniFlowWhatsApp";
 import OmniFlowWebhooks from "./OmniFlow/OmniFlowWebhooks";
 import OmniFlowAgent from "./OmniFlow/OmniFlowAgent";
+import OmniFlowBuilder from "./OmniFlow/OmniFlowBuilder";
+import TooltipHelp from "@/components/ui/tooltip-help";
 
 interface IntegrationStatus {
   whatsapp: "connected" | "disconnected" | "connecting";
@@ -122,6 +124,10 @@ const OmniFlow = React.forwardRef<HTMLDivElement>((_, ref) => {
     return <OmniFlowAgent onBack={() => { setActiveModule(null); loadIntegrationStatus(); }} />;
   }
 
+  if (activeModule === "builder") {
+    return <OmniFlowBuilder onBack={() => { setActiveModule(null); loadIntegrationStatus(); }} />;
+  }
+
   return (
     <div ref={ref} className="space-y-8">
       {/* Header */}
@@ -131,6 +137,7 @@ const OmniFlow = React.forwardRef<HTMLDivElement>((_, ref) => {
             <Settings2 className="w-6 h-6 text-amber-600" />
           </div>
           Omni Flow
+          <TooltipHelp content="Hub central para gerenciar integrações (WhatsApp, Webhooks) e criar automações com IA. Tudo isolado e seguro por tenant." />
         </h1>
         <p className="text-sm text-muted-foreground mt-2">
           Hub central de integrações e automações para seu projeto. Conecte WhatsApp, configure webhooks e ative sua IA.
@@ -166,7 +173,7 @@ const OmniFlow = React.forwardRef<HTMLDivElement>((_, ref) => {
       </div>
 
       {/* Bento Grid - Integration Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-max">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 auto-rows-max">
         {integrations.map((integration, idx) => (
           <motion.div
             key={integration.id}
@@ -222,6 +229,42 @@ const OmniFlow = React.forwardRef<HTMLDivElement>((_, ref) => {
             </div>
           </motion.div>
         ))}
+
+        {/* Flow Builder Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="group relative overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-orange-500/10 backdrop-blur-sm p-6 cursor-pointer hover:shadow-lg transition-all"
+          onClick={() => setActiveModule("builder")}
+        >
+          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent" />
+          </div>
+
+          <div className="relative z-10 flex flex-col h-full">
+            <div className="flex items-start justify-between mb-4">
+              <div className="p-3 rounded-xl bg-background/50 group-hover:bg-background/70 transition-colors">
+                <Zap className="w-6 h-6 text-amber-600" />
+              </div>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-700 border border-amber-500/30">
+                <CheckCircle2 className="w-3 h-3" />
+                Ativo
+              </div>
+            </div>
+
+            <h3 className="text-lg font-bold mb-2">Flow Builder</h3>
+            <p className="text-sm text-muted-foreground mb-6 flex-1">Crie automações conectando gatilhos e ações</p>
+
+            <Button
+              className="w-full gap-2 group/btn"
+              variant="default"
+            >
+              Abrir Builder
+              <ChevronRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+            </Button>
+          </div>
+        </motion.div>
       </div>
 
       {/* Info Section */}
