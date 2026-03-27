@@ -11,6 +11,9 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import TooltipHelp from "@/components/ui/tooltip-help";
+import VariableSelector from "./VariableSelector";
+import AutomationTester from "./AutomationTester";
+import { useOmniFlowStore } from "@/stores/omniFlowStore";
 
 interface OmniFlowBuilderProps {
   onBack: () => void;
@@ -49,6 +52,9 @@ const OmniFlowBuilder: React.FC<OmniFlowBuilderProps> = ({ onBack }) => {
   const [openModal, setOpenModal] = useState(false);
   const [showJsonPreview, setShowJsonPreview] = useState(false);
   const [editingFlow, setEditingFlow] = useState<AutomationFlow | null>(null);
+  const [showTester, setShowTester] = useState(false);
+  const { selectedVariables, toggleVariable } = useOmniFlowStore();
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const [formData, setFormData] = useState<AutomationFlow>({
     flow_name: "",
     flow_description: "",
@@ -221,8 +227,8 @@ const OmniFlowBuilder: React.FC<OmniFlowBuilderProps> = ({ onBack }) => {
           </button>
           <div>
             <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-amber-500/20 border border-amber-500/30">
-                <Code className="w-6 h-6 text-amber-600" />
+              <div className="p-2 rounded-lg bg-[#D97757]/20 border border-[#D97757]/30">
+                <Code className="w-6 h-6 text-[#D97757]" />
               </div>
               Flow Builder
             </h1>
@@ -237,7 +243,7 @@ const OmniFlowBuilder: React.FC<OmniFlowBuilderProps> = ({ onBack }) => {
             resetForm();
             setOpenModal(true);
           }}
-          className="gap-2"
+          className="gap-2 bg-[#D97757] hover:bg-[#D97757]/90"
         >
           <Plus className="w-4 h-4" />
           Nova Automação
@@ -273,7 +279,7 @@ const OmniFlowBuilder: React.FC<OmniFlowBuilderProps> = ({ onBack }) => {
                       <h4 className="font-semibold">{flow.flow_name}</h4>
                       <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                         flow.is_active
-                          ? "bg-green-500/20 text-green-700"
+                          ? "bg-[#D97757]/20 text-[#D97757]"
                           : "bg-red-500/20 text-red-700"
                       }`}>
                         {flow.is_active ? "Ativo" : "Inativo"}
@@ -405,16 +411,36 @@ const OmniFlowBuilder: React.FC<OmniFlowBuilderProps> = ({ onBack }) => {
             </div>
 
             {/* Template/Mensagem */}
-            <div>
-              <label className="text-sm font-semibold block mb-2 flex items-center gap-2">
-                Template/Mensagem
-                <TooltipHelp content="Use variáveis dinâmicas como {lead_name}, {lead_email}, {lead_phone} para personalizar" />
-              </label>
-              <textarea
-                value={formData.template_message}
-                onChange={(e) => setFormData({ ...formData, template_message: e.target.value })}
-                placeholder="Olá {lead_name}, vimos que você abandonou o carrinho com {checkout_items}. Quer retomar a compra?"
-                className="w-full px-3 py-2 rounded-lg bg-background border border-border text-sm font-mono resize-none h-24"
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-semibold block mb-2 flex items-center gap-2">
+                  Template/Mensagem
+                  <TooltipHelp content="Use variáveis dinâmicas como {lead_name}, {lead_email}, {lead_phone} para personalizar" />
+                </label>
+                <textarea
+                  ref={textareaRef}
+                  value={formData.template_message}
+                  onChange={(e) => setFormData({ ...formData, template_message: e.target.value })}
+                  placeholder="Olá {lead_name}, vimos que você abandonou o carrinho com {checkout_items}. Quer retomar a compra?"
+                  className="w-full px-3 py-2 rounded-lg bg-background border border-border text-sm font-mono resize-none h-24"
+                />
+              </div>
+              <VariableSelector
+                selectedVariables={selectedVariables}
+                onToggle={toggleVariable}
+                onInsertIntoTextarea={(variable) => {
+                  if (textareaRef.current) {
+                    const start = textareaRef.current.selectionStart;
+                    const end = textareaRef.current.selectionEnd;
+                    const text = formData.template_message;
+                    const newText = text.substring(0, start) + variable + text.substring(end);
+                    setFormData({ ...formData, template_message: newText });
+                    setTimeout(() => {
+                      textareaRef.current?.setSelectionRange(start + variable.length, start + variable.length);
+                      textareaRef.current?.focus();
+                    }, 0);
+                  }
+                }}
               />
             </div>
 
@@ -435,20 +461,40 @@ const OmniFlowBuilder: React.FC<OmniFlowBuilderProps> = ({ onBack }) => {
               </div>
             )}
 
-            {/* JSON Preview */}
-            <div>
-              <button
-                onClick={() => setShowJsonPreview(!showJsonPreview)}
-                className="text-sm font-semibold text-primary hover:underline flex items-center gap-1"
-              >
-                <Eye className="w-3 h-3" />
-                {showJsonPreview ? "Ocultar" : "Ver"} JSON
-              </button>
+            {/* Tabs: JSON Preview e Tester */}
+            <div className="space-y-3">
+              <div className="flex gap-2 border-b border-border/50">
+                <button
+                  onClick={() => setShowJsonPreview(true)}
+                  className={`px-3 py-2 text-sm font-semibold border-b-2 transition-colors ${
+                    showJsonPreview
+                      ? "border-[#D97757] text-[#D97757]"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Eye className="w-3 h-3 inline mr-1" />
+                  JSON Preview
+                </button>
+                <button
+                  onClick={() => setShowTester(true)}
+                  className={`px-3 py-2 text-sm font-semibold border-b-2 transition-colors ${
+                    showTester
+                      ? "border-[#D97757] text-[#D97757]"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Play className="w-3 h-3 inline mr-1" />
+                  Simulador
+                </button>
+              </div>
+
               {showJsonPreview && (
-                <pre className="mt-2 p-3 rounded-lg bg-background border border-border text-xs font-mono overflow-x-auto">
+                <pre className="p-3 rounded-lg bg-background border border-border text-xs font-mono overflow-x-auto">
                   {JSON.stringify(getJsonPreview(), null, 2)}
                 </pre>
               )}
+
+              {showTester && <AutomationTester />}
             </div>
 
             {/* Ações */}
@@ -464,9 +510,10 @@ const OmniFlowBuilder: React.FC<OmniFlowBuilderProps> = ({ onBack }) => {
                 Cancelar
               </Button>
               <Button
+                size="sm"
                 onClick={handleSaveFlow}
                 disabled={saving}
-                className="gap-2"
+                className="gap-2 bg-[#D97757] hover:bg-[#D97757]/90"
               >
                 {saving ? (
                   <>

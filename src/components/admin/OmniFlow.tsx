@@ -133,8 +133,8 @@ const OmniFlow = React.forwardRef<HTMLDivElement>((_, ref) => {
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-amber-500/30">
-            <Settings2 className="w-6 h-6 text-amber-600" />
+          <div className="p-2 rounded-lg bg-gradient-to-br from-[#D97757]/20 to-[#D97757]/10 border border-[#D97757]/30">
+            <Settings2 className="w-6 h-6 text-[#D97757]" />
           </div>
           Omni Flow
           <TooltipHelp content="Hub central para gerenciar integrações (WhatsApp, Webhooks) e criar automações com IA. Tudo isolado e seguro por tenant." />
