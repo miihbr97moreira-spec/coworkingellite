@@ -17,29 +17,51 @@ interface ManagedUser {
 }
 
 async function callManageUsers(action: string, payload: Record<string, unknown> = {}) {
+  // Primeiro tentamos via método nativo invoke (padrão)
   try {
     const { data, error } = await supabase.functions.invoke('manage-users', {
       body: { action, ...payload },
     });
 
-    if (error) {
-      // Tratar erro específico de função não encontrada
-      if (error.message?.includes('404') || error.message?.includes('not found')) {
-        throw new Error("A função 'manage-users' não foi encontrada. Verifique se o deploy foi realizado no Supabase.");
-      }
-      throw error;
+    if (!error) return data;
+    
+    // Se o erro for 404, não adianta tentar fallback
+    if (error.message?.includes('404') || error.message?.includes('not found')) {
+      throw new Error("A função 'manage-users' não foi encontrada no seu projeto Supabase. Por favor, realize o deploy da função.");
+    }
+    
+    console.warn("Invoke falhou, tentando fallback via fetch direto...", error);
+  } catch (err) {
+    console.warn("Erro no invoke, tentando fallback...", err);
+  }
+
+  // Fallback: Chamada direta via fetch caso o invoke falhe por problemas de rede/DNS/CORS no cliente
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    
+    const response = await fetch(`${supabaseUrl}/functions/v1/manage-users`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session?.access_token}`,
+        'apikey': supabaseKey,
+      },
+      body: JSON.stringify({ action, ...payload }),
+    });
+
+    if (response.status === 404) {
+      throw new Error("A função 'manage-users' não foi encontrada (404). Realize o deploy no painel do Supabase.");
     }
 
-    return data;
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || `Erro do servidor (${response.status})`);
+    
+    return result;
   } catch (err) {
-    console.error("Erro na chamada da Edge Function:", err);
-    
-    // Erro de rede (CORS ou DNS)
-    if (err instanceof TypeError && (err.message === "Failed to fetch" || err.message.includes("NetworkError"))) {
-      throw new Error("Erro de rede (Failed to fetch). Verifique se a Edge Function foi publicada no Supabase e se as configurações de CORS estão corretas no arquivo index.ts da função.");
-    }
-    
-    throw err;
+    console.error("Falha total na comunicação:", err);
+    throw new Error("Não foi possível conectar à Edge Function. Certifique-se de que a função foi publicada (deploy) e que as configurações de rede estão corretas.");
   }
 }
 
