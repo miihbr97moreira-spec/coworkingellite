@@ -7,7 +7,7 @@ ALTER TABLE public.funnels ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth
 ALTER TABLE public.stages ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) DEFAULT auth.uid();
 ALTER TABLE public.generated_pages ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) DEFAULT auth.uid();
 ALTER TABLE public.quizzes ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) DEFAULT auth.uid();
--- user_id já está definido na criação da tabela custom_domains
+ALTER TABLE public.custom_domains ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) DEFAULT auth.uid();
 
 -- 2. Atualizar registros existentes para o usuário atual (se houver)
 UPDATE public.leads SET user_id = auth.uid() WHERE user_id IS NULL;
@@ -15,7 +15,7 @@ UPDATE public.funnels SET user_id = auth.uid() WHERE user_id IS NULL;
 UPDATE public.stages SET user_id = auth.uid() WHERE user_id IS NULL;
 UPDATE public.generated_pages SET user_id = auth.uid() WHERE user_id IS NULL;
 UPDATE public.quizzes SET user_id = auth.uid() WHERE user_id IS NULL;
--- user_id já está preenchido na criação da tabela custom_domains
+UPDATE public.custom_domains SET user_id = auth.uid() WHERE user_id IS NULL;
 
 -- 3. Habilitar RLS em todas as tabelas críticas
 ALTER TABLE public.leads ENABLE ROW LEVEL SECURITY;
@@ -52,7 +52,10 @@ DROP POLICY IF EXISTS "Users can only see their own quizzes" ON public.quizzes;
 CREATE POLICY "Users can only see their own quizzes" ON public.quizzes
   FOR ALL TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
--- CUSTOM DOMAINS - Políticas já criadas na migração de criação da tabela
+-- CUSTOM DOMAINS
+DROP POLICY IF EXISTS "Users can only see their own domains" ON public.custom_domains;
+CREATE POLICY "Users can only see their own domains" ON public.custom_domains
+  FOR ALL TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
 -- 5. Garantir que o público ainda possa ver páginas e quizzes publicados (via slug)
 -- Mas apenas se estiverem marcados como publicados
