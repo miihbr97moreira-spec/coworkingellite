@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
-import { ShieldAlert, ArrowLeft, Plus, Trash2, Loader2, Users, TrendingUp, Activity, AlertCircle, RefreshCw, Eye, EyeOff, Edit2, Check, X } from "lucide-react";
+import { ShieldAlert, ArrowLeft, Plus, Trash2, Loader2, Users, TrendingUp, Activity, AlertCircle, RefreshCw, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
@@ -43,7 +43,6 @@ const MODULES = [
 
 const SuperAdmin = ({ isEmbedded = false }: SuperAdminProps) => {
   const navigate = useNavigate();
-  const location = useLocation();
   const { user, loading } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
@@ -52,7 +51,6 @@ const SuperAdmin = ({ isEmbedded = false }: SuperAdminProps) => {
   const [isSaving, setSaving] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const authCheckRef = useRef(false);
   const dataLoadedRef = useRef(false);
 
@@ -169,6 +167,20 @@ const SuperAdmin = ({ isEmbedded = false }: SuperAdminProps) => {
     }));
   };
 
+  const resetForm = () => {
+    setFormData({
+      email: "",
+      full_name: "",
+      password: "",
+      role: "editor",
+      max_domains: 1,
+      max_quizzes: 5,
+      max_pages: 10,
+      allowed_modules: ['builder', 'quiz_builder', 'pixels', 'crm', 'omni_flow'],
+    });
+    setShowPassword(false);
+  };
+
   const handleAddUser = async () => {
     if (!formData.email.trim() || !formData.full_name.trim() || !formData.password.trim()) {
       toast.error("Preencha todos os campos obrigatórios");
@@ -209,16 +221,7 @@ const SuperAdmin = ({ isEmbedded = false }: SuperAdminProps) => {
       if (dbError) throw dbError;
 
       toast.success(`Usuário ${formData.email} criado com sucesso!`);
-      setFormData({
-        email: "",
-        full_name: "",
-        password: "",
-        role: "editor",
-        max_domains: 1,
-        max_quizzes: 5,
-        max_pages: 10,
-        allowed_modules: ['builder', 'quiz_builder', 'pixels', 'crm', 'omni_flow'],
-      });
+      resetForm();
       setIsDialogOpen(false);
       dataLoadedRef.current = false;
       await loadData();
@@ -244,7 +247,7 @@ const SuperAdmin = ({ isEmbedded = false }: SuperAdminProps) => {
         .from('user_management')
         .delete()
         .eq('user_id', userId)
-        .catch(() => null); // Ignore if table doesn't exist
+        .catch(() => null);
 
       // Delete from auth
       const { error } = await supabase.auth.admin.deleteUser(userId);
@@ -380,11 +383,14 @@ const SuperAdmin = ({ isEmbedded = false }: SuperAdminProps) => {
                 <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
                 <span className="hidden sm:inline">Atualizar</span>
               </Button>
+              
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <Button className="gap-2 bg-primary hover:bg-primary/90 flex-1 md:flex-none">
-                  <Plus className="w-4 h-4" />
-                  <span className="hidden sm:inline">Novo Usuário</span>
-                </Button>
+                <DialogTrigger asChild>
+                  <Button className="gap-2 bg-primary hover:bg-primary/90 flex-1 md:flex-none">
+                    <Plus className="w-4 h-4" />
+                    <span className="hidden sm:inline">Novo Usuário</span>
+                  </Button>
+                </DialogTrigger>
                 <DialogContent className="bg-secondary/50 border-border w-full sm:max-w-md max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>Adicionar Novo Usuário</DialogTitle>
@@ -509,7 +515,10 @@ const SuperAdmin = ({ isEmbedded = false }: SuperAdminProps) => {
                       </Button>
                       <Button
                         variant="outline"
-                        onClick={() => setIsDialogOpen(false)}
+                        onClick={() => {
+                          setIsDialogOpen(false);
+                          resetForm();
+                        }}
                         className="flex-1"
                       >
                         Cancelar
