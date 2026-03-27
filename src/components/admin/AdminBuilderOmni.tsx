@@ -697,7 +697,7 @@ const AdminBuilderOmni = ({ isLegacyLP = false }: AdminBuilderOmniProps) => {
               {chatMessages.map(m => (
                 <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[85%] p-3 rounded-2xl text-sm ${m.role === 'user' ? 'bg-primary text-black font-medium' : 'bg-white/10 text-white border border-white/10'}`}>
-                    <ReactMarkdown>{m.content}</ReactMarkdown>
+                    <ReactMarkdown>{String(m.content || '')}</ReactMarkdown>
                   </div>
                 </div>
               ))}
