@@ -93,7 +93,7 @@ const StageColumn = ({ stage, leads, onAddLead, onDeleteStage }: { stage: any; l
 
       <div className="flex-1 overflow-y-auto pr-1 min-h-[120px] rounded-lg bg-secondary/20 p-2">
         <SortableContext items={leads.map(l => l.id)} strategy={verticalListSortingStrategy}>
-          {leads.map((lead) => <LeadCard key={lead.id} lead={lead} />)}
+          {leads.map((lead) => <LeadCard key={lead.id} lead={lead} onClick={() => setSelectedLead(lead)} onEdit={(e) => { e.stopPropagation(); openEditLead(lead); }} />)}
         </SortableContext>
         <button onClick={onAddLead}
           className="w-full py-2.5 text-[11px] font-medium text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all rounded-md border border-dashed border-border/40 hover:border-primary/30 flex items-center justify-center gap-1.5 mt-1">
@@ -256,6 +256,7 @@ const AdminCRM = () => {
   const createFunnel = async () => {
     if (!newFunnelForm.name.trim()) return toast.error("Nome obrigatório");
     const { data: user } = await supabase.auth.getUser();
+    if (!user?.user) return toast.error("Usuário não autenticado");
     const { data, error } = await supabase.from("funnels").insert({
       name: newFunnelForm.name, description: newFunnelForm.description || null, created_by: user?.user?.id,
     }).select().single();
@@ -280,6 +281,8 @@ const AdminCRM = () => {
   /* ── CRUD: Create Stage ── */
   const createStage = async () => {
     if (!newStageForm.name.trim() || !selectedFunnel) return toast.error("Nome obrigatório");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return toast.error("Usuário não autenticado");
     const sortOrder = stages?.length || 0;
     const { error } = await supabase.from("stages").insert({
       name: newStageForm.name, color: newStageForm.color, funnel_id: selectedFunnel, sort_order: sortOrder,
@@ -294,6 +297,8 @@ const AdminCRM = () => {
   /* ── CRUD: Delete Stage ── */
   const deleteStage = async (stageId: string) => {
     if (!confirm("Excluir esta etapa e todos os leads nela?")) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return toast.error("Usuário não autenticado");
     await supabase.from("leads").delete().eq("stage_id", stageId);
     await supabase.from("stages").delete().eq("id", stageId);
     qc.invalidateQueries({ queryKey: ["stages", selectedFunnel] });
@@ -306,6 +311,8 @@ const AdminCRM = () => {
     if (!newLeadForm.name.trim()) return toast.error("Nome obrigatório");
     const stageId = newLeadStageId || stages?.[0]?.id;
     if (!stageId || !selectedFunnel) return toast.error("Selecione uma etapa");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return toast.error("Usuário não autenticado");
     const tags = newLeadForm.tags ? newLeadForm.tags.split(",").map(t => t.trim()).filter(Boolean) : [];
     const { error } = await supabase.from("leads").insert({
       name: newLeadForm.name, email: newLeadForm.email || null, phone: newLeadForm.phone || null,
@@ -333,6 +340,8 @@ const AdminCRM = () => {
 
   const updateLead = async () => {
     if (!editLeadData || !editLeadForm.name.trim()) return toast.error("Nome obrigatório");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return toast.error("Usuário não autenticado");
     const tags = editLeadForm.tags ? editLeadForm.tags.split(",").map(t => t.trim()).filter(Boolean) : [];
     const { error } = await supabase.from("leads").update({
       name: editLeadForm.name, email: editLeadForm.email || null, phone: editLeadForm.phone || null,
@@ -350,6 +359,8 @@ const AdminCRM = () => {
   /* ── CRUD: Delete Funnel ── */
   const deleteFunnel = async (funnelId: string) => {
     if (!confirm("Excluir pipeline e todos os dados?")) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return toast.error("Usuário não autenticado");
     const fStages = stages?.filter(s => s.funnel_id === funnelId) || [];
     for (const s of fStages) {
       await supabase.from("leads").delete().eq("stage_id", s.id);
