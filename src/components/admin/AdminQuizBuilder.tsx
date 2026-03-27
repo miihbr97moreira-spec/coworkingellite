@@ -211,31 +211,46 @@ const AdminQuizBuilder = () => {
     const input = chatInput;
     setChatInput("");
 
-    const systemPrompt = `Você é um especialista em criação de quizzes de alta conversão.
+    const systemPrompt = `Você é um ARQUITETO DE QUIZZES DE ALTA CONVERSÃO com expertise em design moderno de landing pages.
 
-Gere um Quiz em formato JSON:
+Sua missão: Criar um quiz que não apenas coleta dados, mas oferece uma experiência VISUAL E INTERATIVA PREMIUM.
+
+🎯 DIRETRIZES DE DESIGN (Padrão Landing Page Moderna):
+1. TIPOGRAFIA: Use títulos em maiúsculas para impacto, descrições em sentença clara
+2. ESPAÇAMENTO: Margem generosa entre elementos, respiro visual
+3. CORES: Paleta harmônica com destaque em ouro/laranja (primário) e charcoal (fundo)
+4. COMPONENTES: Prefira \"image_grid\" para opções visuais (mais engajador que texto puro)
+5. FLUXO: Perguntas progressivas que constroem narrativa, nunca abruptas
+6. GAMIFICAÇÃO: Auto-advance ativado, fake loading com textos motivacionais
+7. CTA FINAL: Sempre termine com captura de email ou telefone com urgência (timer)
+
+📋 ESTRUTURA JSON ESPERADA:
 {
-  "title": "Nome do Quiz",
-  "description": "Descrição curta",
-  "questions": [
+  \"title\": \"Título Impactante em MAIÚSCULAS\",
+  \"description\": \"Descrição que cria curiosidade e valor\",
+  \"questions\": [
     {
-      "id": "q1",
-      "type": "multiple_choice" | "image_grid" | "text" | "email" | "phone",
-      "title": "Pergunta aqui",
-      "options": ["Opção 1", "Opção 2"],
-      "image_options": [{"label": "Opção 1", "url": "https://..."}, ...],
-      "required": true,
-      "logic": [
-        {"action": "go_to", "destination": "q2", "condition_value": "Opção 1"},
-        {"action": "finish", "condition_value": "Opção 2"}
-      ]
+      \"id\": \"q1\",
+      \"type\": \"multiple_choice|image_grid|text|email|phone\",
+      \"title\": \"Pergunta clara e direta\",
+      \"options\": [\"Opção 1\", \"Opção 2\", \"Opção 3\"],
+      \"image_options\": [{\"label\": \"Visual Label\", \"url\": \"https://exemplo.com/img.jpg\"}, ...],
+      \"required\": true,
+      \"logic\": [{\"action\": \"go_to|finish\", \"destination\": \"q2\", \"condition_value\": \"Opção 1\"}]
     }
   ]
 }
 
-Pedido: "${input}"
+✨ DICAS PARA MÁXIMA CONVERSÃO:
+- Comece com pergunta de baixa fricção (fácil de responder)
+- Use imagens em perguntas de múltipla escolha quando possível
+- Termine com email/telefone + mensagem de urgência
+- Máximo 5-7 perguntas para não cansar o usuário
+- Nomes descritivos para opções (não genéricos como \"Sim/Não\")
 
-Retorne APENAS o JSON puro.`;
+Pedido do usuário: \"${input}\"
+
+Retorne APENAS o JSON puro, sem markdown, sem explicações.`;
 
     try {
       let fullRaw = "";
@@ -273,6 +288,40 @@ Retorne APENAS o JSON puro.`;
             required: q.required !== false,
             logic: q.logic || []
           })));
+          
+          // Aplicar tema visual moderno (Landing Page Style)
+          const modernTheme: QuizTheme = {
+            bgColor: "#0f172a",
+            textColor: "#ffffff",
+            buttonColor: "#EAB308",
+            buttonTextColor: "#000000",
+            fontFamily: "Inter",
+            cardBgColor: "rgba(30, 41, 59, 0.6)",
+            cardBorderColor: "rgba(234, 179, 8, 0.2)",
+            cardBorderRadius: 20,
+            cardShadow: "xl",
+            inputBgColor: "rgba(255, 255, 255, 0.08)",
+            inputBorderColor: "rgba(234, 179, 8, 0.3)",
+            inputBorderRadius: 14,
+            buttonBorderRadius: 14,
+            progressBarColor: "#EAB308",
+            progressBarBgColor: "rgba(234, 179, 8, 0.1)",
+            optionHoverBgColor: "rgba(234, 179, 8, 0.15)",
+            optionSelectedBgColor: "rgba(234, 179, 8, 0.3)",
+            optionSelectedBorderColor: "#EAB308"
+          };
+          setTheme(modernTheme);
+          
+          // Ativar configurações de gamificação
+          setSettings({
+            auto_advance: true,
+            show_progress_bar: true,
+            enable_fake_loading: true,
+            fake_loading_text: "Analisando suas respostas...",
+            enable_timer: true,
+            timer_seconds: 300,
+            piping_enabled: true
+          });
 
           setChatMsgs(prev => [...prev, {
             id: Date.now().toString(),
