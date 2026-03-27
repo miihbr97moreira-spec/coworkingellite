@@ -318,25 +318,19 @@ const AdminBuilderOmni = ({ isLegacyLP = false }: AdminBuilderOmniProps) => {
   };
 
   const handleGeneratePage = async () => {
-    if (!newPageTitle.trim() || !newPageSlug.trim() || isGenerating) return;
-    setIsGenerating(true);
-    try {
-      const prompt = `Crie uma Landing Page profissional de alta conversão para: ${newPageTitle}. Use Tailwind CSS moderno, seções de Hero, Prova Social, Benefícios e FAQ.`;
-      const res = await generatePage(prompt);
-      const { html } = cleanAIPayload(res);
-      if (html) {
-        const newHtml = injectScript(html);
-        setGeneratedHtml(newHtml);
-        setHtmlHistory([newHtml]);
-        setHistoryIdx(0);
-        setMode("edit-generated");
-        toast.success("Página gerada com sucesso!");
-      }
-    } catch (err) {
-      toast.error("Erro ao gerar página");
-    } finally {
-      setIsGenerating(false);
-    }
+    if (!newPageTitle.trim() || !newPageSlug.trim()) return;
+    // Apenas avança para o chat, não cria a página aqui
+    setMode("edit-generated");
+    setGeneratedHtml("");
+    setHtmlHistory([""]);
+    setHistoryIdx(0);
+    setChatMessages([{
+      id: "welcome",
+      role: "assistant",
+      content: `Olá! Vou ajudá-lo a criar a Landing Page "${newPageTitle}". Descreva o que você gostaria que a página tivesse. Por exemplo: "Crie uma landing page para um curso de programação com seção de hero, benefícios, depoimentos e CTA".`,
+      timestamp: new Date()
+    }]);
+    toast.info(`Projeto "${newPageTitle}" criado. Agora descreva sua página no chat!`);
   };
 
   const handleSavePage = async () => {
@@ -487,7 +481,7 @@ const AdminBuilderOmni = ({ isLegacyLP = false }: AdminBuilderOmniProps) => {
               disabled={!newPageTitle.trim()}
             >
               <PlusCircle className="w-5 h-5 group-hover:rotate-90 transition-transform" />
-              Criar Nova Página do Zero
+              Avançar para IA Builder
             </Button>
           </div>
         </motion.div>
@@ -495,9 +489,27 @@ const AdminBuilderOmni = ({ isLegacyLP = false }: AdminBuilderOmniProps) => {
     );
   }
 
-  return (
-    <div className="flex h-screen bg-[#0a0a0a] text-white overflow-hidden font-sans">
-      {/* ── Sidebar: Pages ── */}
+  // Renderização do modo Legacy LP
+  const renderSidebar = () => {
+    if (isLegacyLP) {
+      return (
+        <aside className="w-72 border-r border-white/10 bg-[#050505] flex flex-col shrink-0">
+          <div className="p-4 border-b border-white/10 flex items-center justify-between">
+            <h2 className="font-bold text-sm tracking-widest uppercase text-white/60">LP Oficial</h2>
+            <div className="text-xs px-2 py-1 bg-amber-500/10 text-amber-500 rounded-full font-bold">SUPER ADMIN</div>
+          </div>
+          <div className="flex-1 flex items-center justify-center p-4 text-center text-white/40 text-sm">
+            <p>Editando a Landing Page Oficial do Omni Builder CRM</p>
+          </div>
+          <div className="p-4 border-t border-white/10 bg-black/40">
+            <Button variant="outline" className="w-full text-xs gap-2 border-white/10 hover:bg-white/5" onClick={() => setBYOKOpen(true)}>
+              <Key className="h-3 w-3" /> Configurar IA (BYOK)
+            </Button>
+          </div>
+        </aside>
+      );
+    }
+    return (
       <aside className="w-72 border-r border-white/10 bg-[#050505] flex flex-col shrink-0">
         <div className="p-4 border-b border-white/10 flex items-center justify-between">
           <h2 className="font-bold text-sm tracking-widest uppercase text-white/60">Minhas Páginas</h2>
@@ -548,6 +560,12 @@ const AdminBuilderOmni = ({ isLegacyLP = false }: AdminBuilderOmniProps) => {
           </Button>
         </div>
       </aside>
+    );
+  };
+
+  return (
+    <div className="flex h-screen bg-[#0a0a0a] text-white overflow-hidden font-sans">
+      {renderSidebar()}
 
       {/* ── Main Canvas ── */}
       <main className="flex-1 flex flex-col relative bg-[#0a0a0a]">
