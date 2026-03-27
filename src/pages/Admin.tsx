@@ -13,6 +13,7 @@ import AdminCRM from "@/components/admin/AdminCRM";
 import AdminQuizBuilder from "@/components/admin/AdminQuizBuilder";
 import OmniFlow from "@/components/admin/OmniFlow";
 import AdminSettings from "@/components/admin/AdminSettings";
+import SuperAdminPanel from "@/pages/SuperAdmin";
 
 // Main navigation tabs (top-down order)
 const mainTabs = [
@@ -269,13 +270,7 @@ const Admin = () => {
           {activeTab === "quiz" && <AdminQuizBuilder />}
           {activeTab === "omni_flow" && <OmniFlow />}
           {activeTab === "settings" && <AdminSettings />}
-          {activeTab === "super_admin" && isSuperAdmin && (
-            <div className="text-center py-12">
-              <ShieldAlert className="w-12 h-12 text-red-500 mx-auto mb-4" />
-              <h1 className="text-2xl font-bold text-white mb-2">Painel Super Admin</h1>
-              <p className="text-muted-foreground">Carregando...</p>
-            </div>
-          )}
+          {activeTab === "super_admin" && isSuperAdmin && <SuperAdminPanel />}
         </motion.div>
       </main>
     </div>

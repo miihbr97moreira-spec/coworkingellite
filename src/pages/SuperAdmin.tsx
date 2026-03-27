@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
@@ -28,8 +28,13 @@ interface SystemMetrics {
   total_quizzes: number;
 }
 
-const SuperAdmin = () => {
+interface SuperAdminProps {
+  isEmbedded?: boolean; // When used inside Admin.tsx
+}
+
+const SuperAdmin = ({ isEmbedded = false }: SuperAdminProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, loading } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
@@ -38,6 +43,7 @@ const SuperAdmin = () => {
   const [isSaving, setSaving] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const authCheckRef = useRef(false);
+  const dataLoadedRef = useRef(false);
 
   const [formData, setFormData] = useState({
     email: "",
@@ -53,22 +59,25 @@ const SuperAdmin = () => {
     authCheckRef.current = true;
 
     if (!user) {
-      navigate("/admin/login");
+      if (!isEmbedded) navigate("/admin/login");
       return;
     }
 
     if (user.email !== SUPER_ADMIN_EMAIL) {
-      toast.error("Acesso Negado: Apenas Super Admin pode acessar");
-      navigate("/admin");
+      if (!isEmbedded) {
+        toast.error("Acesso Negado: Apenas Super Admin pode acessar");
+        navigate("/admin");
+      }
       return;
     }
 
     setIsAuthorized(true);
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, isEmbedded]);
 
-  // Load data only when authorized
+  // Load data only when authorized (and only once)
   useEffect(() => {
-    if (isAuthorized && !isLoading) {
+    if (isAuthorized && !dataLoadedRef.current) {
+      dataLoadedRef.current = true;
       loadData();
     }
   }, [isAuthorized]);
@@ -157,6 +166,7 @@ const SuperAdmin = () => {
       toast.success(`Usuário ${formData.email} criado com sucesso!`);
       setFormData({ email: "", full_name: "", password: "" });
       setIsDialogOpen(false);
+      dataLoadedRef.current = false; // Reset to reload data
       await loadData();
     } catch (error: any) {
       toast.error("Erro ao criar usuário: " + error.message);
@@ -178,14 +188,15 @@ const SuperAdmin = () => {
       if (error) throw error;
 
       toast.success("Usuário deletado com sucesso");
+      dataLoadedRef.current = false; // Reset to reload data
       await loadData();
     } catch (error: any) {
       toast.error("Erro ao deletar usuário: " + error.message);
     }
   };
 
-  // Loading state while checking auth
-  if (loading || !isAuthorized) {
+  // When embedded in Admin.tsx, don't show loading state
+  if (!isEmbedded && (loading || !isAuthorized)) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -196,27 +207,34 @@ const SuperAdmin = () => {
     );
   }
 
+  // If embedded and not authorized, don't render
+  if (isEmbedded && !isAuthorized) {
+    return null;
+  }
+
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto p-4 md:p-8">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate("/admin")}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
-          <div className="flex items-center gap-3">
-            <ShieldAlert className="w-8 h-8 text-red-500" />
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold">Painel Super Admin</h1>
-              <p className="text-muted-foreground text-sm mt-1">Gestão centralizada do sistema</p>
+    <div className={isEmbedded ? "" : "min-h-screen bg-background"}>
+      <div className={isEmbedded ? "" : "max-w-7xl mx-auto p-4 md:p-8"}>
+        {/* Header - Only show back button if not embedded */}
+        {!isEmbedded && (
+          <div className="flex items-center gap-4 mb-8">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate("/admin")}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+            <div className="flex items-center gap-3">
+              <ShieldAlert className="w-8 h-8 text-red-500" />
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold">Painel Super Admin</h1>
+                <p className="text-muted-foreground text-sm mt-1">Gestão centralizada do sistema</p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Metrics Grid */}
         {metrics && (
