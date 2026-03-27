@@ -1,30 +1,22 @@
 import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/context/AuthContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { AlertCircle, Plus, Trash2, TestTube } from 'lucide-react';
+import { AlertCircle, Plus, Trash2, TestTube, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-
-interface WhatsAppConfig {
-  id?: string;
-  name: string;
-  api_type: 'z-api' | 'evolution';
-  base_url: string;
-  token: string;
-  instance_id: string;
-  client_token?: string;
-  pipeline_id?: string;
-  initial_stage_id?: string;
-  auto_create_lead: boolean;
-}
+import { toast } from "sonner";
 
 export default function WhatsAppTab() {
-  const [configs, setConfigs] = useState<WhatsAppConfig[]>([]);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [formData, setFormData] = useState<WhatsAppConfig>({
+  const [formData, setFormData] = useState({
     name: '',
     api_type: 'z-api',
     base_url: '',
@@ -36,6 +28,68 @@ export default function WhatsAppTab() {
     auto_create_lead: false,
   });
   const [testingId, setTestingId] = useState<string | null>(null);
+
+  // Fetch configs from Supabase
+  const { data: configs, isLoading } = useQuery({
+    queryKey: ['whatsapp_configs', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('whatsapp_configs' as any)
+        .select('*')
+        .eq('tenant_id', user?.id);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  // Create/Update mutation
+  const saveMutation = useMutation({
+    mutationFn: async (newData: any) => {
+      const { error } = await supabase
+        .from('whatsapp_configs' as any)
+        .upsert({ ...newData, tenant_id: user?.id });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['whatsapp_configs'] });
+      toast.success("Configuração salva com sucesso!");
+      setIsFormOpen(false);
+      resetForm();
+    },
+    onError: (error) => {
+      toast.error("Erro ao salvar: " + error.message);
+    }
+  });
+
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('whatsapp_configs' as any)
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['whatsapp_configs'] });
+      toast.success("Configuração removida.");
+    }
+  });
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      api_type: 'z-api',
+      base_url: '',
+      token: '',
+      instance_id: '',
+      client_token: '',
+      pipeline_id: '',
+      initial_stage_id: '',
+      auto_create_lead: false,
+    });
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -52,67 +106,42 @@ export default function WhatsAppTab() {
 
   const handleSave = () => {
     if (!formData.name || !formData.base_url || !formData.token || !formData.instance_id) {
-      alert('Por favor, preencha todos os campos obrigatórios');
+      toast.error("Preencha todos os campos obrigatórios");
       return;
     }
-
-    const newConfig = {
-      ...formData,
-      id: Date.now().toString(),
-    };
-
-    setConfigs((prev) => [...prev, newConfig]);
-    setFormData({
-      name: '',
-      api_type: 'z-api',
-      base_url: '',
-      token: '',
-      instance_id: '',
-      client_token: '',
-      pipeline_id: '',
-      initial_stage_id: '',
-      auto_create_lead: false,
-    });
-    setIsFormOpen(false);
+    saveMutation.mutate(formData);
   };
 
-  const handleTest = async (id: string) => {
+  const handleTest = async (id: string, config: any) => {
     setTestingId(id);
     try {
-      const config = configs.find((c) => c.id === id);
-      if (!config) return;
-
-      // Simular teste de conexão
-      const response = await fetch(`${config.base_url}/ping`, {
+      // Simulação de ping real para a API
+      const response = await fetch(`${config.base_url}/status`, {
         method: 'GET',
         headers: {
-          Authorization: `Bearer ${config.token}`,
-        },
+          'Authorization': `Bearer ${config.token}`,
+          'x-instance-id': config.instance_id
+        }
       }).catch(() => ({ ok: false }));
 
       if (response.ok) {
-        alert(`✅ Conexão com ${config.name} estabelecida com sucesso!`);
+        toast.success(`Conexão com ${config.name} ativa!`);
       } else {
-        alert(`❌ Falha ao conectar com ${config.name}. Verifique as credenciais.`);
+        toast.error(`Falha na conexão com ${config.name}.`);
       }
     } catch (error) {
-      alert(`❌ Erro ao testar conexão: ${error}`);
+      toast.error("Erro no teste de conexão.");
     } finally {
       setTestingId(null);
     }
   };
 
-  const handleDelete = (id: string) => {
-    setConfigs((prev) => prev.filter((c) => c.id !== id));
-  };
-
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-white">WhatsApp</h2>
-          <p className="text-slate-400">Configure suas integrações de WhatsApp</p>
+          <p className="text-slate-400">Configure suas instâncias de API</p>
         </div>
         <Button
           onClick={() => setIsFormOpen(!isFormOpen)}
@@ -123,211 +152,78 @@ export default function WhatsAppTab() {
         </Button>
       </div>
 
-      {/* Form */}
       {isFormOpen && (
         <Card className="border-slate-700 bg-slate-800/50">
           <CardHeader>
-            <CardTitle className="text-white">Nova Configuração WhatsApp</CardTitle>
-            <CardDescription>Conecte sua API de WhatsApp</CardDescription>
+            <CardTitle className="text-white">Conectar Instância</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="name" className="text-slate-300">
-                  Nome da Configuração *
-                </Label>
-                <Input
-                  id="name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  placeholder="Ex: WhatsApp Vendas"
-                  className="bg-slate-700 border-slate-600 text-white"
-                />
+                <Label className="text-slate-300">Nome da Instância *</Label>
+                <Input name="name" value={formData.name} onChange={handleInputChange} placeholder="Ex: Vendas SP" className="bg-slate-700 border-slate-600 text-white" />
               </div>
-
               <div className="space-y-2">
-                <Label htmlFor="api_type" className="text-slate-300">
-                  Tipo de API *
-                </Label>
-                <Select value={formData.api_type} onValueChange={(value) => handleSelectChange('api_type', value)}>
-                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                    <SelectValue />
-                  </SelectTrigger>
+                <Label className="text-slate-300">Tipo de API *</Label>
+                <Select value={formData.api_type} onValueChange={(v) => handleSelectChange('api_type', v)}>
+                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="z-api">Z-API</SelectItem>
-                    <SelectItem value="evolution">Evolution</SelectItem>
+                    <SelectItem value="evolution">Evolution API</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-
               <div className="space-y-2">
-                <Label htmlFor="base_url" className="text-slate-300">
-                  URL Base *
-                </Label>
-                <Input
-                  id="base_url"
-                  name="base_url"
-                  value={formData.base_url}
-                  onChange={handleInputChange}
-                  placeholder="https://api.z-api.io"
-                  className="bg-slate-700 border-slate-600 text-white"
-                />
+                <Label className="text-slate-300">URL Base *</Label>
+                <Input name="base_url" value={formData.base_url} onChange={handleInputChange} placeholder="https://..." className="bg-slate-700 border-slate-600 text-white" />
               </div>
-
               <div className="space-y-2">
-                <Label htmlFor="token" className="text-slate-300">
-                  Token *
-                </Label>
-                <Input
-                  id="token"
-                  name="token"
-                  type="password"
-                  value={formData.token}
-                  onChange={handleInputChange}
-                  placeholder="Seu token de API"
-                  className="bg-slate-700 border-slate-600 text-white"
-                />
+                <Label className="text-slate-300">Token *</Label>
+                <Input name="token" type="password" value={formData.token} onChange={handleInputChange} className="bg-slate-700 border-slate-600 text-white" />
               </div>
-
               <div className="space-y-2">
-                <Label htmlFor="instance_id" className="text-slate-300">
-                  Instance ID *
-                </Label>
-                <Input
-                  id="instance_id"
-                  name="instance_id"
-                  value={formData.instance_id}
-                  onChange={handleInputChange}
-                  placeholder="ID da instância"
-                  className="bg-slate-700 border-slate-600 text-white"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="client_token" className="text-slate-300">
-                  Client Token
-                </Label>
-                <Input
-                  id="client_token"
-                  name="client_token"
-                  type="password"
-                  value={formData.client_token}
-                  onChange={handleInputChange}
-                  placeholder="Token do cliente (opcional)"
-                  className="bg-slate-700 border-slate-600 text-white"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="pipeline_id" className="text-slate-300">
-                  Pipeline
-                </Label>
-                <Select value={formData.pipeline_id || ''} onValueChange={(value) => handleSelectChange('pipeline_id', value)}>
-                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                    <SelectValue placeholder="Selecione um pipeline" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pipeline-1">Pipeline Vendas</SelectItem>
-                    <SelectItem value="pipeline-2">Pipeline Suporte</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="initial_stage_id" className="text-slate-300">
-                  Etapa Inicial
-                </Label>
-                <Select value={formData.initial_stage_id || ''} onValueChange={(value) => handleSelectChange('initial_stage_id', value)}>
-                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                    <SelectValue placeholder="Selecione uma etapa" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="stage-1">Novo Lead</SelectItem>
-                    <SelectItem value="stage-2">Qualificado</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label className="text-slate-300">Instance ID *</Label>
+                <Input name="instance_id" value={formData.instance_id} onChange={handleInputChange} className="bg-slate-700 border-slate-600 text-white" />
               </div>
             </div>
-
             <div className="flex items-center space-x-2 pt-4">
-              <Switch
-                id="auto_create_lead"
-                checked={formData.auto_create_lead}
-                onCheckedChange={handleToggleChange}
-              />
-              <Label htmlFor="auto_create_lead" className="text-slate-300 cursor-pointer">
-                Criar lead automaticamente
-              </Label>
+              <Switch checked={formData.auto_create_lead} onCheckedChange={handleToggleChange} />
+              <Label className="text-slate-300">Criar lead automaticamente no CRM</Label>
             </div>
-
             <div className="flex gap-2 pt-4">
-              <Button
-                onClick={handleSave}
-                className="bg-[#D97757] hover:bg-[#c86647] text-white flex-1"
-              >
-                Salvar
+              <Button onClick={handleSave} disabled={saveMutation.isPending} className="bg-[#D97757] hover:bg-[#c86647] flex-1">
+                {saveMutation.isPending ? <Loader2 className="animate-spin w-4 h-4" /> : "Salvar Configuração"}
               </Button>
-              <Button
-                onClick={() => setIsFormOpen(false)}
-                variant="outline"
-                className="border-slate-600 text-slate-300 flex-1"
-              >
-                Cancelar
-              </Button>
+              <Button onClick={() => setIsFormOpen(false)} variant="outline" className="border-slate-600 text-slate-300 flex-1">Cancelar</Button>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Configs List */}
       <div className="space-y-4">
-        {configs.length === 0 ? (
+        {isLoading ? (
+          <div className="flex justify-center p-12"><Loader2 className="animate-spin text-[#D97757] w-8 h-8" /></div>
+        ) : configs?.length === 0 ? (
           <Alert className="border-slate-700 bg-slate-800/50">
             <AlertCircle className="h-4 w-4 text-[#D97757]" />
-            <AlertDescription className="text-slate-300">
-              Nenhuma configuração de WhatsApp ainda. Clique em "Nova Configuração" para começar.
-            </AlertDescription>
+            <AlertDescription className="text-slate-300">Nenhuma instância configurada.</AlertDescription>
           </Alert>
         ) : (
-          configs.map((config) => (
+          configs?.map((config: any) => (
             <Card key={config.id} className="border-slate-700 bg-slate-800/50">
-              <CardContent className="pt-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-white">{config.name}</h3>
-                    <p className="text-sm text-slate-400">
-                      {config.api_type.toUpperCase()} • {config.base_url}
-                    </p>
-                    <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                      <div>
-                        <span className="text-slate-400">Instance ID:</span>
-                        <p className="text-white font-mono">{config.instance_id}</p>
-                      </div>
-                      <div>
-                        <span className="text-slate-400">Auto-criar lead:</span>
-                        <p className="text-white">{config.auto_create_lead ? '✅ Sim' : '❌ Não'}</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={() => handleTest(config.id!)}
-                      disabled={testingId === config.id}
-                      variant="outline"
-                      className="border-slate-600 text-slate-300"
-                    >
-                      <TestTube className="w-4 h-4 mr-2" />
-                      Testar
-                    </Button>
-                    <Button
-                      onClick={() => handleDelete(config.id!)}
-                      variant="outline"
-                      className="border-red-600 text-red-400 hover:bg-red-950"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
+              <CardContent className="pt-6 flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-white">{config.name}</h3>
+                  <p className="text-sm text-slate-400">{config.api_type.toUpperCase()} • {config.instance_id}</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={() => handleTest(config.id, config)} disabled={testingId === config.id} variant="outline" className="border-slate-600 text-slate-300">
+                    {testingId === config.id ? <Loader2 className="animate-spin w-4 h-4" /> : <TestTube className="w-4 h-4 mr-2" />}
+                    Testar
+                  </Button>
+                  <Button onClick={() => deleteMutation.mutate(config.id)} variant="outline" className="border-red-600 text-red-400 hover:bg-red-950">
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                 </div>
               </CardContent>
             </Card>
