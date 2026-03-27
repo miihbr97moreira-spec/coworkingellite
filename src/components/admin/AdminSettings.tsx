@@ -16,34 +16,29 @@ interface ManagedUser {
   created_at: string;
 }
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-
 async function callManageUsers(action: string, payload: Record<string, unknown> = {}) {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) throw new Error("Sessão expirada. Faça login novamente.");
-
   try {
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/manage-users`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session.access_token}`,
-        "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string,
-      },
-      body: JSON.stringify({ action, ...payload }),
+    const { data, error } = await supabase.functions.invoke('manage-users', {
+      body: { action, ...payload },
     });
 
-    if (res.status === 404) {
-      throw new Error("A função 'manage-users' não foi encontrada. Verifique se o deploy foi realizado no Supabase.");
+    if (error) {
+      // Tratar erro específico de função não encontrada
+      if (error.message?.includes('404') || error.message?.includes('not found')) {
+        throw new Error("A função 'manage-users' não foi encontrada. Verifique se o deploy foi realizado no Supabase.");
+      }
+      throw error;
     }
 
-    const json = await res.json();
-    if (!res.ok || json.error) throw new Error(json.error ?? `Erro do servidor (${res.status})`);
-    return json;
+    return data;
   } catch (err) {
-    if (err instanceof TypeError && err.message === "Failed to fetch") {
-      throw new Error("Erro de rede (Failed to fetch). Verifique se a Edge Function foi publicada no Supabase e se as configurações de CORS estão corretas.");
+    console.error("Erro na chamada da Edge Function:", err);
+    
+    // Erro de rede (CORS ou DNS)
+    if (err instanceof TypeError && (err.message === "Failed to fetch" || err.message.includes("NetworkError"))) {
+      throw new Error("Erro de rede (Failed to fetch). Verifique se a Edge Function foi publicada no Supabase e se as configurações de CORS estão corretas no arquivo index.ts da função.");
     }
+    
     throw err;
   }
 }
