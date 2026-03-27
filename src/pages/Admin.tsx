@@ -87,12 +87,7 @@ const Admin = () => {
         </div>
 
         <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
-          {tabs.filter(t => 
-            t.module === 'dashboard' || 
-            t.module === 'omni_flow' ||
-            role === 'super_admin' || 
-            userLimits?.allowed_modules?.includes(t.module)
-          ).map((t) => (
+          {tabs.map((t) => (
             <button
               key={t.id}
               onClick={() => setActiveTab(t.id)}
