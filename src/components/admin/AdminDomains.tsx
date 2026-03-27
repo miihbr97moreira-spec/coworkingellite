@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { Globe2, Plus, Copy, Check, ExternalLink, AlertTriangle, Info, Trash2, Loader2 } from "lucide-react";
+import { Globe2, Plus, Copy, Check, ExternalLink, AlertTriangle, Info, Trash2, Loader2, Search, CheckCircle2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useDNSResolver } from "@/hooks/useDNSResolver";
 
 const AdminDomains = React.forwardRef<HTMLDivElement>((_, ref) => {
   const [addOpen, setAddOpen] = useState(false);
@@ -17,6 +18,11 @@ const AdminDomains = React.forwardRef<HTMLDivElement>((_, ref) => {
   const [domains, setDomains] = useState<any[]>([]);
   const [pages, setPages] = useState<any[]>([]);
   const [quizzes, setQuizzes] = useState<any[]>([]);
+  
+  // DNS Resolution
+  const { resolveDomain, loading: dnsLoading, error: dnsError } = useDNSResolver();
+  const [dnsInfo, setDnsInfo] = useState<any>(null);
+  const [checkingDns, setCheckingDns] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -25,10 +31,22 @@ const AdminDomains = React.forwardRef<HTMLDivElement>((_, ref) => {
   const loadData = async () => {
     setLoading(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
       const [domainsRes, pagesRes, quizzesRes] = await Promise.all([
-        supabase.from("custom_domains").select("*").order("created_at", { ascending: false }),
-        supabase.from("generated_pages").select("id, title, slug").eq("status", "published"),
-        supabase.from("quizzes").select("id, title, slug").eq("status", "published")
+        supabase.from("custom_domains")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false }),
+        supabase.from("generated_pages")
+          .select("id, title, slug")
+          .eq("user_id", user.id)
+          .eq("status", "published"),
+        supabase.from("quizzes")
+          .select("id, title, slug")
+          .eq("user_id", user.id)
+          .eq("status", "published")
       ]);
 
       if (domainsRes.data) setDomains(domainsRes.data);
@@ -42,22 +60,46 @@ const AdminDomains = React.forwardRef<HTMLDivElement>((_, ref) => {
     }
   };
 
+  const handleCheckDns = async () => {
+    if (!domain.trim()) {
+      toast.error("Informe um domínio");
+      return;
+    }
+
+    setCheckingDns(true);
+    const result = await resolveDomain(domain.toLowerCase().trim());
+    setDnsInfo(result);
+    setCheckingDns(false);
+
+    if (result?.isConfigured) {
+      toast.success("Domínio configurado corretamente!");
+    } else {
+      toast.error("Domínio não está configurado no DNS");
+    }
+  };
+
   const handleAddDomain = async () => {
     if (!domain.trim()) return toast.error("Informe o domínio");
+    if (contentType !== "main_lp" && !contentId) return toast.error("Selecione o conteúdo");
     
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
+
       const { error } = await supabase.from("custom_domains").insert({
         domain: domain.toLowerCase().trim(),
         content_type: contentType,
         content_id: contentType === "main_lp" ? null : contentId,
-        is_active: true
+        is_active: true,
+        user_id: user.id,
       });
 
       if (error) throw error;
 
-      toast.success("Domínio adicionado com sucesso!");
+      toast.success("Domínio conectado com sucesso!");
       setAddOpen(false);
       setDomain("");
+      setDnsInfo(null);
       loadData();
     } catch (err: any) {
       toast.error(err.message || "Erro ao adicionar domínio");
@@ -190,9 +232,52 @@ const AdminDomains = React.forwardRef<HTMLDivElement>((_, ref) => {
           <div className="space-y-4 py-4">
             <div>
               <label className="text-xs font-semibold block mb-1.5">Domínio</label>
-              <input value={domain} onChange={e => setDomain(e.target.value)}
-                placeholder="ex: promocao.meusite.com.br" className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm outline-none focus:ring-1 focus:ring-primary/30" />
+              <div className="flex gap-2">
+                <input 
+                  value={domain} 
+                  onChange={e => setDomain(e.target.value)}
+                  placeholder="ex: promocao.meusite.com.br" 
+                  className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm outline-none focus:ring-1 focus:ring-primary/30" 
+                />
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={handleCheckDns}
+                  disabled={checkingDns || !domain.trim()}
+                  className="gap-1"
+                >
+                  {checkingDns ? <Loader2 className="w-3 h-3 animate-spin" /> : <Search className="w-3 h-3" />}
+                  Verificar
+                </Button>
+              </div>
             </div>
+
+            {/* DNS Status */}
+            {dnsInfo && (
+              <div className={`p-3 rounded-lg border ${dnsInfo.isConfigured ? 'bg-green-500/5 border-green-500/20' : 'bg-amber-500/5 border-amber-500/20'}`}>
+                <div className="flex items-start gap-2">
+                  {dnsInfo.isConfigured ? (
+                    <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+                  )}
+                  <div className="text-xs">
+                    <p className="font-semibold mb-1">
+                      {dnsInfo.isConfigured ? "✓ Domínio Configurado" : "⚠ Domínio Não Configurado"}
+                    </p>
+                    {dnsInfo.records.length > 0 && (
+                      <div className="space-y-1 text-[10px] text-muted-foreground">
+                        {dnsInfo.records.map((r: any, i: number) => (
+                          <div key={i}>
+                            <strong>{r.type}:</strong> {r.value}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div>
               <label className="text-xs font-semibold block mb-1.5">O que este domínio deve exibir?</label>
@@ -228,12 +313,16 @@ const AdminDomains = React.forwardRef<HTMLDivElement>((_, ref) => {
             <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20 flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
               <p className="text-[10px] text-muted-foreground">
-                Lembre-se de configurar o DNS no seu provedor antes de tentar acessar o domínio.
+                Certifique-se de que o domínio está configurado no DNS antes de conectar. Use o botão "Verificar" para confirmar.
               </p>
             </div>
 
-            <Button onClick={handleAddDomain} className="w-full">
-              Salvar e Conectar
+            <Button 
+              onClick={handleAddDomain} 
+              className="w-full"
+              disabled={!domain.trim() || (contentType !== "main_lp" && !contentId)}
+            >
+              {dnsInfo?.isConfigured ? "✓ Conectar Domínio" : "Conectar Domínio"}
             </Button>
           </div>
         </DialogContent>

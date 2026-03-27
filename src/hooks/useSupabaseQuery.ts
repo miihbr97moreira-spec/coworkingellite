@@ -48,7 +48,9 @@ export const useFunnels = () =>
   useQuery({
     queryKey: ["funnels"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("funnels").select("*").order("created_at");
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+      const { data, error } = await supabase.from("funnels").select("*").eq("user_id", user.id).order("created_at");
       if (error) throw error;
       return data;
     },
@@ -59,7 +61,9 @@ export const useStages = (funnelId: string | null) =>
   useQuery({
     queryKey: ["stages", funnelId],
     queryFn: async () => {
-      let query = supabase.from("stages").select("*").order("sort_order");
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+      let query = supabase.from("stages").select("*").eq("user_id", user.id).order("sort_order");
       if (funnelId) query = query.eq("funnel_id", funnelId);
       const { data, error } = await query;
       if (error) throw error;
@@ -72,7 +76,9 @@ export const useLeads = (funnelId: string | null) =>
   useQuery({
     queryKey: ["leads", funnelId],
     queryFn: async () => {
-      let query = supabase.from("leads").select("*").order("sort_order");
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+      let query = supabase.from("leads").select("*").eq("user_id", user.id).order("sort_order");
       if (funnelId) query = query.eq("funnel_id", funnelId);
       const { data, error } = await query;
       if (error) throw error;
@@ -117,7 +123,9 @@ export const useQuizzes = () =>
   useQuery({
     queryKey: ["quizzes"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("quizzes").select("*").order("created_at", { ascending: false });
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+      const { data, error } = await supabase.from("quizzes").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
