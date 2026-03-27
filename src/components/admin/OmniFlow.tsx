@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   MessageCircle, Webhook, Brain, ChevronRight, Loader2, AlertCircle,
-  CheckCircle2, Circle, Settings2
+  CheckCircle2, Circle, Settings2, Zap
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import OmniFlowWhatsApp from "./OmniFlow/OmniFlowWhatsApp";
 import OmniFlowWebhooks from "./OmniFlow/OmniFlowWebhooks";
 import OmniFlowAgent from "./OmniFlow/OmniFlowAgent";
+import Integrations from "@/pages/Integrations";
 
 interface IntegrationStatus {
   whatsapp: "connected" | "disconnected" | "connecting";
@@ -122,6 +123,10 @@ const OmniFlow = React.forwardRef<HTMLDivElement>((_, ref) => {
     return <OmniFlowAgent onBack={() => { setActiveModule(null); loadIntegrationStatus(); }} />;
   }
 
+  if (activeModule === "integrations") {
+    return <Integrations />;
+  }
+
   return (
     <div ref={ref} className="space-y-8">
       {/* Header */}
@@ -167,12 +172,42 @@ const OmniFlow = React.forwardRef<HTMLDivElement>((_, ref) => {
 
       {/* Bento Grid - Integration Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-max">
+        {/* New Integrations Hub Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0 }}
+          className="group relative overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/20 to-orange-500/20 backdrop-blur-sm p-6 cursor-pointer hover:shadow-lg transition-all"
+          onClick={() => setActiveModule("integrations")}
+        >
+          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent" />
+          </div>
+          <div className="relative z-10 flex flex-col h-full">
+            <div className="flex items-start justify-between mb-4">
+              <div className="p-3 rounded-xl bg-background/50 group-hover:bg-background/70 transition-colors">
+                <Zap className="w-6 h-6 text-amber-600" />
+              </div>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-700 border border-amber-500/30">
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                NOVO
+              </div>
+            </div>
+            <h3 className="text-lg font-bold mb-2">Omni Flow Hub</h3>
+            <p className="text-sm text-muted-foreground mb-6 flex-1">Hub de integrações bidirecional com 9 abas — conecte qualquer ferramenta</p>
+            <Button className="w-full gap-2 group/btn" variant="default">
+              Acessar Hub
+              <ChevronRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+            </Button>
+          </div>
+        </motion.div>
+
         {integrations.map((integration, idx) => (
           <motion.div
             key={integration.id}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: idx * 0.1 }}
+            transition={{ delay: (idx + 1) * 0.1 }}
             className={`group relative overflow-hidden rounded-2xl border ${integration.borderColor} bg-gradient-to-br ${integration.color} backdrop-blur-sm p-6 cursor-pointer hover:shadow-lg transition-all ${
               idx === 1 ? "md:col-span-1 md:row-span-2" : ""
             }`}
