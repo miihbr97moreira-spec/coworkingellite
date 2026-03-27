@@ -79,6 +79,7 @@ export const useLeads = (funnelId: string | null) =>
       if (error) throw error;
       return data;
     },
+    enabled: !!funnelId,
   });
 
 // Lead notes
