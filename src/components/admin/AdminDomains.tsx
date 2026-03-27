@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
-const AdminDomains = () => {
+const AdminDomains = React.forwardRef<HTMLDivElement>((_, ref) => {
   const [addOpen, setAddOpen] = useState(false);
   const [domain, setDomain] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
