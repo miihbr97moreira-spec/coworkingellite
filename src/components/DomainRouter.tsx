@@ -27,37 +27,19 @@ const DomainRouter = ({ children }: { children: React.ReactNode }) => {
           .eq("is_active", true)
           .maybeSingle();
 
-        if (data && data.content_type) {
-          // Se encontrou um mapeamento com conteúdo vinculado
+        if (data) {
+          // Se encontrou um mapeamento, precisamos do slug se for page ou quiz
           let slug = null;
-          
-          if (data.content_type === "main_lp") {
-            // Landing page principal
-            setContent({ type: "main_lp", id: null, slug: null });
-            setLoading(false);
-            return;
-          } else if (data.content_type === "page" && data.content_id) {
-            const { data: page } = await supabase
-              .from("generated_pages")
-              .select("slug")
-              .eq("id", data.content_id)
-              .single();
+          if (data.content_type === "page" && data.content_id) {
+            const { data: page } = await supabase.from("generated_pages").select("slug").eq("id", data.content_id).single();
             slug = page?.slug;
           } else if (data.content_type === "quiz" && data.content_id) {
-            const { data: quiz } = await supabase
-              .from("quizzes")
-              .select("slug")
-              .eq("id", data.content_id)
-              .single();
+            const { data: quiz } = await supabase.from("quizzes").select("slug").eq("id", data.content_id).single();
             slug = quiz?.slug;
           }
           
-          // Só define content se temos um tipo válido e slug (para page/quiz)
-          if (slug) {
-            setContent({ type: data.content_type, id: data.content_id, slug });
-          }
+          setContent({ type: data.content_type, id: data.content_id, slug });
         }
-        // Se não encontrou domínio ou não tem conteúdo vinculado, renderiza o fallback (children)
       } catch (err) {
         console.error("Erro ao resolver domínio:", err);
       } finally {
