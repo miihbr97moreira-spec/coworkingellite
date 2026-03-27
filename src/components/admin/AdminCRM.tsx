@@ -65,7 +65,7 @@ const LeadCard = ({ lead, onClick, onEdit, isOverlay = false }: { lead: any; onC
 };
 
 /* ───────── Stage Column ───────── */
-const StageColumn = ({ stage, leads, onAddLead, onDeleteStage }: { stage: any; leads: any[]; onAddLead: () => void; onDeleteStage: () => void }) => {
+const StageColumn = ({ stage, leads, onAddLead, onDeleteStage, onSelectLead, onEditLead }: { stage: any; leads: any[]; onAddLead: () => void; onDeleteStage: () => void; onSelectLead: (lead: any) => void; onEditLead: (lead: any) => void }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: stage.id, data: { type: "Stage", stage },
   });
@@ -93,7 +93,7 @@ const StageColumn = ({ stage, leads, onAddLead, onDeleteStage }: { stage: any; l
 
       <div className="flex-1 overflow-y-auto pr-1 min-h-[120px] rounded-lg bg-secondary/20 p-2">
         <SortableContext items={leads.map(l => l.id)} strategy={verticalListSortingStrategy}>
-          {leads.map((lead) => <LeadCard key={lead.id} lead={lead} onClick={() => setSelectedLead(lead)} onEdit={(e) => { e.stopPropagation(); openEditLead(lead); }} />)}
+          {leads.map((lead) => <LeadCard key={lead.id} lead={lead} onClick={() => onSelectLead(lead)} onEdit={(e) => { e.stopPropagation(); onEditLead(lead); }} />)}
         </SortableContext>
         <button onClick={onAddLead}
           className="w-full py-2.5 text-[11px] font-medium text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all rounded-md border border-dashed border-border/40 hover:border-primary/30 flex items-center justify-center gap-1.5 mt-1">
@@ -105,7 +105,7 @@ const StageColumn = ({ stage, leads, onAddLead, onDeleteStage }: { stage: any; l
 };
 
 /* ───────── Lead Detail Drawer ───────── */
-const LeadDetailDrawer = ({ lead, stages, onClose, onEdit }: { lead: any; stages: any[]; onClose: () => void; onEdit: () => void }) => {
+const LeadDetailDrawer = ({ lead, stages, onClose, onEdit, onDelete }: { lead: any; stages: any[]; onClose: () => void; onEdit: () => void; onDelete?: () => void }) => {
   const { data: notes } = useLeadNotes(lead.id);
   const [note, setNote] = useState("");
   const qc = useQueryClient();
@@ -127,7 +127,8 @@ const LeadDetailDrawer = ({ lead, stages, onClose, onEdit }: { lead: any; stages
         <div className="p-5 border-b border-border flex items-center justify-between">
           <h3 className="text-sm font-semibold">Detalhes do Lead</h3>
           <div className="flex items-center gap-1">
-            <button onClick={onEdit} className="p-1.5 hover:bg-secondary rounded-md transition-colors"><Pencil className="w-4 h-4 text-muted-foreground" /></button>
+            <button onClick={onEdit} className="p-1.5 hover:bg-secondary rounded-md transition-colors" title="Editar"><Pencil className="w-4 h-4 text-muted-foreground" /></button>
+            {onDelete && <button onClick={onDelete} className="p-1.5 hover:bg-destructive/10 rounded-md transition-colors" title="Excluir"><Trash2 className="w-4 h-4 text-muted-foreground hover:text-destructive" /></button>}
             <button onClick={onClose} className="p-1.5 hover:bg-secondary rounded-md transition-colors"><X className="w-4 h-4" /></button>
           </div>
         </div>
@@ -554,7 +555,9 @@ const AdminCRM = () => {
                 <StageColumn key={stage.id} stage={stage}
                   leads={filteredLeads.filter(l => l.stage_id === stage.id)}
                   onAddLead={() => { setNewLeadStageId(stage.id); setNewLeadOpen(true); }}
-                  onDeleteStage={() => deleteStage(stage.id)} />
+                  onDeleteStage={() => deleteStage(stage.id)}
+                  onSelectLead={setSelectedLead}
+                  onEditLead={openEditLead} />
               ))}
             </SortableContext>
             <button onClick={() => setNewStageOpen(true)}
@@ -629,7 +632,7 @@ const AdminCRM = () => {
         </div>
       )}
 
-      {selectedLead && <LeadDetailDrawer lead={selectedLead} stages={stages || []} onClose={() => setSelectedLead(null)} onEdit={() => openEditLead(selectedLead)} />}
+      {selectedLead && <LeadDetailDrawer lead={selectedLead} stages={stages || []} onClose={() => setSelectedLead(null)} onEdit={() => openEditLead(selectedLead)} onDelete={() => { deleteLead(selectedLead.id); setSelectedLead(null); }} />}
 
       {/* ── New Lead Modal ── */}
       <Dialog open={newLeadOpen} onOpenChange={setNewLeadOpen}>

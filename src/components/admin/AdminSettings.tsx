@@ -1,103 +1,145 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Loader2, Shield, Eye, Edit3, Trash2, Plus } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Loader2, Shield, Plus, Edit2, Trash2, Eye, EyeOff } from "lucide-react";
 
-interface UserPermission {
+interface User {
   id: string;
-  user_id: string;
-  user_email: string;
-  can_view_crm: boolean;
-  can_edit_crm: boolean;
-  can_delete_crm: boolean;
-  can_view_builder: boolean;
-  can_edit_builder: boolean;
-  can_view_reviews: boolean;
-  can_edit_reviews: boolean;
+  email: string;
+  full_name: string;
+  is_active: boolean;
   created_at: string;
 }
 
 const AdminSettings = () => {
-  const [permissions, setPermissions] = useState<UserPermission[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newUserEmail, setNewUserEmail] = useState("");
-  const qc = useQueryClient();
+  const [newUserOpen, setNewUserOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  
+  const [formData, setFormData] = useState({
+    email: "",
+    full_name: "",
+    password: "",
+  });
 
   useEffect(() => {
-    loadPermissions();
+    loadUsers();
   }, []);
 
-  const loadPermissions = async () => {
+  const loadUsers = async () => {
     setLoading(true);
     try {
-      // Por enquanto, vamos usar localStorage como base de dados local
-      // Futuramente, isso será migrado para uma tabela no Supabase
-      const stored = localStorage.getItem("user_permissions");
+      // Buscar usuários do localStorage (simulando banco de dados)
+      const stored = localStorage.getItem("admin_users");
       if (stored) {
-        setPermissions(JSON.parse(stored));
+        setUsers(JSON.parse(stored));
+      } else {
+        // Usuário padrão
+        const defaultUsers: User[] = [
+          {
+            id: "1",
+            email: "jpm19990@gmail.com",
+            full_name: "Administrador",
+            is_active: true,
+            created_at: new Date().toISOString(),
+          },
+        ];
+        setUsers(defaultUsers);
+        localStorage.setItem("admin_users", JSON.stringify(defaultUsers));
       }
     } catch (error) {
-      console.error("Erro ao carregar permissões:", error);
+      console.error("Erro ao carregar usuários:", error);
+      toast.error("Erro ao carregar usuários");
     } finally {
       setLoading(false);
     }
   };
 
-  const savePermissions = (newPermissions: UserPermission[]) => {
-    localStorage.setItem("user_permissions", JSON.stringify(newPermissions));
-    setPermissions(newPermissions);
+  const saveUsers = (newUsers: User[]) => {
+    localStorage.setItem("admin_users", JSON.stringify(newUsers));
+    setUsers(newUsers);
   };
 
-  const togglePermission = (userId: string, permission: keyof UserPermission) => {
-    const updated = permissions.map(p => {
-      if (p.user_id === userId && typeof p[permission] === "boolean") {
-        return { ...p, [permission]: !p[permission] };
-      }
-      return p;
-    });
-    savePermissions(updated);
-    toast.success("Permissão atualizada!");
-  };
-
-  const addUser = async () => {
-    if (!newUserEmail.trim()) {
-      toast.error("Digite um email válido");
+  const handleAddUser = async () => {
+    if (!formData.email.trim() || !formData.full_name.trim() || !formData.password.trim()) {
+      toast.error("Preencha todos os campos");
       return;
     }
 
-    // Verificar se o usuário já existe
-    if (permissions.some(p => p.user_email === newUserEmail)) {
-      toast.error("Usuário já cadastrado");
+    if (users.some(u => u.email === formData.email)) {
+      toast.error("Este email já está cadastrado");
       return;
     }
 
-    const newPermission: UserPermission = {
+    const newUser: User = {
       id: Math.random().toString(36).substr(2, 9),
-      user_id: Math.random().toString(36).substr(2, 9),
-      user_email: newUserEmail,
-      can_view_crm: true,
-      can_edit_crm: true,
-      can_delete_crm: true,
-      can_view_builder: true,
-      can_edit_builder: true,
-      can_view_reviews: true,
-      can_edit_reviews: true,
+      email: formData.email,
+      full_name: formData.full_name,
+      is_active: true,
       created_at: new Date().toISOString(),
     };
 
-    const updated = [...permissions, newPermission];
-    savePermissions(updated);
-    setNewUserEmail("");
-    toast.success("Usuário adicionado com permissões completas!");
+    const updated = [...users, newUser];
+    saveUsers(updated);
+    setFormData({ email: "", full_name: "", password: "" });
+    setNewUserOpen(false);
+    toast.success("Usuário adicionado com sucesso!");
   };
 
-  const removeUser = (userId: string) => {
+  const handleEditUser = async () => {
+    if (!editingUser) return;
+    if (!formData.email.trim() || !formData.full_name.trim()) {
+      toast.error("Preencha todos os campos");
+      return;
+    }
+
+    const updated = users.map(u => {
+      if (u.id === editingUser.id) {
+        return {
+          ...u,
+          email: formData.email,
+          full_name: formData.full_name,
+        };
+      }
+      return u;
+    });
+
+    saveUsers(updated);
+    setEditingUser(null);
+    setFormData({ email: "", full_name: "", password: "" });
+    toast.success("Usuário atualizado com sucesso!");
+  };
+
+  const handleDeleteUser = (userId: string) => {
     if (!confirm("Tem certeza que deseja remover este usuário?")) return;
-    const updated = permissions.filter(p => p.user_id !== userId);
-    savePermissions(updated);
+    
+    const updated = users.filter(u => u.id !== userId);
+    saveUsers(updated);
     toast.success("Usuário removido!");
+  };
+
+  const toggleUserStatus = (userId: string) => {
+    const updated = users.map(u => {
+      if (u.id === userId) {
+        return { ...u, is_active: !u.is_active };
+      }
+      return u;
+    });
+    saveUsers(updated);
+    toast.success("Status do usuário atualizado!");
+  };
+
+  const openEditDialog = (user: User) => {
+    setEditingUser(user);
+    setFormData({
+      email: user.email,
+      full_name: user.full_name,
+      password: "",
+    });
   };
 
   if (loading) {
@@ -112,140 +154,66 @@ const AdminSettings = () => {
     <div className="space-y-8">
       <div>
         <h2 className="text-2xl font-bold mb-2">Configurações</h2>
-        <p className="text-muted-foreground">Gerencie permissões de usuários e funcionalidades do sistema</p>
+        <p className="text-muted-foreground">Gerencie usuários e permissões do sistema</p>
       </div>
 
-      {/* Adicionar Novo Usuário */}
-      <div className="bg-secondary/30 rounded-lg p-6 border border-border/30">
-        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <Plus className="w-4 h-4" /> Adicionar Novo Usuário
-        </h3>
-        <div className="flex gap-2">
-          <input
-            type="email"
-            value={newUserEmail}
-            onChange={(e) => setNewUserEmail(e.target.value)}
-            placeholder="email@exemplo.com"
-            className="flex-1 px-3 py-2 rounded-lg bg-background border border-border text-sm outline-none focus:ring-1 focus:ring-primary/30"
-            onKeyDown={(e) => e.key === "Enter" && addUser()}
-          />
-          <Button onClick={addUser}>Adicionar</Button>
-        </div>
-        <p className="text-xs text-muted-foreground mt-2">Novos usuários recebem todas as permissões por padrão</p>
+      {/* Botão Adicionar Usuário */}
+      <div className="flex justify-end">
+        <Button onClick={() => { setEditingUser(null); setFormData({ email: "", full_name: "", password: "" }); setNewUserOpen(true); }} className="gap-2">
+          <Plus className="w-4 h-4" /> Novo Usuário
+        </Button>
       </div>
 
-      {/* Tabela de Permissões */}
+      {/* Tabela de Usuários */}
       <div className="bg-secondary/30 rounded-lg border border-border/30 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border/20 bg-secondary/50">
+                <th className="p-4 text-left font-semibold">Nome</th>
                 <th className="p-4 text-left font-semibold">Email</th>
-                <th className="p-4 text-center font-semibold">
-                  <div className="flex items-center justify-center gap-1">
-                    <Eye className="w-4 h-4" /> Ver CRM
-                  </div>
-                </th>
-                <th className="p-4 text-center font-semibold">
-                  <div className="flex items-center justify-center gap-1">
-                    <Edit3 className="w-4 h-4" /> Editar CRM
-                  </div>
-                </th>
-                <th className="p-4 text-center font-semibold">
-                  <div className="flex items-center justify-center gap-1">
-                    <Trash2 className="w-4 h-4" /> Deletar CRM
-                  </div>
-                </th>
-                <th className="p-4 text-center font-semibold">
-                  <div className="flex items-center justify-center gap-1">
-                    <Eye className="w-4 h-4" /> Ver Builder
-                  </div>
-                </th>
-                <th className="p-4 text-center font-semibold">
-                  <div className="flex items-center justify-center gap-1">
-                    <Edit3 className="w-4 h-4" /> Editar Builder
-                  </div>
-                </th>
+                <th className="p-4 text-center font-semibold">Status</th>
                 <th className="p-4 text-right font-semibold">Ações</th>
               </tr>
             </thead>
             <tbody>
-              {permissions.length === 0 ? (
+              {users.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-4 text-center text-muted-foreground">
-                    Nenhum usuário cadastrado. Adicione um novo usuário acima.
+                  <td colSpan={4} className="p-4 text-center text-muted-foreground">
+                    Nenhum usuário cadastrado.
                   </td>
                 </tr>
               ) : (
-                permissions.map((perm) => (
-                  <tr key={perm.id} className="border-b border-border/10 hover:bg-secondary/20 transition-colors">
-                    <td className="p-4">{perm.user_email}</td>
+                users.map((user) => (
+                  <tr key={user.id} className="border-b border-border/10 hover:bg-secondary/20 transition-colors">
+                    <td className="p-4 font-medium">{user.full_name}</td>
+                    <td className="p-4 text-muted-foreground">{user.email}</td>
                     <td className="p-4 text-center">
                       <button
-                        onClick={() => togglePermission(perm.user_id, "can_view_crm")}
+                        onClick={() => toggleUserStatus(user.id)}
                         className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                          perm.can_view_crm
+                          user.is_active
                             ? "bg-green-500/20 text-green-600"
                             : "bg-red-500/20 text-red-600"
                         }`}
                       >
-                        {perm.can_view_crm ? "✓ Sim" : "✗ Não"}
+                        {user.is_active ? "✓ Ativo" : "✗ Inativo"}
                       </button>
                     </td>
-                    <td className="p-4 text-center">
+                    <td className="p-4 text-right flex justify-end gap-2">
                       <button
-                        onClick={() => togglePermission(perm.user_id, "can_edit_crm")}
-                        className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                          perm.can_edit_crm
-                            ? "bg-green-500/20 text-green-600"
-                            : "bg-red-500/20 text-red-600"
-                        }`}
+                        onClick={() => openEditDialog(user)}
+                        className="p-1.5 hover:bg-secondary rounded transition-colors"
+                        title="Editar"
                       >
-                        {perm.can_edit_crm ? "✓ Sim" : "✗ Não"}
+                        <Edit2 className="w-4 h-4 text-muted-foreground" />
                       </button>
-                    </td>
-                    <td className="p-4 text-center">
                       <button
-                        onClick={() => togglePermission(perm.user_id, "can_delete_crm")}
-                        className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                          perm.can_delete_crm
-                            ? "bg-green-500/20 text-green-600"
-                            : "bg-red-500/20 text-red-600"
-                        }`}
+                        onClick={() => handleDeleteUser(user.id)}
+                        className="p-1.5 hover:bg-destructive/10 rounded transition-colors"
+                        title="Excluir"
                       >
-                        {perm.can_delete_crm ? "✓ Sim" : "✗ Não"}
-                      </button>
-                    </td>
-                    <td className="p-4 text-center">
-                      <button
-                        onClick={() => togglePermission(perm.user_id, "can_view_builder")}
-                        className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                          perm.can_view_builder
-                            ? "bg-green-500/20 text-green-600"
-                            : "bg-red-500/20 text-red-600"
-                        }`}
-                      >
-                        {perm.can_view_builder ? "✓ Sim" : "✗ Não"}
-                      </button>
-                    </td>
-                    <td className="p-4 text-center">
-                      <button
-                        onClick={() => togglePermission(perm.user_id, "can_edit_builder")}
-                        className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                          perm.can_edit_builder
-                            ? "bg-green-500/20 text-green-600"
-                            : "bg-red-500/20 text-red-600"
-                        }`}
-                      >
-                        {perm.can_edit_builder ? "✓ Sim" : "✗ Não"}
-                      </button>
-                    </td>
-                    <td className="p-4 text-right">
-                      <button
-                        onClick={() => removeUser(perm.user_id)}
-                        className="px-3 py-1 rounded text-xs font-medium bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
-                      >
-                        Remover
+                        <Trash2 className="w-4 h-4 text-muted-foreground hover:text-destructive" />
                       </button>
                     </td>
                   </tr>
@@ -256,10 +224,89 @@ const AdminSettings = () => {
         </div>
       </div>
 
+      {/* Modal Adicionar/Editar Usuário */}
+      <Dialog open={newUserOpen || editingUser !== null} onOpenChange={(open) => {
+        if (!open) {
+          setNewUserOpen(false);
+          setEditingUser(null);
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingUser ? "Editar Usuário" : "Novo Usuário"}</DialogTitle>
+            <DialogDescription>
+              {editingUser ? "Atualize as informações do usuário." : "Adicione um novo usuário ao sistema."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1.5 font-medium">Nome Completo *</label>
+              <input
+                type="text"
+                value={formData.full_name}
+                onChange={(e) => setFormData(p => ({ ...p, full_name: e.target.value }))}
+                placeholder="João Silva"
+                className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm outline-none focus:ring-1 focus:ring-primary/30"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1.5 font-medium">Email *</label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData(p => ({ ...p, email: e.target.value }))}
+                placeholder="joao@exemplo.com"
+                className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm outline-none focus:ring-1 focus:ring-primary/30"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1.5 font-medium">
+                {editingUser ? "Nova Senha (deixe em branco para manter)" : "Senha *"}
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={formData.password}
+                  onChange={(e) => setFormData(p => ({ ...p, password: e.target.value }))}
+                  placeholder="••••••••"
+                  className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm outline-none focus:ring-1 focus:ring-primary/30"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+            <div className="flex gap-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setNewUserOpen(false);
+                  setEditingUser(null);
+                  setFormData({ email: "", full_name: "", password: "" });
+                }}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={editingUser ? handleEditUser : handleAddUser}
+                className="flex-1"
+              >
+                {editingUser ? "Atualizar" : "Criar"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
         <p className="text-sm text-blue-600">
           <Shield className="w-4 h-4 inline mr-2" />
-          <strong>Nota:</strong> As permissões são gerenciadas localmente por enquanto. No futuro, será integrado com o banco de dados do Supabase para persistência permanente.
+          <strong>Nota:</strong> Os usuários são gerenciados localmente. Integração com Supabase Auth será implementada em breve para melhor segurança.
         </p>
       </div>
     </div>
