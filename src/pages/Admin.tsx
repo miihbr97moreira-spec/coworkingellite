@@ -13,6 +13,7 @@ import AdminCRM from "@/components/admin/AdminCRM";
 import AdminReviews from "@/components/admin/AdminReviews";
 import AdminQuizBuilder from "@/components/admin/AdminQuizBuilder";
 import AdminDomains from "@/components/admin/AdminDomains";
+import AdminSettings from "@/components/admin/AdminSettings";
 
 const tabs = [
   { id: "dashboard", label: "Dashboard", icon: BarChart3 },
@@ -22,6 +23,7 @@ const tabs = [
   { id: "pixels", label: "Pixels", icon: Megaphone },
   { id: "crm", label: "CRM", icon: Kanban },
   { id: "domains", label: "Domínios", icon: Globe2 },
+  { id: "settings", label: "Configurações", icon: Settings },
 ];
 
 const SIDEBAR_KEY = "omni_sidebar_collapsed";
@@ -127,6 +129,7 @@ const Admin = () => {
           {activeTab === "pixels" && <AdminPixelManager />}
           {activeTab === "crm" && <AdminCRM />}
           {activeTab === "domains" && <AdminDomains />}
+          {activeTab === "settings" && <AdminSettings />}
         </motion.div>
       </main>
     </div>
