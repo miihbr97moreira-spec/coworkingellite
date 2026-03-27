@@ -256,7 +256,6 @@ const AdminCRM = () => {
   const createFunnel = async () => {
     if (!newFunnelForm.name.trim()) return toast.error("Nome obrigatório");
     const { data: user } = await supabase.auth.getUser();
-    if (!user?.user) return toast.error("Usuário não autenticado");
     const { data, error } = await supabase.from("funnels").insert({
       name: newFunnelForm.name, description: newFunnelForm.description || null, created_by: user?.user?.id,
     }).select().single();
@@ -281,8 +280,6 @@ const AdminCRM = () => {
   /* ── CRUD: Create Stage ── */
   const createStage = async () => {
     if (!newStageForm.name.trim() || !selectedFunnel) return toast.error("Nome obrigatório");
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return toast.error("Usuário não autenticado");
     const sortOrder = stages?.length || 0;
     const { error } = await supabase.from("stages").insert({
       name: newStageForm.name, color: newStageForm.color, funnel_id: selectedFunnel, sort_order: sortOrder,
@@ -297,8 +294,6 @@ const AdminCRM = () => {
   /* ── CRUD: Delete Stage ── */
   const deleteStage = async (stageId: string) => {
     if (!confirm("Excluir esta etapa e todos os leads nela?")) return;
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return toast.error("Usuário não autenticado");
     await supabase.from("leads").delete().eq("stage_id", stageId);
     await supabase.from("stages").delete().eq("id", stageId);
     qc.invalidateQueries({ queryKey: ["stages", selectedFunnel] });
@@ -311,8 +306,6 @@ const AdminCRM = () => {
     if (!newLeadForm.name.trim()) return toast.error("Nome obrigatório");
     const stageId = newLeadStageId || stages?.[0]?.id;
     if (!stageId || !selectedFunnel) return toast.error("Selecione uma etapa");
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return toast.error("Usuário não autenticado");
     const tags = newLeadForm.tags ? newLeadForm.tags.split(",").map(t => t.trim()).filter(Boolean) : [];
     const { error } = await supabase.from("leads").insert({
       name: newLeadForm.name, email: newLeadForm.email || null, phone: newLeadForm.phone || null,
@@ -340,16 +333,25 @@ const AdminCRM = () => {
 
   const updateLead = async () => {
     if (!editLeadData || !editLeadForm.name.trim()) return toast.error("Nome obrigatório");
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return toast.error("Usuário não autenticado");
+    
     const tags = editLeadForm.tags ? editLeadForm.tags.split(",").map(t => t.trim()).filter(Boolean) : [];
     const { error } = await supabase.from("leads").update({
-      name: editLeadForm.name, email: editLeadForm.email || null, phone: editLeadForm.phone || null,
-      company: editLeadForm.company || null, deal_value: Number(editLeadForm.deal_value) || 0,
-      tags, stage_id: editLeadForm.stage_id, updated_at: new Date().toISOString(),
+      name: editLeadForm.name, 
+      email: editLeadForm.email || null, 
+      phone: editLeadForm.phone || null,
+      company: editLeadForm.company || null, 
+      deal_value: Number(editLeadForm.deal_value) || 0,
+      tags, 
+      stage_id: editLeadForm.stage_id, 
+      updated_at: new Date().toISOString(),
     }).eq("id", editLeadData.id);
-    if (error) return toast.error("Erro ao atualizar: " + error.message);
-    qc.invalidateQueries({ queryKey: ["leads", selectedFunnel] });
+
+    if (error) {
+      console.error("Update error:", error);
+      return toast.error("Erro ao atualizar: " + error.message);
+    }
+
+    await qc.invalidateQueries({ queryKey: ["leads", selectedFunnel] });
     setEditLeadOpen(false);
     setEditLeadData(null);
     setSelectedLead(null);
@@ -358,11 +360,15 @@ const AdminCRM = () => {
 
   const deleteLead = async (leadId: string) => {
     if (!confirm("Tem certeza que deseja excluir este lead?")) return;
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return toast.error("Usuário não autenticado");
+    
     const { error } = await supabase.from("leads").delete().eq("id", leadId);
-    if (error) return toast.error("Erro ao excluir lead: " + error.message);
-    qc.invalidateQueries({ queryKey: ["leads", selectedFunnel] });
+    
+    if (error) {
+      console.error("Delete error:", error);
+      return toast.error("Erro ao excluir lead: " + error.message);
+    }
+
+    await qc.invalidateQueries({ queryKey: ["leads", selectedFunnel] });
     setEditLeadOpen(false);
     setEditLeadData(null);
     setSelectedLead(null);
@@ -372,8 +378,6 @@ const AdminCRM = () => {
   /* ── CRUD: Delete Funnel ── */
   const deleteFunnel = async (funnelId: string) => {
     if (!confirm("Excluir pipeline e todos os dados?")) return;
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return toast.error("Usuário não autenticado");
     const fStages = stages?.filter(s => s.funnel_id === funnelId) || [];
     for (const s of fStages) {
       await supabase.from("leads").delete().eq("stage_id", s.id);
