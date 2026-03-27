@@ -166,9 +166,14 @@ function cleanAIPayload(raw: string): { html: string; title: string } {
   return { html: s, title: "" };
 }
 
-const AdminBuilderOmni = () => {
+interface AdminBuilderOmniProps {
+  isLegacyLP?: boolean;
+}
+
+const AdminBuilderOmni = ({ isLegacyLP = false }: AdminBuilderOmniProps) => {
   const { role, user } = useAuth();
   const { processPrompt, generatePage, isLoading: aiLoading } = useAIBuilder();
+  const pageTitle = isLegacyLP ? "Editar Landing Page Oficial" : "Builder Pages";
 
   /* ── core state ── */
   const [mode, setMode] = useState<BuilderMode>("generate");

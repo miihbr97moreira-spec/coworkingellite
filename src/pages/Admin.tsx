@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   BarChart3, Type, ListChecks, LogOut, Menu, X,
-  Settings, Kanban, Zap, PanelLeftClose, PanelLeft, ShieldAlert,
+  Settings, Kanban, Zap, PanelLeftClose, PanelLeft, ShieldAlert, Globe,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -145,18 +145,32 @@ const Admin = () => {
 
           {/* Super Admin - Conditional */}
           {isSuperAdmin && (
-            <button
-              onClick={() => handleTabChange("super_admin")}
-              title={collapsed ? "Super Admin" : undefined}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                activeTab === "super_admin"
-                  ? "bg-red-500/10 text-red-400 font-medium"
-                  : "text-muted-foreground hover:text-red-400 hover:bg-red-950/20"
-              } ${collapsed ? "justify-center" : ""}`}
-            >
-              <ShieldAlert className="w-4 h-4 shrink-0" />
-              {!collapsed && "Super Admin"}
-            </button>
+            <>
+              <button
+                onClick={() => handleTabChange("super_admin")}
+                title={collapsed ? "Super Admin" : undefined}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                  activeTab === "super_admin"
+                    ? "bg-red-500/10 text-red-400 font-medium"
+                    : "text-muted-foreground hover:text-red-400 hover:bg-red-950/20"
+                } ${collapsed ? "justify-center" : ""}`}
+              >
+                <ShieldAlert className="w-4 h-4 shrink-0" />
+                {!collapsed && "Super Admin"}
+              </button>
+              <button
+                onClick={() => handleTabChange("legacy_lp")}
+                title={collapsed ? "Editar LP" : undefined}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                  activeTab === "legacy_lp"
+                    ? "bg-amber-500/10 text-amber-400 font-medium"
+                    : "text-muted-foreground hover:text-amber-400 hover:bg-amber-950/20"
+                } ${collapsed ? "justify-center" : ""}`}
+              >
+                <Globe className="w-4 h-4 shrink-0" />
+                {!collapsed && "Editar LP"}
+              </button>
+            </>
           )}
 
           {/* Logout */}
@@ -230,17 +244,30 @@ const Admin = () => {
               </button>
 
               {isSuperAdmin && (
-                <button
-                  onClick={() => handleTabChange("super_admin")}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-colors ${
-                    activeTab === "super_admin"
-                      ? "bg-red-500/10 text-red-400 font-medium"
-                      : "text-muted-foreground hover:text-red-400 hover:bg-red-950/20"
-                  }`}
-                >
-                  <ShieldAlert className="w-4 h-4 shrink-0" />
-                  Super Admin
-                </button>
+                <>
+                  <button
+                    onClick={() => handleTabChange("super_admin")}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-colors ${
+                      activeTab === "super_admin"
+                        ? "bg-red-500/10 text-red-400 font-medium"
+                        : "text-muted-foreground hover:text-red-400 hover:bg-red-950/20"
+                    }`}
+                  >
+                    <ShieldAlert className="w-4 h-4 shrink-0" />
+                    Super Admin
+                  </button>
+                  <button
+                    onClick={() => handleTabChange("legacy_lp")}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-colors ${
+                      activeTab === "legacy_lp"
+                        ? "bg-amber-500/10 text-amber-400 font-medium"
+                        : "text-muted-foreground hover:text-amber-400 hover:bg-amber-950/20"
+                    }`}
+                  >
+                    <Globe className="w-4 h-4 shrink-0" />
+                    Editar LP
+                  </button>
+                </>
               )}
 
               <button
@@ -271,6 +298,7 @@ const Admin = () => {
           {activeTab === "omni_flow" && <OmniFlow />}
           {activeTab === "settings" && <TenantSettings />}
           {activeTab === "super_admin" && isSuperAdmin && <SuperAdminPanel />}
+          {activeTab === "legacy_lp" && isSuperAdmin && <AdminBuilderOmni isLegacyLP={true} />}
         </motion.div>
       </main>
     </div>
