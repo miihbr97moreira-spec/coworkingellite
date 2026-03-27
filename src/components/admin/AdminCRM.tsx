@@ -194,7 +194,9 @@ const AdminCRM = () => {
   const qc = useQueryClient();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
-  if (funnels?.length && !selectedFunnel) setSelectedFunnel(funnels[0].id);
+  useEffect(() => {
+    if (funnels?.length && !selectedFunnel) setSelectedFunnel(funnels[0].id);
+  }, [funnels, selectedFunnel]);
 
   const filteredLeads = useMemo(() => {
     if (!leads) return [];
