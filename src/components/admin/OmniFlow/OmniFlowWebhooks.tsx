@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import TooltipHelp from "@/components/ui/tooltip-help";
 
 interface OmniFlowWebhooksProps {
   onBack: () => void;
@@ -150,6 +151,7 @@ const OmniFlowWebhooks: React.FC<OmniFlowWebhooksProps> = ({ onBack }) => {
               <Webhook className="w-6 h-6 text-blue-600" />
             </div>
             Webhooks
+            <TooltipHelp content="Webhooks permitem que sistemas externos enviem dados para você (Inbound) ou que você envie dados para sistemas externos (Outbound). Use para integrar Hotmart, Shopify, Make, Zapier e muito mais." />
           </h1>
           <p className="text-sm text-muted-foreground mt-2">
             Receba eventos em tempo real e monitore as requisições do seu webhook.
