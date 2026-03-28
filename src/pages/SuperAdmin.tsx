@@ -127,10 +127,10 @@ const SuperAdmin = ({ isEmbedded = false }: SuperAdminProps) => {
           { count: totalPages },
           { count: totalQuizzes },
         ] = await Promise.all([
-          supabase.from("user_management").select("*", { count: "exact", head: true }).catch(() => ({ count: 0 })),
-          supabase.from("custom_domains").select("*", { count: "exact", head: true }).catch(() => ({ count: 0 })),
-          supabase.from("generated_pages").select("*", { count: "exact", head: true }).catch(() => ({ count: 0 })),
-          supabase.from("quizzes").select("*", { count: "exact", head: true }).catch(() => ({ count: 0 })),
+          (supabase.from("user_management" as any) as any).select("*", { count: "exact", head: true }).catch(() => ({ count: 0 })),
+          (supabase.from("custom_domains" as any) as any).select("*", { count: "exact", head: true }).catch(() => ({ count: 0 })),
+          supabase.from("generated_pages").select("*", { count: "exact", head: true }),
+          supabase.from("quizzes").select("*", { count: "exact", head: true }),
         ]);
 
         setMetrics({
