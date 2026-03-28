@@ -149,10 +149,10 @@ const AdminQuizBuilder = () => {
   const loadAnalytics = async (quizId: string) => {
     setAnalyticsLoading(true);
     const [{ data: analyticsData }, { data: submissionsData }] = await Promise.all([
-      supabase
-        .from("quiz_analytics")
+      (supabase
+        .from("quiz_analytics" as any)
         .select("*")
-        .eq("quiz_id", quizId)
+        .eq("quiz_id", quizId) as any)
         .order("created_at", { ascending: true }),
       supabase
         .from("quiz_submissions")
@@ -200,8 +200,8 @@ const AdminQuizBuilder = () => {
         await supabase.from("quizzes").update(payload).eq("id", activeQuiz.id);
         toast.success("Quiz atualizado!");
       } else {
-        const { data } = await supabase.from("quizzes").insert(payload).select().single();
-        if (data) setActiveQuiz(data);
+        const { data } = await supabase.from("quizzes").insert(payload as any).select().single();
+        if (data) setActiveQuiz(data as any);
         toast.success("Quiz criado!");
       }
       loadQuizzes();
@@ -291,69 +291,67 @@ Pedido: \"${input}\"
 Retorne APENAS o JSON puro, sem markdown.`;
 
     try {
-      let fullRaw = "";
-      await generatePage(systemPrompt, (delta) => { fullRaw += delta; }, () => {
-        if (!fullRaw.trim()) {
-          setChatMsgs(prev => [...prev, {
-            id: Date.now().toString(),
-            role: "assistant",
-            content: "❌ Erro: Nenhuma resposta recebida. Tente novamente."
-          }]);
-          return;
+      const fullRaw = await generatePage(systemPrompt);
+      if (!fullRaw.trim()) {
+        setChatMsgs(prev => [...prev, {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: "❌ Erro: Nenhuma resposta recebida. Tente novamente."
+        }]);
+        return;
+      }
+
+      try {
+        const cleaned = fullRaw.replace(/```json?\s*/g, "").replace(/```/g, "").trim();
+        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+        
+        if (!jsonMatch) throw new Error("JSON não encontrado");
+
+        const parsed = JSON.parse(jsonMatch[0]);
+        
+        if (!parsed.questions || !Array.isArray(parsed.questions)) {
+          throw new Error("Estrutura inválida");
         }
 
-        try {
-          const cleaned = fullRaw.replace(/\`\`\`json?\s*/g, "").replace(/\`\`\`/g, "").trim();
-          const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-          
-          if (!jsonMatch) throw new Error("JSON não encontrado");
-
-          const parsed = JSON.parse(jsonMatch[0]);
-          
-          if (!parsed.questions || !Array.isArray(parsed.questions)) {
-            throw new Error("Estrutura inválida");
-          }
-
-          if (parsed.title) setTitle(parsed.title);
-          if (parsed.description) setDescription(parsed.description);
-          
-          setQuestions(parsed.questions.map((q: any, i: number) => ({
-            id: q.id || `q${i}`,
-            type: q.type || "multiple_choice",
-            title: q.title || "",
-            options: q.options || [],
-            image_options: q.image_options || [],
-            required: q.required !== false,
-            logic: q.logic || [],
-            auto_advance: q.auto_advance ?? false,
-            enable_fake_loading: q.enable_fake_loading ?? true,
-            fake_loading_text: q.fake_loading_text || "Analisando sua resposta...",
-            button_text: q.button_text || "CONTINUAR",
-            card_style: q.card_style || "glassmorphism",
-            option_style: q.option_style || "cards"
-          })));
-          
-          if (parsed.theme) {
-            setTheme(prev => ({
-              ...prev,
-              ...parsed.theme
-            }));
-          }
-
-          setChatMsgs(prev => [...prev, {
-            id: Date.now().toString(),
-            role: "assistant",
-            content: `✅ Quiz gerado! ${parsed.questions?.length || 0} perguntas criadas. Veja o preview ao lado!`
-          }]);
-        } catch (err: any) {
-          console.error("Erro:", err);
-          setChatMsgs(prev => [...prev, {
-            id: Date.now().toString(),
-            role: "assistant",
-            content: "❌ Erro ao processar. Tente descrever de forma mais clara."
-          }]);
+        if (parsed.title) setTitle(parsed.title);
+        if (parsed.description) setDescription(parsed.description);
+        
+        setQuestions(parsed.questions.map((q: any, i: number) => ({
+          id: q.id || `q${i}`,
+          type: q.type || "multiple_choice",
+          title: q.title || "",
+          options: q.options || [],
+          image_options: q.image_options || [],
+          required: q.required !== false,
+          logic: q.logic || [],
+          auto_advance: q.auto_advance ?? false,
+          enable_fake_loading: q.enable_fake_loading ?? true,
+          fake_loading_text: q.fake_loading_text || "Analisando sua resposta...",
+          button_text: q.button_text || "CONTINUAR",
+          card_style: q.card_style || "glassmorphism",
+          option_style: q.option_style || "cards"
+        })));
+        
+        if (parsed.theme) {
+          setTheme(prev => ({
+            ...prev,
+            ...parsed.theme
+          }));
         }
-      });
+
+        setChatMsgs(prev => [...prev, {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: `✅ Quiz gerado! ${parsed.questions?.length || 0} perguntas criadas. Veja o preview ao lado!`
+        }]);
+      } catch (err: any) {
+        console.error("Erro:", err);
+        setChatMsgs(prev => [...prev, {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: "❌ Erro ao processar. Tente descrever de forma mais clara."
+        }]);
+      }
     } catch (err: any) {
       console.error("Erro geral:", err);
       setChatMsgs(prev => [...prev, {
@@ -424,17 +422,14 @@ Retorne APENAS o JSON puro, sem markdown.`;
                           description: q.description,
                           logo_url: q.logo_url,
                           logo_position: q.logo_position,
-                          theme: q.theme,
+                          theme: q.theme as any,
                           questions: q.questions,
                           status: "draft",
                           crm_funnel_id: q.crm_funnel_id,
                           crm_stage_id: q.crm_stage_id,
                           meta_pixel_id: q.meta_pixel_id,
                           ga_id: q.ga_id,
-                          webhook_url: q.webhook_url,
-                          custom_scripts: q.custom_scripts,
-                          settings: q.settings,
-                        }).select().single();
+                        } as any).select().single();
                         if (data) {
                           loadQuizzes();
                           toast.success("Quiz duplicado!", { description: `"${data.title}" criado como rascunho.` });

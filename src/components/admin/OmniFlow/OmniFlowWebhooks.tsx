@@ -44,23 +44,23 @@ const OmniFlowWebhooks: React.FC<OmniFlowWebhooksProps> = ({ onBack }) => {
       if (!user) return;
 
       // Carregar endpoint
-      const { data: endpointData } = await supabase
-        .from("webhook_endpoints")
+      const { data: endpointData } = await (supabase
+        .from("webhook_endpoints" as any)
         .select("*")
-        .eq("tenant_id", user.id)
+        .eq("tenant_id", user.id) as any)
         .single();
 
       setEndpoint(endpointData);
 
       // Carregar logs
-      const { data: logsData } = await supabase
-        .from("webhook_logs")
+      const { data: logsData } = await (supabase
+        .from("webhook_logs" as any)
         .select("*")
-        .eq("tenant_id", user.id)
+        .eq("tenant_id", user.id) as any)
         .order("received_at", { ascending: false })
         .limit(50);
 
-      setLogs(logsData || []);
+      setLogs((logsData || []) as any);
     } catch (err) {
       console.error("Erro ao carregar webhooks:", err);
     } finally {
@@ -92,8 +92,8 @@ const OmniFlowWebhooks: React.FC<OmniFlowWebhooksProps> = ({ onBack }) => {
 
   const handleDeleteLog = async (logId: string) => {
     try {
-      await supabase
-        .from("webhook_logs")
+      await (supabase
+        .from("webhook_logs" as any) as any)
         .delete()
         .eq("id", logId);
 

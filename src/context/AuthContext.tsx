@@ -30,7 +30,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const [roleRes, mgmtRes] = await Promise.all([
         supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle(),
-        supabase.from("user_management").select("max_domains, max_quizzes, max_pages, allowed_modules").eq("user_id", userId).maybeSingle()
+        (supabase.from("user_management" as any).select("max_domains, max_quizzes, max_pages, allowed_modules").eq("user_id", userId) as any).maybeSingle()
       ]);
 
       if (roleRes.data) {
@@ -39,10 +39,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       if (mgmtRes.data) {
         setUserLimits({
-          max_domains: mgmtRes.data.max_domains,
-          max_quizzes: mgmtRes.data.max_quizzes,
-          max_pages: mgmtRes.data.max_pages,
-          allowed_modules: mgmtRes.data.allowed_modules || [],
+          max_domains: (mgmtRes.data as any).max_domains,
+          max_quizzes: (mgmtRes.data as any).max_quizzes,
+          max_pages: (mgmtRes.data as any).max_pages,
+          allowed_modules: (mgmtRes.data as any).allowed_modules || [],
         });
       }
     } catch (err) {

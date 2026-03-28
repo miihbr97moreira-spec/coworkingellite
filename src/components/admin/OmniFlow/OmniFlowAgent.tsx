@@ -40,20 +40,20 @@ const OmniFlowAgent: React.FC<OmniFlowAgentProps> = ({ onBack }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data } = await supabase
-        .from("omni_agent_config")
+      const { data } = await (supabase
+        .from("omni_agent_config" as any)
         .select("*")
-        .eq("tenant_id", user.id)
+        .eq("tenant_id", user.id) as any)
         .single();
 
       if (data) {
-        setConfig(data);
+        setConfig(data as any);
         setFormData({
-          ai_provider: data.ai_provider || "openai",
-          ai_model: data.ai_model || "gpt-4o",
-          ai_api_key: data.ai_api_key || "",
-          ai_system_prompt: data.ai_system_prompt || "",
-          zapi_sync_enabled: data.zapi_sync_enabled || false,
+          ai_provider: (data as any).ai_provider || "openai",
+          ai_model: (data as any).ai_model || "gpt-4o",
+          ai_api_key: (data as any).ai_api_key || "",
+          ai_system_prompt: (data as any).ai_system_prompt || "",
+          zapi_sync_enabled: (data as any).zapi_sync_enabled || false,
         });
       }
     } catch (err) {
@@ -75,8 +75,8 @@ const OmniFlowAgent: React.FC<OmniFlowAgentProps> = ({ onBack }) => {
       if (!user) return;
 
       if (config) {
-        await supabase
-          .from("omni_agent_config")
+        await (supabase
+          .from("omni_agent_config" as any) as any)
           .update({
             ai_provider: formData.ai_provider,
             ai_model: formData.ai_model,
@@ -87,8 +87,8 @@ const OmniFlowAgent: React.FC<OmniFlowAgentProps> = ({ onBack }) => {
           })
           .eq("tenant_id", user.id);
       } else {
-        await supabase
-          .from("omni_agent_config")
+        await (supabase
+          .from("omni_agent_config" as any) as any)
           .insert({
             tenant_id: user.id,
             ai_provider: formData.ai_provider,

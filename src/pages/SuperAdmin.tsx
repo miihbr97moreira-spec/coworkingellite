@@ -127,10 +127,10 @@ const SuperAdmin = ({ isEmbedded = false }: SuperAdminProps) => {
           { count: totalPages },
           { count: totalQuizzes },
         ] = await Promise.all([
-          supabase.from("user_management").select("*", { count: "exact", head: true }).catch(() => ({ count: 0 })),
-          supabase.from("custom_domains").select("*", { count: "exact", head: true }).catch(() => ({ count: 0 })),
-          supabase.from("generated_pages").select("*", { count: "exact", head: true }).catch(() => ({ count: 0 })),
-          supabase.from("quizzes").select("*", { count: "exact", head: true }).catch(() => ({ count: 0 })),
+          (supabase.from("user_management" as any) as any).select("*", { count: "exact", head: true }).catch(() => ({ count: 0 })),
+          (supabase.from("custom_domains" as any) as any).select("*", { count: "exact", head: true }).catch(() => ({ count: 0 })),
+          supabase.from("generated_pages").select("*", { count: "exact", head: true }),
+          supabase.from("quizzes").select("*", { count: "exact", head: true }),
         ]);
 
         setMetrics({
@@ -204,8 +204,8 @@ const SuperAdmin = ({ isEmbedded = false }: SuperAdminProps) => {
       if (!authData.user) throw new Error("Falha ao criar usuário");
 
       // Create entry in user_management table
-      const { error: dbError } = await supabase
-        .from('user_management')
+      const { error: dbError } = await (supabase
+        .from('user_management' as any) as any)
         .insert({
           user_id: authData.user.id,
           email: formData.email.trim(),
@@ -243,8 +243,8 @@ const SuperAdmin = ({ isEmbedded = false }: SuperAdminProps) => {
 
     try {
       // Delete from user_management first
-      await supabase
-        .from('user_management')
+      await (supabase
+        .from('user_management' as any) as any)
         .delete()
         .eq('user_id', userId)
         .catch(() => null);

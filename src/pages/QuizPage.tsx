@@ -87,14 +87,13 @@ const QuizPage = ({ overrideSlug }: { overrideSlug?: string }) => {
           enable_timer: false,
           timer_seconds: 300,
           piping_enabled: true,
-          ...(data.settings ?? {}),
+          ...((data as any).settings ?? {}),
         };
-        setSettings(mergedSettings);
         if (mergedSettings.enable_timer) {
           setTimeLeft(mergedSettings.timer_seconds || 300);
         }
         // Track initial view usando quiz_id direto para evitar closure stale
-        await supabase.from("quiz_analytics").insert({
+        await (supabase.from("quiz_analytics" as any) as any).insert({
           quiz_id: data.id,
           session_id: sessionId,
           step_id: "start",
@@ -117,7 +116,7 @@ const QuizPage = ({ overrideSlug }: { overrideSlug?: string }) => {
   // Analytics Tracking
   const trackEvent = useCallback(async (stepId: string, eventType: "view" | "complete" | "drop", metadata = {}) => {
     if (!quiz?.id) return;
-    await supabase.from("quiz_analytics").insert({
+    await (supabase.from("quiz_analytics" as any) as any).insert({
       quiz_id: quiz.id,
       session_id: sessionId,
       step_id: stepId,

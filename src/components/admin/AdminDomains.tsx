@@ -38,17 +38,15 @@ const AdminDomains = React.forwardRef<HTMLDivElement>((_, ref) => {
       if (!user) return;
 
       const [domainsRes, pagesRes, quizzesRes] = await Promise.all([
-        supabase.from("custom_domains")
+        (supabase.from("custom_domains" as any)
           .select("*")
-          .eq("user_id", user.id)
+          .eq("user_id", user.id) as any)
           .order("created_at", { ascending: false }),
         supabase.from("generated_pages")
           .select("id, title, slug")
-          .eq("user_id", user.id)
           .eq("status", "published"),
         supabase.from("quizzes")
           .select("id, title, slug")
-          .eq("user_id", user.id)
           .eq("status", "published")
       ]);
 
@@ -91,7 +89,7 @@ const AdminDomains = React.forwardRef<HTMLDivElement>((_, ref) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
-      const { error } = await supabase.from("custom_domains").insert({
+      const { error } = await (supabase.from("custom_domains" as any) as any).insert({
         domain: finalDomain,
         slug: slug.trim() || null,
         is_native: isNative,
@@ -118,7 +116,7 @@ const AdminDomains = React.forwardRef<HTMLDivElement>((_, ref) => {
   const handleDeleteDomain = async (id: string) => {
     if (!confirm("Tem certeza que deseja remover este domínio?")) return;
     try {
-      await supabase.from("custom_domains").delete().eq("id", id);
+      await (supabase.from("custom_domains" as any) as any).delete().eq("id", id);
       toast.success("Domínio removido");
       loadData();
     } catch (err) {

@@ -67,13 +67,9 @@ const PageSettings = ({ pageId, onUpdate }: PageSettingsProps) => {
       const { error } = await supabase
         .from("generated_pages")
         .update({
-          custom_domain: pageData.custom_domain || null,
-          seo_title: pageData.seo_title || null,
-          seo_description: pageData.seo_description || null,
-          favicon_url: pageData.favicon_url || null,
-          logo_url: pageData.logo_url || null,
-          brand_color: pageData.brand_color || null,
-        })
+          meta_pixel_id: (pageData as any).meta_pixel_id || null,
+          ga_id: (pageData as any).ga_id || null,
+        } as any)
         .eq("id", pageId);
 
       if (error) throw error;

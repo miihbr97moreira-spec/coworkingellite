@@ -7,7 +7,7 @@ export const AdminBuilderOmni = lazy(() => import("@/components/admin/AdminBuild
 export const AdminCRM = lazy(() => import("@/components/admin/AdminCRM"));
 export const AdminQuizBuilder = lazy(() => import("@/components/admin/AdminQuizBuilder"));
 export const OmniFlow = lazy(() => import("@/components/admin/OmniFlow"));
-export const AdminSettings = lazy(() => import("@/components/admin/AdminSettings"));
+// AdminSettings removed - not available as separate component
 export const SuperAdmin = lazy(() => import("@/pages/SuperAdmin"));
 
 // Loading fallback component
