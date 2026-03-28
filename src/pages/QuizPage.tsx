@@ -93,7 +93,7 @@ const QuizPage = ({ overrideSlug }: { overrideSlug?: string }) => {
           setTimeLeft(mergedSettings.timer_seconds || 300);
         }
         // Track initial view usando quiz_id direto para evitar closure stale
-        await supabase.from("quiz_analytics").insert({
+        await (supabase.from("quiz_analytics" as any) as any).insert({
           quiz_id: data.id,
           session_id: sessionId,
           step_id: "start",
