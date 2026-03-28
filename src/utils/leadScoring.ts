@@ -233,7 +233,7 @@ export function getScoreColor(score: number): string {
  * Retorna classe de sombra/glow baseada no score
  */
 export function getScoreGlowClass(score: number): string {
-  if (score >= 80) return "shadow-[0_0_15px_rgba(239,68,68,0.6)]"; // Hot - glow vermelho
+  if (score >= 80) return "shadow-[0_0_15px_rgba(217,119,87,0.6)]"; // Hot - glow terracota
   if (score >= 40) return "shadow-[0_0_10px_rgba(217,119,6,0.4)]"; // Warm - glow âmbar
   return ""; // Cold - sem glow
 }

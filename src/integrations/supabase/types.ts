@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_keys: {
+        Row: {
+          api_key: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          model: string | null
+          provider: string
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          api_key: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          model?: string | null
+          provider: string
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          api_key?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          model?: string | null
+          provider?: string
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       cta_buttons: {
         Row: {
           active: boolean
@@ -53,6 +86,48 @@ export type Database = {
           position?: number
           type?: string
           whatsapp_message?: string | null
+        }
+        Relationships: []
+      }
+      custom_domains: {
+        Row: {
+          content_id: string | null
+          content_type: string
+          created_at: string | null
+          domain: string
+          id: string
+          is_active: boolean | null
+          is_native: boolean | null
+          slug: string | null
+          ssl_status: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          content_id?: string | null
+          content_type?: string
+          created_at?: string | null
+          domain: string
+          id?: string
+          is_active?: boolean | null
+          is_native?: boolean | null
+          slug?: string | null
+          ssl_status?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          content_id?: string | null
+          content_type?: string
+          created_at?: string | null
+          domain?: string
+          id?: string
+          is_active?: boolean | null
+          is_native?: boolean | null
+          slug?: string | null
+          ssl_status?: string | null
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -186,6 +261,7 @@ export type Database = {
           email: string | null
           funnel_id: string
           id: string
+          lead_score: number | null
           name: string
           notes: string | null
           phone: string | null
@@ -202,6 +278,7 @@ export type Database = {
           email?: string | null
           funnel_id: string
           id?: string
+          lead_score?: number | null
           name: string
           notes?: string | null
           phone?: string | null
@@ -218,6 +295,7 @@ export type Database = {
           email?: string | null
           funnel_id?: string
           id?: string
+          lead_score?: number | null
           name?: string
           notes?: string | null
           phone?: string | null
@@ -291,6 +369,80 @@ export type Database = {
           metadata?: Json | null
         }
         Relationships: []
+      }
+      omni_agent_config: {
+        Row: {
+          ai_api_key: string | null
+          ai_model: string | null
+          ai_provider: string | null
+          ai_system_prompt: string | null
+          created_at: string | null
+          id: string
+          tenant_id: string
+          updated_at: string | null
+          zapi_sync_enabled: boolean | null
+        }
+        Insert: {
+          ai_api_key?: string | null
+          ai_model?: string | null
+          ai_provider?: string | null
+          ai_system_prompt?: string | null
+          created_at?: string | null
+          id?: string
+          tenant_id: string
+          updated_at?: string | null
+          zapi_sync_enabled?: boolean | null
+        }
+        Update: {
+          ai_api_key?: string | null
+          ai_model?: string | null
+          ai_provider?: string | null
+          ai_system_prompt?: string | null
+          created_at?: string | null
+          id?: string
+          tenant_id?: string
+          updated_at?: string | null
+          zapi_sync_enabled?: boolean | null
+        }
+        Relationships: []
+      }
+      quiz_analytics: {
+        Row: {
+          created_at: string | null
+          event_type: string
+          id: string
+          metadata: Json | null
+          quiz_id: string
+          session_id: string
+          step_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          quiz_id: string
+          session_id: string
+          step_id: string
+        }
+        Update: {
+          created_at?: string | null
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          quiz_id?: string
+          session_id?: string
+          step_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_analytics_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       quiz_submissions: {
         Row: {
@@ -480,6 +632,51 @@ export type Database = {
           },
         ]
       }
+      user_management: {
+        Row: {
+          allowed_modules: string[] | null
+          created_at: string | null
+          email: string
+          full_name: string | null
+          id: string
+          is_active: boolean | null
+          max_domains: number | null
+          max_pages: number | null
+          max_quizzes: number | null
+          role: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          allowed_modules?: string[] | null
+          created_at?: string | null
+          email: string
+          full_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_domains?: number | null
+          max_pages?: number | null
+          max_quizzes?: number | null
+          role?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          allowed_modules?: string[] | null
+          created_at?: string | null
+          email?: string
+          full_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_domains?: number | null
+          max_pages?: number | null
+          max_quizzes?: number | null
+          role?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -498,6 +695,152 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      webhook_configs: {
+        Row: {
+          config: Json | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          tenant_id: string
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          tenant_id: string
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      webhook_endpoints: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          tenant_id: string
+          updated_at: string | null
+          webhook_secret: string | null
+          webhook_url: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          tenant_id: string
+          updated_at?: string | null
+          webhook_secret?: string | null
+          webhook_url: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          tenant_id?: string
+          updated_at?: string | null
+          webhook_secret?: string | null
+          webhook_url?: string
+        }
+        Relationships: []
+      }
+      webhook_logs: {
+        Row: {
+          endpoint_id: string | null
+          id: string
+          payload: Json | null
+          received_at: string | null
+          status_code: number | null
+          tenant_id: string
+        }
+        Insert: {
+          endpoint_id?: string | null
+          id?: string
+          payload?: Json | null
+          received_at?: string | null
+          status_code?: number | null
+          tenant_id: string
+        }
+        Update: {
+          endpoint_id?: string | null
+          id?: string
+          payload?: Json | null
+          received_at?: string | null
+          status_code?: number | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_logs_endpoint_id_fkey"
+            columns: ["endpoint_id"]
+            isOneToOne: false
+            referencedRelation: "webhook_endpoints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_configs: {
+        Row: {
+          config: Json | null
+          created_at: string | null
+          id: string
+          provider: string | null
+          tenant_id: string
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string | null
+          id?: string
+          provider?: string | null
+          tenant_id: string
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string | null
+          id?: string
+          provider?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      zapi_instances: {
+        Row: {
+          created_at: string | null
+          id: string
+          instance_id: string | null
+          instance_token: string | null
+          phone_number: string | null
+          status: string | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          instance_id?: string | null
+          instance_token?: string | null
+          phone_number?: string | null
+          status?: string | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          instance_id?: string | null
+          instance_token?: string | null
+          phone_number?: string | null
+          status?: string | null
+          tenant_id?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
