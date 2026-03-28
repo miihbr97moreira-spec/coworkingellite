@@ -33,10 +33,10 @@ const OmniFlowWhatsApp: React.FC<OmniFlowWhatsAppProps> = ({ onBack }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data } = await supabase
-        .from("zapi_instances")
+      const { data } = await (supabase
+        .from("zapi_instances" as any)
         .select("*")
-        .eq("tenant_id", user.id)
+        .eq("tenant_id", user.id) as any)
         .single();
 
       setInstance(data);
