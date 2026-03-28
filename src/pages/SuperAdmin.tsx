@@ -204,8 +204,8 @@ const SuperAdmin = ({ isEmbedded = false }: SuperAdminProps) => {
       if (!authData.user) throw new Error("Falha ao criar usuário");
 
       // Create entry in user_management table
-      const { error: dbError } = await supabase
-        .from('user_management')
+      const { error: dbError } = await (supabase
+        .from('user_management' as any) as any)
         .insert({
           user_id: authData.user.id,
           email: formData.email.trim(),
