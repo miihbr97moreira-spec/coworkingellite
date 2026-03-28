@@ -870,7 +870,6 @@ const AdminBuilderOmni = ({ isLegacyLP = false }: AdminBuilderOmniProps) => {
       <CheckoutSidebar 
         isOpen={checkoutSidebarOpen} 
         onClose={() => setCheckoutSidebarOpen(false)}
-        onAddBlock={handleAddCheckoutBlock}
       />
     </div>
   );

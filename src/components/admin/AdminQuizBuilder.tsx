@@ -200,8 +200,8 @@ const AdminQuizBuilder = () => {
         await supabase.from("quizzes").update(payload).eq("id", activeQuiz.id);
         toast.success("Quiz atualizado!");
       } else {
-        const { data } = await supabase.from("quizzes").insert(payload).select().single();
-        if (data) setActiveQuiz(data);
+        const { data } = await supabase.from("quizzes").insert(payload as any).select().single();
+        if (data) setActiveQuiz(data as any);
         toast.success("Quiz criado!");
       }
       loadQuizzes();

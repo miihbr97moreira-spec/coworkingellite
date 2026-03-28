@@ -87,8 +87,8 @@ const OmniFlowAgent: React.FC<OmniFlowAgentProps> = ({ onBack }) => {
           })
           .eq("tenant_id", user.id);
       } else {
-        await supabase
-          .from("omni_agent_config")
+        await (supabase
+          .from("omni_agent_config" as any) as any)
           .insert({
             tenant_id: user.id,
             ai_provider: formData.ai_provider,

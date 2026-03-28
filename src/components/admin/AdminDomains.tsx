@@ -116,7 +116,7 @@ const AdminDomains = React.forwardRef<HTMLDivElement>((_, ref) => {
   const handleDeleteDomain = async (id: string) => {
     if (!confirm("Tem certeza que deseja remover este domínio?")) return;
     try {
-      await supabase.from("custom_domains").delete().eq("id", id);
+      await (supabase.from("custom_domains" as any) as any).delete().eq("id", id);
       toast.success("Domínio removido");
       loadData();
     } catch (err) {

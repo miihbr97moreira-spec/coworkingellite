@@ -20,11 +20,11 @@ const DomainRouter = ({ children }: { children: React.ReactNode }) => {
       }
 
       try {
-        const { data, error } = await supabase
-          .from("custom_domains")
+        const { data, error } = await (supabase
+          .from("custom_domains" as any)
           .select("content_type, content_id")
           .eq("domain", hostname)
-          .eq("is_active", true)
+          .eq("is_active", true) as any)
           .maybeSingle();
 
         if (data) {
