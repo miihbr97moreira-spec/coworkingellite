@@ -89,7 +89,7 @@ const AdminDomains = React.forwardRef<HTMLDivElement>((_, ref) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
-      const { error } = await supabase.from("custom_domains").insert({
+      const { error } = await (supabase.from("custom_domains" as any) as any).insert({
         domain: finalDomain,
         slug: slug.trim() || null,
         is_native: isNative,
