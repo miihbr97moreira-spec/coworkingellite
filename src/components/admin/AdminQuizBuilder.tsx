@@ -424,17 +424,14 @@ Retorne APENAS o JSON puro, sem markdown.`;
                           description: q.description,
                           logo_url: q.logo_url,
                           logo_position: q.logo_position,
-                          theme: q.theme,
+                          theme: q.theme as any,
                           questions: q.questions,
                           status: "draft",
                           crm_funnel_id: q.crm_funnel_id,
                           crm_stage_id: q.crm_stage_id,
                           meta_pixel_id: q.meta_pixel_id,
                           ga_id: q.ga_id,
-                          webhook_url: q.webhook_url,
-                          custom_scripts: q.custom_scripts,
-                          settings: q.settings,
-                        }).select().single();
+                        } as any).select().single();
                         if (data) {
                           loadQuizzes();
                           toast.success("Quiz duplicado!", { description: `"${data.title}" criado como rascunho.` });

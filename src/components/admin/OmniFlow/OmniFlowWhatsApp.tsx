@@ -74,8 +74,8 @@ const OmniFlowWhatsApp: React.FC<OmniFlowWhatsAppProps> = ({ onBack }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      await supabase
-        .from("zapi_instances")
+      await (supabase
+        .from("zapi_instances" as any) as any)
         .delete()
         .eq("tenant_id", user.id);
 

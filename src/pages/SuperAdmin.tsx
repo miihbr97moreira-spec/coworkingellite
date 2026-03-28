@@ -243,8 +243,8 @@ const SuperAdmin = ({ isEmbedded = false }: SuperAdminProps) => {
 
     try {
       // Delete from user_management first
-      await supabase
-        .from('user_management')
+      await (supabase
+        .from('user_management' as any) as any)
         .delete()
         .eq('user_id', userId)
         .catch(() => null);

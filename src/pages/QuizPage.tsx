@@ -116,7 +116,7 @@ const QuizPage = ({ overrideSlug }: { overrideSlug?: string }) => {
   // Analytics Tracking
   const trackEvent = useCallback(async (stepId: string, eventType: "view" | "complete" | "drop", metadata = {}) => {
     if (!quiz?.id) return;
-    await supabase.from("quiz_analytics").insert({
+    await (supabase.from("quiz_analytics" as any) as any).insert({
       quiz_id: quiz.id,
       session_id: sessionId,
       step_id: stepId,

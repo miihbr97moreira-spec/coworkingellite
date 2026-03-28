@@ -92,8 +92,8 @@ const OmniFlowWebhooks: React.FC<OmniFlowWebhooksProps> = ({ onBack }) => {
 
   const handleDeleteLog = async (logId: string) => {
     try {
-      await supabase
-        .from("webhook_logs")
+      await (supabase
+        .from("webhook_logs" as any) as any)
         .delete()
         .eq("id", logId);
 
