@@ -44,10 +44,10 @@ const OmniFlowWebhooks: React.FC<OmniFlowWebhooksProps> = ({ onBack }) => {
       if (!user) return;
 
       // Carregar endpoint
-      const { data: endpointData } = await supabase
-        .from("webhook_endpoints")
+      const { data: endpointData } = await (supabase
+        .from("webhook_endpoints" as any)
         .select("*")
-        .eq("tenant_id", user.id)
+        .eq("tenant_id", user.id) as any)
         .single();
 
       setEndpoint(endpointData);
