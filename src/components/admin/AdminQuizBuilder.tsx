@@ -149,10 +149,10 @@ const AdminQuizBuilder = () => {
   const loadAnalytics = async (quizId: string) => {
     setAnalyticsLoading(true);
     const [{ data: analyticsData }, { data: submissionsData }] = await Promise.all([
-      supabase
-        .from("quiz_analytics")
+      (supabase
+        .from("quiz_analytics" as any)
         .select("*")
-        .eq("quiz_id", quizId)
+        .eq("quiz_id", quizId) as any)
         .order("created_at", { ascending: true }),
       supabase
         .from("quiz_submissions")
