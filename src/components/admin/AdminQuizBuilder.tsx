@@ -291,69 +291,67 @@ Pedido: \"${input}\"
 Retorne APENAS o JSON puro, sem markdown.`;
 
     try {
-      let fullRaw = "";
-      const result = await generatePage(systemPrompt);
-        if (!fullRaw.trim()) {
-          setChatMsgs(prev => [...prev, {
-            id: Date.now().toString(),
-            role: "assistant",
-            content: "❌ Erro: Nenhuma resposta recebida. Tente novamente."
-          }]);
-          return;
+      const fullRaw = await generatePage(systemPrompt);
+      if (!fullRaw.trim()) {
+        setChatMsgs(prev => [...prev, {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: "❌ Erro: Nenhuma resposta recebida. Tente novamente."
+        }]);
+        return;
+      }
+
+      try {
+        const cleaned = fullRaw.replace(/```json?\s*/g, "").replace(/```/g, "").trim();
+        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+        
+        if (!jsonMatch) throw new Error("JSON não encontrado");
+
+        const parsed = JSON.parse(jsonMatch[0]);
+        
+        if (!parsed.questions || !Array.isArray(parsed.questions)) {
+          throw new Error("Estrutura inválida");
         }
 
-        try {
-          const cleaned = fullRaw.replace(/\`\`\`json?\s*/g, "").replace(/\`\`\`/g, "").trim();
-          const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-          
-          if (!jsonMatch) throw new Error("JSON não encontrado");
-
-          const parsed = JSON.parse(jsonMatch[0]);
-          
-          if (!parsed.questions || !Array.isArray(parsed.questions)) {
-            throw new Error("Estrutura inválida");
-          }
-
-          if (parsed.title) setTitle(parsed.title);
-          if (parsed.description) setDescription(parsed.description);
-          
-          setQuestions(parsed.questions.map((q: any, i: number) => ({
-            id: q.id || `q${i}`,
-            type: q.type || "multiple_choice",
-            title: q.title || "",
-            options: q.options || [],
-            image_options: q.image_options || [],
-            required: q.required !== false,
-            logic: q.logic || [],
-            auto_advance: q.auto_advance ?? false,
-            enable_fake_loading: q.enable_fake_loading ?? true,
-            fake_loading_text: q.fake_loading_text || "Analisando sua resposta...",
-            button_text: q.button_text || "CONTINUAR",
-            card_style: q.card_style || "glassmorphism",
-            option_style: q.option_style || "cards"
-          })));
-          
-          if (parsed.theme) {
-            setTheme(prev => ({
-              ...prev,
-              ...parsed.theme
-            }));
-          }
-
-          setChatMsgs(prev => [...prev, {
-            id: Date.now().toString(),
-            role: "assistant",
-            content: `✅ Quiz gerado! ${parsed.questions?.length || 0} perguntas criadas. Veja o preview ao lado!`
-          }]);
-        } catch (err: any) {
-          console.error("Erro:", err);
-          setChatMsgs(prev => [...prev, {
-            id: Date.now().toString(),
-            role: "assistant",
-            content: "❌ Erro ao processar. Tente descrever de forma mais clara."
-          }]);
+        if (parsed.title) setTitle(parsed.title);
+        if (parsed.description) setDescription(parsed.description);
+        
+        setQuestions(parsed.questions.map((q: any, i: number) => ({
+          id: q.id || `q${i}`,
+          type: q.type || "multiple_choice",
+          title: q.title || "",
+          options: q.options || [],
+          image_options: q.image_options || [],
+          required: q.required !== false,
+          logic: q.logic || [],
+          auto_advance: q.auto_advance ?? false,
+          enable_fake_loading: q.enable_fake_loading ?? true,
+          fake_loading_text: q.fake_loading_text || "Analisando sua resposta...",
+          button_text: q.button_text || "CONTINUAR",
+          card_style: q.card_style || "glassmorphism",
+          option_style: q.option_style || "cards"
+        })));
+        
+        if (parsed.theme) {
+          setTheme(prev => ({
+            ...prev,
+            ...parsed.theme
+          }));
         }
-      });
+
+        setChatMsgs(prev => [...prev, {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: `✅ Quiz gerado! ${parsed.questions?.length || 0} perguntas criadas. Veja o preview ao lado!`
+        }]);
+      } catch (err: any) {
+        console.error("Erro:", err);
+        setChatMsgs(prev => [...prev, {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: "❌ Erro ao processar. Tente descrever de forma mais clara."
+        }]);
+      }
     } catch (err: any) {
       console.error("Erro geral:", err);
       setChatMsgs(prev => [...prev, {

@@ -87,8 +87,8 @@ const QuizPage = ({ overrideSlug }: { overrideSlug?: string }) => {
           enable_timer: false,
           timer_seconds: 300,
           piping_enabled: true,
-          ...(((data as any).settings) ?? {}),
-        setSettings(mergedSettings);
+          ...((data as any).settings ?? {}),
+        };
         if (mergedSettings.enable_timer) {
           setTimeLeft(mergedSettings.timer_seconds || 300);
         }
