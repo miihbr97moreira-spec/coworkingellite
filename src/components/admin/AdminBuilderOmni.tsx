@@ -223,7 +223,7 @@ const AdminBuilderOmni = ({ isLegacyLP = false }: AdminBuilderOmniProps) => {
 
   const loadDomains = async () => {
     if (!user) return;
-    const { data } = await supabase.from("custom_domains").select("*").eq("user_id", user.id).eq("is_active", true);
+    const { data } = await (supabase.from("custom_domains" as any).select("*").eq("user_id", user.id) as any).eq("is_active", true);
     if (data) setAvailableDomains(data);
   };
 
