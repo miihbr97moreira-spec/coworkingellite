@@ -292,7 +292,7 @@ Retorne APENAS o JSON puro, sem markdown.`;
 
     try {
       let fullRaw = "";
-      await generatePage(systemPrompt, (delta) => { fullRaw += delta; }, () => {
+      const result = await generatePage(systemPrompt);
         if (!fullRaw.trim()) {
           setChatMsgs(prev => [...prev, {
             id: Date.now().toString(),
