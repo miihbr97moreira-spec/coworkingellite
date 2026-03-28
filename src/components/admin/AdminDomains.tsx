@@ -38,17 +38,15 @@ const AdminDomains = React.forwardRef<HTMLDivElement>((_, ref) => {
       if (!user) return;
 
       const [domainsRes, pagesRes, quizzesRes] = await Promise.all([
-        supabase.from("custom_domains")
+        (supabase.from("custom_domains" as any)
           .select("*")
-          .eq("user_id", user.id)
+          .eq("user_id", user.id) as any)
           .order("created_at", { ascending: false }),
         supabase.from("generated_pages")
           .select("id, title, slug")
-          .eq("user_id", user.id)
           .eq("status", "published"),
         supabase.from("quizzes")
           .select("id, title, slug")
-          .eq("user_id", user.id)
           .eq("status", "published")
       ]);
 
