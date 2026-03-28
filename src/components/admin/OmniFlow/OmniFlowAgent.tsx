@@ -75,8 +75,8 @@ const OmniFlowAgent: React.FC<OmniFlowAgentProps> = ({ onBack }) => {
       if (!user) return;
 
       if (config) {
-        await supabase
-          .from("omni_agent_config")
+        await (supabase
+          .from("omni_agent_config" as any) as any)
           .update({
             ai_provider: formData.ai_provider,
             ai_model: formData.ai_model,
