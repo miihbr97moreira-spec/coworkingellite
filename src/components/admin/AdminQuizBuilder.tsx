@@ -4,8 +4,9 @@ import {
   ExternalLink, Image, Palette, Settings, X, Bot, Code,
   ListChecks, MessageSquare, Phone, Mail,
   LayoutGrid, Timer, Zap, Webhook, BarChart3, ChevronRight, Split, Globe,
-  Link2, Files, TrendingUp
+  Link2, Files, TrendingUp, Search
 } from "lucide-react";
+import { QUIZ_TEMPLATES } from "@/data/quizTemplates";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useFunnels, useStages } from "@/hooks/useSupabaseQuery";
