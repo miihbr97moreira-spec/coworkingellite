@@ -14,11 +14,8 @@ import AdminQuizBuilder from "@/components/admin/AdminQuizBuilder";
 import OmniFlow from "@/components/admin/OmniFlow";
 import TenantSettings from "@/components/admin/TenantSettings";
 import SuperAdminPanel from "@/pages/SuperAdmin";
-import OperatingSystem from "@/components/admin/OperatingSystem";
-
 // Main navigation tabs (top-down order)
 const mainTabs = [
-  { id: "omni_os", label: "Omni OS", icon: Zap, module: "omni_os", badge: "NEW" },
   { id: "dashboard", label: "Dashboard", icon: BarChart3, module: "dashboard" },
   { id: "crm", label: "CRM", icon: Kanban, module: "crm" },
   { id: "content", label: "Builder Pages", icon: Type, module: "builder" },
@@ -31,7 +28,7 @@ const MOBILE_MENU_KEY = "omni_mobile_menu_open";
 const SUPER_ADMIN_EMAIL = "jpm19990@gmail.com";
 
 const Admin = () => {
-  const [activeTab, setActiveTab] = useState("omni_os");
+  const [activeTab, setActiveTab] = useState("dashboard");
   const { user, role, signOut, loading } = useAuth();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(() => {
@@ -291,9 +288,8 @@ const Admin = () => {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
-          className={activeTab === "omni_os" ? "p-0 h-screen" : "p-4 md:p-8"}
+          className="p-4 md:p-8"
         >
-          {activeTab === "omni_os" && <OperatingSystem />}
           {activeTab === "dashboard" && <AdminDashboardExpanded />}
           {activeTab === "crm" && <AdminCRM />}
           {activeTab === "content" && <AdminBuilderOmni />}
