@@ -29,11 +29,8 @@ const ExecutionMode = ({ onClose }: { onClose: () => void }) => {
   const filteredLeads = useMemo(() => {
     if (!leads) return [];
     // Priorizar leads quentes e ativos
-    return leads.filter(l => l.status === 'active')
-      .sort((a, b) => {
-        const priorityOrder = { 'urgent': 4, 'high': 3, 'medium': 2, 'low': 1 };
-        return (priorityOrder[b.priority as keyof typeof priorityOrder] || 0) - (priorityOrder[a.priority as keyof typeof priorityOrder] || 0);
-      });
+    return leads.filter(l => l.status !== 'won' && l.status !== 'lost')
+      .sort((a, b) => (b.lead_score || 0) - (a.lead_score || 0));
   }, [leads]);
 
   const currentLead = filteredLeads[currentIndex];

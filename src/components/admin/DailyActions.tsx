@@ -31,22 +31,22 @@ const DailyActions = ({ onSelectLead }: { onSelectLead: (lead: any) => void }) =
     // 1. Leads que precisam de contato hoje (baseado em last_activity_at ou logicamente novos)
     const today = leads.filter(l => {
       const lastAct = l.last_activity_at ? new Date(l.last_activity_at) : new Date(l.created_at);
-      return l.status === 'active' && (isToday(lastAct) || differenceInDays(now, lastAct) === 1);
+      return isToday(lastAct) || differenceInDays(now, lastAct) === 1;
     }).slice(0, 5);
 
     // 2. Leads esquecidos (sem atividade há mais de 3 dias)
     const forgotten = leads.filter(l => {
       const lastAct = l.last_activity_at ? new Date(l.last_activity_at) : new Date(l.created_at);
-      return l.status === 'active' && differenceInDays(now, lastAct) >= 3 && l.status !== 'won' && l.status !== 'lost';
+      return differenceInDays(now, lastAct) >= 3 && l.status !== 'won' && l.status !== 'lost';
     }).slice(0, 5);
 
-    // 3. Oportunidades quentes (priority 'high' or 'urgent')
-    const hot = leads.filter(l => l.status === 'active' && (l.priority === 'high' || l.priority === 'urgent')).slice(0, 5);
+    // 3. Oportunidades quentes (score alto)
+    const hot = leads.filter(l => (l.lead_score || 0) >= 80).slice(0, 5);
 
     // 4. Negócios próximos de fechar (etapas finais do pipeline)
     // Assumindo que as últimas etapas são de fechamento
     const closingStages = stages?.slice(-2).map(s => s.id) || [];
-    const closing = leads.filter(l => l.status === 'active' && closingStages.includes(l.stage_id)).slice(0, 5);
+    const closing = leads.filter(l => closingStages.includes(l.stage_id)).slice(0, 5);
 
     return { today, forgotten, hot, closing };
   }, [leads, stages]);

@@ -1,15 +1,10 @@
 import { useState, useMemo, useEffect } from "react";
-import { Plus, Loader2, GripVertical, X, MessageSquare, DollarSign, Phone, Mail, MoreVertical, Search, LayoutGrid, List, Trash2, Pencil, Calendar as CalendarIcon, Tag, Flame, Zap, Target, Brain } from "lucide-react";
+import { Plus, Loader2, GripVertical, X, MessageSquare, DollarSign, Phone, Mail, MoreVertical, Search, LayoutGrid, List, Trash2, Pencil, Calendar as CalendarIcon, Tag, Flame } from "lucide-react";
 import { getScoreGlowClass, getScoreLabel, getScoreColor } from "@/utils/leadScoring";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useFunnels, useStages, useLeads, useLeadNotes } from "@/hooks/useSupabaseQuery";
-import DailyActions from "./DailyActions";
-import ExecutionMode from "./ExecutionMode";
-import RevenueEngine from "./RevenueEngine";
-import IntelligencePanel from "./IntelligencePanel";
-import LeadActivityTimeline from "./LeadActivityTimeline";
 import {
   DndContext, closestCorners, PointerSensor, useSensor, useSensors,
   DragEndEvent, DragOverEvent, DragStartEvent, defaultDropAnimationSideEffects, DragOverlay,
@@ -128,7 +123,6 @@ const StageColumn = ({ stage, leads, onAddLead, onDeleteStage, onSelectLead, onE
 const LeadDetailDrawer = ({ lead, stages, onClose, onEdit, onDelete }: { lead: any; stages: any[]; onClose: () => void; onEdit: () => void; onDelete?: () => void }) => {
   const { data: notes } = useLeadNotes(lead.id);
   const [note, setNote] = useState("");
-  const [activeTab, setActiveTab] = useState<"details" | "timeline" | "tasks">("details");
   const qc = useQueryClient();
 
   const addNote = async () => {
@@ -154,36 +148,25 @@ const LeadDetailDrawer = ({ lead, stages, onClose, onEdit, onDelete }: { lead: a
           </div>
         </div>
 
-        <div className="px-5 py-2 border-b border-border bg-secondary/10 flex items-center gap-4">
-          <button onClick={() => setActiveTab("details")} className={`text-[10px] font-bold uppercase tracking-widest py-2 border-b-2 transition-all ${activeTab === "details" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>Detalhes</button>
-          <button onClick={() => setActiveTab("timeline")} className={`text-[10px] font-bold uppercase tracking-widest py-2 border-b-2 transition-all ${activeTab === "timeline" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>Timeline</button>
-          <button onClick={() => setActiveTab("tasks")} className={`text-[10px] font-bold uppercase tracking-widest py-2 border-b-2 transition-all ${activeTab === "tasks" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>Tarefas</button>
-        </div>
-
         <div className="flex-1 overflow-y-auto p-5 space-y-6">
-          {activeTab === "details" && (
-            <>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold">
-                  {lead.name?.[0]?.toUpperCase() || "?"}
-                </div>
-                <div>
-                  <h2 className="text-base font-semibold">{lead.name}</h2>
-                  <p className="text-xs text-muted-foreground">{lead.company || "Sem empresa"} · {stageName}</p>
-                </div>
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold">
+              {lead.name?.[0]?.toUpperCase() || "?"}
+            </div>
+            <div>
+              <h2 className="text-base font-semibold">{lead.name}</h2>
+              <p className="text-xs text-muted-foreground">{lead.company || "Sem empresa"} · {stageName}</p>
+            </div>
+          </div>
 
-              <div className="space-y-2">
-                {[
-                  { icon: Mail, label: "Email", value: lead.email },
-                  { icon: Phone, label: "Telefone", value: lead.phone },
-                  { icon: DollarSign, label: "Valor Estimado", value: `R$ ${Number(lead.expected_revenue || lead.deal_value || 0).toLocaleString("pt-BR")}` },
-                  { icon: Target, label: "Probabilidade", value: `${lead.probability || 50}%` },
-                  { icon: AlertCircle, label: "Prioridade", value: lead.priority || "Média" },
-                  { icon: CalendarIcon, label: "Entrada", value: format(new Date(lead.created_at), "dd/MM/yyyy HH:mm") },
-                  { icon: Clock, label: "Última Atividade", value: lead.last_activity_at ? format(new Date(lead.last_activity_at), "dd/MM/yyyy HH:mm") : "Sem registro" },
-                  { icon: Tag, label: "Origem", value: lead.source || "manual" },
-                ].map(({ icon: Icon, label, value }) => (
+          <div className="space-y-2">
+            {[
+              { icon: Mail, label: "Email", value: lead.email },
+              { icon: Phone, label: "Telefone", value: lead.phone },
+              { icon: DollarSign, label: "Valor", value: `R$ ${Number(lead.deal_value || 0).toLocaleString("pt-BR")}` },
+              { icon: CalendarIcon, label: "Entrada", value: format(new Date(lead.created_at), "dd/MM/yyyy HH:mm") },
+              { icon: Tag, label: "Origem", value: lead.source || "manual" },
+            ].map(({ icon: Icon, label, value }) => (
               <div key={label} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30">
                 <Icon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                 <div className="flex-1 min-w-0">
@@ -194,61 +177,34 @@ const LeadDetailDrawer = ({ lead, stages, onClose, onEdit, onDelete }: { lead: a
             ))}
           </div>
 
-              {lead.tags?.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {lead.tags.map((t: string) => (
-                    <span key={t} className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-primary/10 text-primary">{t}</span>
-                  ))}
-                </div>
-              )}
-
-              <div>
-                <h4 className="text-xs font-semibold mb-3 flex items-center gap-1.5 text-muted-foreground uppercase tracking-wider">
-                  <MessageSquare className="w-3 h-3" /> Notas Rápidas
-                </h4>
-                <div className="flex gap-2 mb-3">
-                  <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Escreva uma nota..."
-                    className="flex-1 px-3 py-2 rounded-lg bg-secondary/50 border border-border/40 text-xs outline-none focus:ring-1 focus:ring-primary/30"
-                    onKeyDown={(e) => e.key === "Enter" && addNote()} />
-                  <Button size="sm" onClick={addNote} className="h-8 text-xs">Salvar</Button>
-                </div>
-                <div className="space-y-2">
-                  {notes?.map((n) => (
-                    <div key={n.id} className="p-3 rounded-lg bg-secondary/20 border border-border/20">
-                      <p className="text-xs">{n.content}</p>
-                      <p className="text-[10px] text-muted-foreground mt-1.5">{new Date(n.created_at).toLocaleString("pt-BR")}</p>
-                    </div>
-                  ))}
-                  {(!notes || notes.length === 0) && <p className="text-center text-muted-foreground text-[11px] py-4">Nenhuma nota.</p>}
-                </div>
-              </div>
-            </>
-          )}
-
-          {activeTab === "timeline" && (
-            <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-              <LeadActivityTimeline leadId={lead.id} />
+          {lead.tags?.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {lead.tags.map((t: string) => (
+                <span key={t} className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-primary/10 text-primary">{t}</span>
+              ))}
             </div>
           )}
 
-          {activeTab === "tasks" && (
-            <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Próximas Ações</h4>
-                <Button size="sm" variant="outline" className="h-7 text-[10px] uppercase font-bold">Nova Tarefa</Button>
-              </div>
-              <div className="space-y-2">
-                <div className="p-3 rounded-lg border border-border/40 bg-secondary/10 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center"><Phone className="w-4 h-4 text-blue-500" /></div>
-                  <div className="flex-1">
-                    <p className="text-xs font-bold">Ligar para alinhar proposta</p>
-                    <p className="text-[10px] text-muted-foreground">Hoje, 14:30</p>
-                  </div>
-                  <CheckCircle2 className="w-4 h-4 text-muted-foreground" />
-                </div>
-              </div>
+          <div>
+            <h4 className="text-xs font-semibold mb-3 flex items-center gap-1.5 text-muted-foreground uppercase tracking-wider">
+              <MessageSquare className="w-3 h-3" /> Notas
+            </h4>
+            <div className="flex gap-2 mb-3">
+              <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Escreva uma nota..."
+                className="flex-1 px-3 py-2 rounded-lg bg-secondary/50 border border-border/40 text-xs outline-none focus:ring-1 focus:ring-primary/30"
+                onKeyDown={(e) => e.key === "Enter" && addNote()} />
+              <Button size="sm" onClick={addNote} className="h-8 text-xs">Salvar</Button>
             </div>
-          )}
+            <div className="space-y-2">
+              {notes?.map((n) => (
+                <div key={n.id} className="p-3 rounded-lg bg-secondary/20 border border-border/20">
+                  <p className="text-xs">{n.content}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1.5">{new Date(n.created_at).toLocaleString("pt-BR")}</p>
+                </div>
+              ))}
+              {(!notes || notes.length === 0) && <p className="text-center text-muted-foreground text-[11px] py-4">Nenhuma nota.</p>}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -276,22 +232,17 @@ const AdminCRM = () => {
   /* ── Modal states ── */
   const [newLeadOpen, setNewLeadOpen] = useState(false);
   const [newLeadStageId, setNewLeadStageId] = useState<string | null>(null);
-  const [newLeadForm, setNewLeadForm] = useState({ name: "", email: "", phone: "", company: "", deal_value: "", tags: "", probability: "50", priority: "medium", status: "active" });
+  const [newLeadForm, setNewLeadForm] = useState({ name: "", email: "", phone: "", company: "", deal_value: "", tags: "" });
 
   const [editLeadOpen, setEditLeadOpen] = useState(false);
   const [editLeadData, setEditLeadData] = useState<any>(null);
-  const [editLeadForm, setEditLeadForm] = useState({ name: "", email: "", phone: "", company: "", deal_value: "", tags: "", stage_id: "", probability: "50", priority: "medium", status: "active" });
+  const [editLeadForm, setEditLeadForm] = useState({ name: "", email: "", phone: "", company: "", deal_value: "", tags: "", stage_id: "" });
 
   const [newStageOpen, setNewStageOpen] = useState(false);
   const [newStageForm, setNewStageForm] = useState({ name: "", color: "#D97757" });
 
   const [newFunnelOpen, setNewFunnelOpen] = useState(false);
   const [newFunnelForm, setNewFunnelForm] = useState({ name: "", description: "" });
-
-  const [showDailyActions, setShowDailyActions] = useState(false);
-  const [showExecutionMode, setShowExecutionMode] = useState(false);
-  const [showRevenueEngine, setShowRevenueEngine] = useState(false);
-  const [showIntelligence, setShowIntelligence] = useState(false);
 
   const qc = useQueryClient();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
@@ -375,16 +326,12 @@ const AdminCRM = () => {
     const { error } = await supabase.from("leads").insert({
       name: newLeadForm.name, email: newLeadForm.email || null, phone: newLeadForm.phone || null,
       company: newLeadForm.company || null, deal_value: Number(newLeadForm.deal_value) || 0,
-      expected_revenue: Number(newLeadForm.deal_value) || 0,
-      probability: Number(newLeadForm.probability) || 50,
-      priority: newLeadForm.priority,
-      status: newLeadForm.status,
       funnel_id: selectedFunnel, stage_id: stageId, sort_order: (leads?.length || 0), tags,
     });
     if (error) return toast.error("Erro ao criar lead: " + error.message);
     qc.invalidateQueries({ queryKey: ["leads", selectedFunnel] });
     setNewLeadOpen(false);
-    setNewLeadForm({ name: "", email: "", phone: "", company: "", deal_value: "", tags: "", probability: "50", priority: "medium", status: "active" });
+    setNewLeadForm({ name: "", email: "", phone: "", company: "", deal_value: "", tags: "" });
     setNewLeadStageId(null);
     toast.success("Lead adicionado!");
   };
@@ -396,9 +343,6 @@ const AdminCRM = () => {
       name: lead.name, email: lead.email || "", phone: lead.phone || "",
       company: lead.company || "", deal_value: String(lead.deal_value || ""),
       tags: (lead.tags || []).join(", "), stage_id: lead.stage_id,
-      probability: String(lead.probability || "50"),
-      priority: lead.priority || "medium",
-      status: lead.status || "active",
     });
     setEditLeadOpen(true);
   };
@@ -413,10 +357,6 @@ const AdminCRM = () => {
       phone: editLeadForm.phone || null,
       company: editLeadForm.company || null, 
       deal_value: Number(editLeadForm.deal_value) || 0,
-      expected_revenue: Number(editLeadForm.deal_value) || 0,
-      probability: Number(editLeadForm.probability) || 50,
-      priority: editLeadForm.priority,
-      status: editLeadForm.status,
       tags, 
       stage_id: editLeadForm.stage_id, 
       updated_at: new Date().toISOString(),
@@ -540,38 +480,6 @@ const AdminCRM = () => {
           <p className="text-xs text-muted-foreground mt-0.5">{totalLeads} leads · R$ {totalValue.toLocaleString("pt-BR")}</p>
         </div>
         <div className="flex items-center gap-2">
-          {/* Botões de Expansão de Funcionalidade */}
-          <div className="flex items-center gap-1 bg-secondary/30 p-1 rounded-md border border-border/30">
-            <button
-              onClick={() => setShowDailyActions(!showDailyActions)}
-              className={`p-1.5 rounded transition-all ${showDailyActions ? "bg-blue-500/10 text-blue-500 shadow-sm" : "text-muted-foreground hover:text-blue-500"}`}
-              title="Ações do Dia"
-            >
-              <Zap className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={() => setShowRevenueEngine(!showRevenueEngine)}
-              className={`p-1.5 rounded transition-all ${showRevenueEngine ? "bg-emerald-500/10 text-emerald-500 shadow-sm" : "text-muted-foreground hover:text-emerald-500"}`}
-              title="Motor de Receita"
-            >
-              <DollarSign className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={() => setShowIntelligence(!showIntelligence)}
-              className={`p-1.5 rounded transition-all ${showIntelligence ? "bg-purple-500/10 text-purple-500 shadow-sm" : "text-muted-foreground hover:text-purple-500"}`}
-              title="Inteligência de Pipeline"
-            >
-              <Brain className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={() => setShowExecutionMode(true)}
-              className="p-1.5 rounded transition-all text-muted-foreground hover:text-orange-500 hover:bg-orange-500/10"
-              title="Modo Execução"
-            >
-              <Target className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
             <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Buscar..."
@@ -626,27 +534,6 @@ const AdminCRM = () => {
         </div>
       </div>
 
-      {/* Seções de Expansão (Condicionais) */}
-      <div className="space-y-6 mb-5">
-        {showDailyActions && (
-          <div className="animate-in fade-in slide-in-from-top-4 duration-300">
-            <DailyActions onSelectLead={(l) => setSelectedLead(l)} />
-          </div>
-        )}
-        
-        {showRevenueEngine && (
-          <div className="animate-in fade-in slide-in-from-top-4 duration-300">
-            <RevenueEngine />
-          </div>
-        )}
-
-        {showIntelligence && (
-          <div className="animate-in fade-in slide-in-from-top-4 duration-300">
-            <IntelligencePanel />
-          </div>
-        )}
-      </div>
-
       {/* Funnel tabs */}
       <div className="flex items-center gap-1 mb-5 overflow-x-auto pb-1">
         {funnels?.map((f) => (
@@ -668,9 +555,6 @@ const AdminCRM = () => {
           <Plus className="w-3.5 h-3.5" />
         </button>
       </div>
-
-      {/* Modo Execução Overlay */}
-      {showExecutionMode && <ExecutionMode onClose={() => setShowExecutionMode(false)} />}
 
       {/* Board */}
       {!selectedFunnel ? (
@@ -797,41 +681,15 @@ const AdminCRM = () => {
                 <input type="number" value={newLeadForm.deal_value} onChange={e => setNewLeadForm(p => ({ ...p, deal_value: e.target.value }))} className={inputCls} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">Probabilidade (%)</label>
-                <input type="number" value={newLeadForm.probability} onChange={e => setNewLeadForm(p => ({ ...p, probability: e.target.value }))} className={inputCls} />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">Prioridade</label>
-                <select value={newLeadForm.priority} onChange={e => setNewLeadForm(p => ({ ...p, priority: e.target.value }))} className={inputCls}>
-                  <option value="low">Baixa</option>
-                  <option value="medium">Média</option>
-                  <option value="high">Alta</option>
-                  <option value="urgent">Urgente</option>
-                </select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">Status</label>
-                <select value={newLeadForm.status} onChange={e => setNewLeadForm(p => ({ ...p, status: e.target.value }))} className={inputCls}>
-                  <option value="active">Ativo</option>
-                  <option value="won">Ganhos</option>
-                  <option value="lost">Perdido</option>
-                  <option value="archived">Arquivado</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">Etapa</label>
-                <select value={newLeadStageId || ""} onChange={e => setNewLeadStageId(e.target.value)} className={inputCls}>
-                  {stages?.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-              </div>
-            </div>
             <div>
               <label className="text-xs text-muted-foreground block mb-1">Tags (separadas por vírgula)</label>
               <input value={newLeadForm.tags} onChange={e => setNewLeadForm(p => ({ ...p, tags: e.target.value }))} placeholder="vip, urgente, web" className={inputCls} />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">Etapa</label>
+              <select value={newLeadStageId || ""} onChange={e => setNewLeadStageId(e.target.value)} className={inputCls}>
+                {stages?.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
             </div>
             <Button onClick={createLead} className="w-full">Criar Lead</Button>
           </div>
@@ -870,41 +728,15 @@ const AdminCRM = () => {
                 <input type="number" value={editLeadForm.deal_value} onChange={e => setEditLeadForm(p => ({ ...p, deal_value: e.target.value }))} className={inputCls} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">Probabilidade (%)</label>
-                <input type="number" value={editLeadForm.probability} onChange={e => setEditLeadForm(p => ({ ...p, probability: e.target.value }))} className={inputCls} />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">Prioridade</label>
-                <select value={editLeadForm.priority} onChange={e => setEditLeadForm(p => ({ ...p, priority: e.target.value }))} className={inputCls}>
-                  <option value="low">Baixa</option>
-                  <option value="medium">Média</option>
-                  <option value="high">Alta</option>
-                  <option value="urgent">Urgente</option>
-                </select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">Status</label>
-                <select value={editLeadForm.status} onChange={e => setEditLeadForm(p => ({ ...p, status: e.target.value }))} className={inputCls}>
-                  <option value="active">Ativo</option>
-                  <option value="won">Ganhos</option>
-                  <option value="lost">Perdido</option>
-                  <option value="archived">Arquivado</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">Etapa</label>
-                <select value={editLeadForm.stage_id} onChange={e => setEditLeadForm(p => ({ ...p, stage_id: e.target.value }))} className={inputCls}>
-                  {stages?.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-              </div>
-            </div>
             <div>
               <label className="text-xs text-muted-foreground block mb-1">Tags</label>
               <input value={editLeadForm.tags} onChange={e => setEditLeadForm(p => ({ ...p, tags: e.target.value }))} placeholder="vip, urgente" className={inputCls} />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">Etapa</label>
+              <select value={editLeadForm.stage_id} onChange={e => setEditLeadForm(p => ({ ...p, stage_id: e.target.value }))} className={inputCls}>
+                {stages?.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
             </div>
             <div className="flex gap-2 pt-2">
               <Button variant="destructive" onClick={() => deleteLead(editLeadData.id)} className="flex-1">Excluir</Button>
