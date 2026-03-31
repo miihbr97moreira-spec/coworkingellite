@@ -46,8 +46,8 @@ const RevenueEngine = () => {
     const lostLeads = leads.filter(l => l.status === 'lost');
     const openLeads = leads.filter(l => l.status !== 'won' && l.status !== 'lost');
 
-    const totalForecast = openLeads.reduce((acc, l) => acc + Number(l.deal_value || 0), 0);
-    const weightedRevenue = openLeads.reduce((acc, l) => acc + (Number(l.deal_value || 0) * (l.probability || 50) / 100), 0);
+    const totalForecast = openLeads.reduce((acc, l) => acc + Number(l.expected_revenue || l.deal_value || 0), 0);
+    const weightedRevenue = openLeads.reduce((acc, l) => acc + (Number(l.expected_revenue || l.deal_value || 0) * (l.probability || 50) / 100), 0);
     const lostRevenue = lostLeads.reduce((acc, l) => acc + Number(l.deal_value || 0), 0);
     const wonRevenue = wonLeads.reduce((acc, l) => acc + Number(l.deal_value || 0), 0);
 

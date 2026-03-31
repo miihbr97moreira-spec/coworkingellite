@@ -990,3 +990,558 @@ export const Constants = {
     },
   },
 } as const
+
+      deals: {
+        Row: {
+          id: string
+          lead_id: string
+          title: string
+          description: string | null
+          value: number | null
+          probability: number | null
+          stage_id: string | null
+          status: string | null
+          expected_closing_date: string | null
+          actual_closing_date: string | null
+          created_at: string
+          updated_at: string
+          created_by: string | null
+        }
+        Insert: {
+          id?: string
+          lead_id: string
+          title: string
+          description?: string | null
+          value?: number | null
+          probability?: number | null
+          stage_id?: string | null
+          status?: string | null
+          expected_closing_date?: string | null
+          actual_closing_date?: string | null
+          created_at?: string
+          updated_at?: string
+          created_by?: string | null
+        }
+        Update: {
+          id?: string
+          lead_id?: string
+          title?: string
+          description?: string | null
+          value?: number | null
+          probability?: number | null
+          stage_id?: string | null
+          status?: string | null
+          expected_closing_date?: string | null
+          actual_closing_date?: string | null
+          created_at?: string
+          updated_at?: string
+          created_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deals_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          id: string
+          lead_id: string | null
+          deal_id: string | null
+          title: string
+          description: string | null
+          due_date: string | null
+          completed_at: string | null
+          status: string | null
+          priority: string | null
+          task_type: string | null
+          assigned_to: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          lead_id?: string | null
+          deal_id?: string | null
+          title: string
+          description?: string | null
+          due_date?: string | null
+          completed_at?: string | null
+          status?: string | null
+          priority?: string | null
+          task_type?: string | null
+          assigned_to?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          lead_id?: string | null
+          deal_id?: string | null
+          title?: string
+          description?: string | null
+          due_date?: string | null
+          completed_at?: string | null
+          status?: string | null
+          priority?: string | null
+          task_type?: string | null
+          assigned_to?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      activities: {
+        Row: {
+          id: string
+          lead_id: string
+          deal_id: string | null
+          activity_type: string
+          title: string
+          description: string | null
+          metadata: Json | null
+          performed_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          lead_id: string
+          deal_id?: string | null
+          activity_type: string
+          title: string
+          description?: string | null
+          metadata?: Json | null
+          performed_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          lead_id?: string
+          deal_id?: string | null
+          activity_type?: string
+          title?: string
+          description?: string | null
+          metadata?: Json | null
+          performed_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activities_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      goals: {
+        Row: {
+          id: string
+          user_id: string | null
+          team_id: string | null
+          goal_type: string
+          target_value: number
+          current_value: number | null
+          start_date: string
+          end_date: string
+          period: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          team_id?: string | null
+          goal_type: string
+          target_value: number
+          current_value?: number | null
+          start_date: string
+          end_date: string
+          period?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          team_id?: string | null
+          goal_type?: string
+          target_value?: number
+          current_value?: number | null
+          start_date?: string
+          end_date?: string
+          period?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goals_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          id: string
+          user_id: string
+          title: string
+          message: string
+          type: string | null
+          link: string | null
+          is_read: boolean | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          title: string
+          message: string
+          type?: string | null
+          link?: string | null
+          is_read?: boolean | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          title?: string
+          message?: string
+          type?: string | null
+          link?: string | null
+          is_read?: boolean | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      custom_fields: {
+        Row: {
+          id: string
+          entity_type: string
+          name: string
+          label: string
+          field_type: string
+          options: Json | null
+          is_required: boolean | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          entity_type: string
+          name: string
+          label: string
+          field_type: string
+          options?: Json | null
+          is_required?: boolean | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          entity_type?: string
+          name?: string
+          label?: string
+          field_type?: string
+          options?: Json | null
+          is_required?: boolean | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      custom_field_values: {
+        Row: {
+          id: string
+          field_id: string
+          entity_id: string
+          value: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          field_id: string
+          entity_id: string
+          value?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          field_id?: string
+          entity_id?: string
+          value?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_field_values_field_id_fkey"
+            columns: ["field_id"]
+            isOneToOne: false
+            referencedRelation: "custom_fields"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teams: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          leader_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          leader_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          description?: string | null
+          leader_id?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teams_leader_id_fkey"
+            columns: ["leader_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_members: {
+        Row: {
+          team_id: string
+          user_id: string
+          role: string | null
+        }
+        Insert: {
+          team_id: string
+          user_id: string
+          role?: string | null
+        }
+        Update: {
+          team_id?: string
+          user_id?: string
+          role?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attachments: {
+        Row: {
+          id: string
+          lead_id: string | null
+          deal_id: string | null
+          file_name: string
+          file_url: string
+          file_type: string | null
+          file_size: number | null
+          uploaded_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          lead_id?: string | null
+          deal_id?: string | null
+          file_name: string
+          file_url: string
+          file_type?: string | null
+          file_size?: number | null
+          uploaded_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          lead_id?: string | null
+          deal_id?: string | null
+          file_name?: string
+          file_url?: string
+          file_type?: string | null
+          file_size?: number | null
+          uploaded_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attachments_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attachments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      playbooks: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          target_stage_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          target_stage_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          description?: string | null
+          target_stage_id?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "playbooks_target_stage_id_fkey"
+            columns: ["target_stage_id"]
+            isOneToOne: false
+            referencedRelation: "stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      playbook_items: {
+        Row: {
+          id: string
+          playbook_id: string | null
+          title: string
+          description: string | null
+          item_type: string | null
+          sort_order: number | null
+        }
+        Insert: {
+          id?: string
+          playbook_id?: string | null
+          title: string
+          description?: string | null
+          item_type?: string | null
+          sort_order?: number | null
+        }
+        Update: {
+          id?: string
+          playbook_id?: string | null
+          title?: string
+          description?: string | null
+          item_type?: string | null
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "playbook_items_playbook_id_fkey"
+            columns: ["playbook_id"]
+            isOneToOne: false
+            referencedRelation: "playbooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      activity_checklists: {
+        Row: {
+          id: string
+          entity_id: string
+          playbook_item_id: string | null
+          is_completed: boolean | null
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          entity_id: string
+          playbook_item_id?: string | null
+          is_completed?: boolean | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          entity_id?: string
+          playbook_item_id?: string | null
+          is_completed?: boolean | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_checklists_playbook_item_id_fkey"
+            columns: ["playbook_item_id"]
+            isOneToOne: false
+            referencedRelation: "playbook_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
