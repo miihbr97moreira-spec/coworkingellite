@@ -6,8 +6,9 @@ import {
   Plus, FileText, Globe, Download, Trash2,
   ExternalLink, Eye, Copy, Check, Settings, Image, Link2,
   Type, Palette, X, Upload, MessageCircle, Key, Bot, Code, DollarSign,
-  PlusCircle, Sparkle
+  PlusCircle, Sparkle, BarChart3, Search
 } from "lucide-react";
+import { PAGE_TEMPLATES } from "@/data/pageTemplates";
 import { toast } from "sonner";
 import { useUpdateLPConfig } from "@/hooks/useSupabaseQuery";
 import { useAIBuilder } from "@/hooks/useAIBuilder";
