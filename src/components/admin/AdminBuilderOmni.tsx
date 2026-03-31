@@ -658,11 +658,21 @@ const AdminBuilderOmni = ({ isLegacyLP = false }: AdminBuilderOmniProps) => {
               <motion.div
                 key="empty"
                 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                className="max-w-xl w-full z-10 space-y-8"
+                className="max-w-3xl w-full z-10 space-y-6 overflow-y-auto max-h-full p-4"
               >
-                <div className="text-center space-y-4">
-                  <h1 className="text-5xl font-bold tracking-tight text-white">Bem-vindo ao <span className="text-primary">IA Builder</span></h1>
-                  <p className="text-white/60 text-lg">Descreva sua Landing Page no chat abaixo e a IA criará tudo para você em segundos.</p>
+                <div className="text-center space-y-2">
+                  <h1 className="text-3xl font-bold tracking-tight text-white">Descreva no chat ou <span className="text-primary">use um template</span></h1>
+                  <p className="text-white/60">Escolha um template pronto abaixo para começar instantaneamente</p>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {PAGE_TEMPLATES.slice(0, 6).map(tmpl => (
+                    <div key={tmpl.id} onClick={() => handleUseTemplate(tmpl)}
+                      className="bg-white/5 border border-white/10 rounded-xl p-4 cursor-pointer hover:border-primary/40 transition-all text-left">
+                      <span className="text-2xl">{tmpl.thumbnail}</span>
+                      <p className="font-bold text-xs text-white mt-2">{tmpl.name}</p>
+                      <p className="text-[10px] text-white/40">{tmpl.category}</p>
+                    </div>
+                  ))}
                 </div>
               </motion.div>
             ) : (
