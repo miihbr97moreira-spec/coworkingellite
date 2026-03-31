@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Plus, Loader2, GripVertical, X, MessageSquare, DollarSign, Phone, Mail, MoreVertical, Search, LayoutGrid, List, Trash2, Pencil, Calendar as CalendarIcon, Tag, Flame, Zap, Target, Brain, TrendingUp, Clock, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Plus, Loader2, GripVertical, X, MessageSquare, DollarSign, Phone, Mail, MoreVertical, Search, LayoutGrid, List, Trash2, Pencil, Calendar as CalendarIcon, Tag, Flame, Zap, Target, Brain } from "lucide-react";
 import { getScoreGlowClass, getScoreLabel, getScoreColor } from "@/utils/leadScoring";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { format, isWithinInterval, startOfDay, endOfDay, subDays, isToday, differenceInDays } from "date-fns";
+import { format, isWithinInterval, startOfDay, endOfDay, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 /* ───────── Lead Card ───────── */
@@ -34,36 +34,17 @@ const LeadCard = ({ lead, onClick, onEdit, isOverlay = false }: { lead: any; onC
   const scoreLabel = getScoreLabel(score);
   const glowClass = getScoreGlowClass(score);
   const scoreColor = getScoreColor(score);
-  
-  const priorityColors = {
-    urgent: "bg-red-500",
-    high: "bg-orange-500",
-    medium: "bg-blue-500",
-    low: "bg-slate-400"
-  };
 
   return (
     <div ref={setNodeRef} style={style} {...attributes}
-      className={`p-3 mb-2 rounded-lg border-l-4 bg-background cursor-pointer transition-all group relative ${isOverlay ? "border-primary shadow-xl scale-[1.02]" : "border-border/40 hover:border-primary/30"} ${
-        score >= 80 ? glowClass : ""
+      className={`p-3 mb-2 rounded-lg border-2 bg-background cursor-pointer transition-all group ${isOverlay ? "border-primary shadow-xl scale-[1.02]" : ""} ${
+        score >= 80 ? `border-red-500/50 ${glowClass}` : score >= 40 ? "border-amber-500/30" : "border-border/30 hover:border-primary/30"
       }`}
-      style={{ borderLeftColor: priorityColors[lead.priority as keyof typeof priorityColors] || "transparent" }}
       onClick={onClick}>
-      
-      {/* Indicador sutil de probabilidade */}
-      {lead.probability && (
-        <div className="absolute top-0 right-0 h-1 bg-primary/10 rounded-tr-lg overflow-hidden w-12">
-          <div className="h-full bg-primary/40" style={{ width: `${lead.probability}%` }} />
-        </div>
-      )}
-
       <div className="flex items-center gap-3">
         <div className="w-7 h-7 rounded-md bg-primary/10 text-primary flex items-center justify-center text-[10px] font-semibold shrink-0">{initials}</div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <p className="text-[13px] font-medium truncate">{lead.name}</p>
-            {lead.priority === 'urgent' && <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />}
-          </div>
+          <p className="text-[13px] font-medium truncate">{lead.name}</p>
           <p className="text-[11px] text-muted-foreground truncate">{lead.email || lead.phone || "—"}</p>
         </div>
         <div className="flex items-center gap-0.5">
@@ -108,38 +89,25 @@ const StageColumn = ({ stage, leads, onAddLead, onDeleteStage, onSelectLead, onE
   });
   const style = { transform: CSS.Translate.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
   const totalValue = leads.reduce((acc, curr) => acc + Number(curr.deal_value || 0), 0);
-  const weightedValue = leads.reduce((acc, curr) => acc + (Number(curr.deal_value || 0) * (Number(curr.probability || 50) / 100)), 0);
   // Ordenar leads por score decrescente (Hot leads no topo)
   const sortedLeads = [...leads].sort((a, b) => (b.lead_score || 0) - (a.lead_score || 0));
 
   return (
-    <div ref={setNodeRef} style={style} className="min-w-[300px] w-[300px] shrink-0 flex flex-col h-full max-h-[calc(100vh-320px)] group/stage">
-      <div className="flex flex-col mb-4 px-2">
-        <div className="flex items-center justify-between group">
-          <div className="flex items-center gap-2.5 flex-1 min-w-0">
-            <div {...listeners} className="cursor-grab opacity-0 group-hover:opacity-100 transition-opacity p-0.5">
-              <GripVertical className="w-3.5 h-3.5 text-muted-foreground/50" />
-            </div>
-            <div className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: stage.color }} />
-            <h4 className="font-bold text-[14px] tracking-tight truncate">{stage.name}</h4>
-            <span className="text-[10px] font-bold text-muted-foreground bg-secondary/40 px-2 py-0.5 rounded-md">{leads.length}</span>
+    <div ref={setNodeRef} style={style} className="min-w-[280px] w-[280px] shrink-0 flex flex-col h-full max-h-[calc(100vh-320px)]">
+      <div className="flex items-center justify-between mb-3 px-1 group">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div {...listeners} className="cursor-grab opacity-0 group-hover:opacity-100 transition-opacity">
+            <GripVertical className="w-3.5 h-3.5 text-muted-foreground" />
           </div>
-          <div className="flex items-center gap-1 opacity-0 group-hover/stage:opacity-100 transition-opacity">
-            <button onClick={onAddLead} className="p-1.5 hover:bg-secondary rounded-lg transition-all"><Plus className="w-4 h-4 text-muted-foreground" /></button>
-            <button onClick={onDeleteStage} className="p-1.5 hover:bg-destructive/10 rounded-lg transition-all group/del">
-              <Trash2 className="w-4 h-4 text-muted-foreground group-hover/del:text-destructive" />
-            </button>
-          </div>
+          <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: stage.color }} />
+          <h4 className="font-medium text-[13px] truncate">{stage.name}</h4>
+          <span className="text-[10px] text-muted-foreground font-mono bg-secondary/50 px-1.5 py-0.5 rounded">{leads.length}</span>
         </div>
-        <div className="flex items-center justify-between mt-2 px-1">
-          <div className="flex flex-col">
-            <span className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest">Bruto</span>
-            <span className="text-[11px] font-bold tracking-tight">R$ {totalValue.toLocaleString("pt-BR")}</span>
-          </div>
-          <div className="flex flex-col items-end">
-            <span className="text-[9px] font-bold text-emerald-500/70 uppercase tracking-widest">Previsão</span>
-            <span className="text-[11px] font-bold text-emerald-500 tracking-tight">R$ {weightedValue.toLocaleString("pt-BR")}</span>
-          </div>
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] font-medium text-muted-foreground">R$ {totalValue.toLocaleString("pt-BR")}</span>
+          <button onClick={onDeleteStage} className="opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/10 rounded transition-all">
+            <Trash2 className="w-3 h-3 text-muted-foreground hover:text-destructive" />
+          </button>
         </div>
       </div>
 
@@ -186,63 +154,45 @@ const LeadDetailDrawer = ({ lead, stages, onClose, onEdit, onDelete }: { lead: a
           </div>
         </div>
 
-        <div className="px-5 py-2 border-b border-border bg-background flex items-center gap-6">
-          <button onClick={() => setActiveTab("details")} className={`text-[11px] font-bold uppercase tracking-tight py-3 border-b-2 transition-all ${activeTab === "details" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>Resumo</button>
-          <button onClick={() => setActiveTab("timeline")} className={`text-[11px] font-bold uppercase tracking-tight py-3 border-b-2 transition-all ${activeTab === "timeline" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>Histórico</button>
-          <button onClick={() => setActiveTab("tasks")} className={`text-[11px] font-bold uppercase tracking-tight py-3 border-b-2 transition-all ${activeTab === "tasks" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>Ações</button>
+        <div className="px-5 py-2 border-b border-border bg-secondary/10 flex items-center gap-4">
+          <button onClick={() => setActiveTab("details")} className={`text-[10px] font-bold uppercase tracking-widest py-2 border-b-2 transition-all ${activeTab === "details" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>Detalhes</button>
+          <button onClick={() => setActiveTab("timeline")} className={`text-[10px] font-bold uppercase tracking-widest py-2 border-b-2 transition-all ${activeTab === "timeline" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>Timeline</button>
+          <button onClick={() => setActiveTab("tasks")} className={`text-[10px] font-bold uppercase tracking-widest py-2 border-b-2 transition-all ${activeTab === "tasks" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>Tarefas</button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-8">
+        <div className="flex-1 overflow-y-auto p-5 space-y-6">
           {activeTab === "details" && (
             <>
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center text-lg font-bold">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold">
                   {lead.name?.[0]?.toUpperCase() || "?"}
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold tracking-tight">{lead.name}</h2>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{stageName}</span>
-                    <span className="text-[11px] text-muted-foreground">{lead.company || "Sem empresa"}</span>
-                  </div>
+                  <h2 className="text-base font-semibold">{lead.name}</h2>
+                  <p className="text-xs text-muted-foreground">{lead.company || "Sem empresa"} · {stageName}</p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
                 {[
-                  { icon: DollarSign, label: "Valor", value: `R$ ${Number(lead.deal_value || 0).toLocaleString("pt-BR")}`, color: "text-emerald-500" },
-                  { icon: Target, label: "Conversão", value: `${lead.probability || 50}%`, color: "text-blue-500" },
-                  { icon: AlertCircle, label: "Prioridade", value: lead.priority || "Média", color: lead.priority === 'urgent' ? 'text-red-500' : 'text-orange-500' },
-                  { icon: Tag, label: "Origem", value: lead.source || "Direto", color: "text-purple-500" },
-                ].map(({ icon: Icon, label, value, color }) => (
-                  <div key={label} className="p-3 rounded-xl bg-secondary/20 border border-border/10">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Icon className={`w-3 h-3 ${color}`} />
-                      <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">{label}</span>
-                    </div>
-                    <p className="text-xs font-bold">{value}</p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="space-y-4">
-                <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Contato</h4>
-                <div className="space-y-2">
-                  {[
-                    { icon: Mail, label: "Email", value: lead.email },
-                    { icon: Phone, label: "Telefone", value: lead.phone },
-                    { icon: CalendarIcon, label: "Entrada", value: format(new Date(lead.created_at), "dd MMM yyyy", { locale: ptBR }) },
-                  ].map(({ icon: Icon, label, value }) => (
-                    <div key={label} className="flex items-center justify-between p-3 rounded-lg hover:bg-secondary/30 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <Icon className="w-4 h-4 text-muted-foreground/60" />
-                        <span className="text-xs text-muted-foreground">{label}</span>
-                      </div>
-                      <span className="text-xs font-medium">{value || "—"}</span>
-                    </div>
-                  ))}
+                  { icon: Mail, label: "Email", value: lead.email },
+                  { icon: Phone, label: "Telefone", value: lead.phone },
+                  { icon: DollarSign, label: "Valor Estimado", value: `R$ ${Number(lead.expected_revenue || lead.deal_value || 0).toLocaleString("pt-BR")}` },
+                  { icon: Target, label: "Probabilidade", value: `${lead.probability || 50}%` },
+                  { icon: AlertCircle, label: "Prioridade", value: lead.priority || "Média" },
+                  { icon: CalendarIcon, label: "Entrada", value: format(new Date(lead.created_at), "dd/MM/yyyy HH:mm") },
+                  { icon: Clock, label: "Última Atividade", value: lead.last_activity_at ? format(new Date(lead.last_activity_at), "dd/MM/yyyy HH:mm") : "Sem registro" },
+                  { icon: Tag, label: "Origem", value: lead.source || "manual" },
+                ].map(({ icon: Icon, label, value }) => (
+              <div key={label} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30">
+                <Icon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</p>
+                  <p className="text-xs truncate">{value || "—"}</p>
                 </div>
               </div>
+            ))}
+          </div>
 
               {lead.tags?.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
@@ -252,41 +202,31 @@ const LeadDetailDrawer = ({ lead, stages, onClose, onEdit, onDelete }: { lead: a
                 </div>
               )}
 
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Últimas Notas</h4>
-                  <Button variant="ghost" size="sm" className="h-6 text-[10px] uppercase font-bold text-primary" onClick={() => setActiveTab("timeline")}>Ver Todas</Button>
+              <div>
+                <h4 className="text-xs font-semibold mb-3 flex items-center gap-1.5 text-muted-foreground uppercase tracking-wider">
+                  <MessageSquare className="w-3 h-3" /> Notas Rápidas
+                </h4>
+                <div className="flex gap-2 mb-3">
+                  <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Escreva uma nota..."
+                    className="flex-1 px-3 py-2 rounded-lg bg-secondary/50 border border-border/40 text-xs outline-none focus:ring-1 focus:ring-primary/30"
+                    onKeyDown={(e) => e.key === "Enter" && addNote()} />
+                  <Button size="sm" onClick={addNote} className="h-8 text-xs">Salvar</Button>
                 </div>
-                <div className="relative">
-                  <div className="flex gap-2 p-1 bg-secondary/20 rounded-xl border border-border/10 focus-within:border-primary/30 transition-all">
-                    <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Nova nota rápida..."
-                      className="flex-1 bg-transparent px-3 py-2 text-xs outline-none"
-                      onKeyDown={(e) => e.key === "Enter" && addNote()} />
-                    <Button size="sm" onClick={addNote} className="h-8 w-8 p-0 rounded-lg"><Plus className="w-4 h-4" /></Button>
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  {notes?.slice(0, 3).map((n) => (
-                    <div key={n.id} className="group relative pl-4 border-l-2 border-border/20 hover:border-primary/40 transition-colors">
-                      <p className="text-xs leading-relaxed">{n.content}</p>
-                      <p className="text-[10px] text-muted-foreground mt-1 font-medium">{format(new Date(n.created_at), "dd MMM, HH:mm", { locale: ptBR })}</p>
+                <div className="space-y-2">
+                  {notes?.map((n) => (
+                    <div key={n.id} className="p-3 rounded-lg bg-secondary/20 border border-border/20">
+                      <p className="text-xs">{n.content}</p>
+                      <p className="text-[10px] text-muted-foreground mt-1.5">{new Date(n.created_at).toLocaleString("pt-BR")}</p>
                     </div>
                   ))}
-                  {(!notes || notes.length === 0) && <p className="text-center text-muted-foreground text-[11px] py-4 bg-secondary/10 rounded-lg border border-dashed border-border/20">Nenhuma nota registrada.</p>}
+                  {(!notes || notes.length === 0) && <p className="text-center text-muted-foreground text-[11px] py-4">Nenhuma nota.</p>}
                 </div>
               </div>
             </>
           )}
 
           {activeTab === "timeline" && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Histórico Completo</h4>
-                <div className="flex gap-1">
-                  <Button variant="outline" size="sm" className="h-6 text-[9px] uppercase font-bold px-2">Notas</Button>
-                  <Button variant="outline" size="sm" className="h-6 text-[9px] uppercase font-bold px-2">Sistema</Button>
-                </div>
-              </div>
+            <div className="animate-in fade-in slide-in-from-right-4 duration-300">
               <LeadActivityTimeline leadId={lead.id} />
             </div>
           )}
@@ -352,7 +292,6 @@ const AdminCRM = () => {
   const [showExecutionMode, setShowExecutionMode] = useState(false);
   const [showRevenueEngine, setShowRevenueEngine] = useState(false);
   const [showIntelligence, setShowIntelligence] = useState(false);
-  const [smartFilter, setSmartFilter] = useState<"all" | "today" | "forgotten" | "hot">("all");
 
   const qc = useQueryClient();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
@@ -368,23 +307,6 @@ const AdminCRM = () => {
       l.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       l.tags?.some((t: string) => t.toLowerCase().includes(searchQuery.toLowerCase()))
     );
-    
-    // Smart Filters (Ações do Dia Integradas)
-    const now = new Date();
-    if (smartFilter === "today") {
-      result = result.filter(l => {
-        const lastAct = l.last_activity_at ? new Date(l.last_activity_at) : new Date(l.created_at);
-        return l.status === 'active' && (isToday(lastAct) || differenceInDays(now, lastAct) <= 1);
-      });
-    } else if (smartFilter === "forgotten") {
-      result = result.filter(l => {
-        const lastAct = l.last_activity_at ? new Date(l.last_activity_at) : new Date(l.created_at);
-        return l.status === 'active' && differenceInDays(now, lastAct) >= 3;
-      });
-    } else if (smartFilter === "hot") {
-      result = result.filter(l => l.status === 'active' && (l.priority === 'high' || l.priority === 'urgent' || (l.lead_score || 0) >= 80));
-    }
-
     // Date filter
     if (dateRange.from && dateRange.to) {
       result = result.filter(l => {
@@ -393,7 +315,7 @@ const AdminCRM = () => {
       });
     }
     return result.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-  }, [leads, searchQuery, dateRange, smartFilter]);
+  }, [leads, searchQuery, dateRange]);
 
   /* ── CRUD: Create Funnel ── */
   const createFunnel = async () => {
@@ -453,8 +375,7 @@ const AdminCRM = () => {
     const { error } = await supabase.from("leads").insert({
       name: newLeadForm.name, email: newLeadForm.email || null, phone: newLeadForm.phone || null,
       company: newLeadForm.company || null, deal_value: Number(newLeadForm.deal_value) || 0,
-      deal_value: Number(newLeadForm.deal_value) || 0,
-      // Usando deal_value como principal até sincronização total
+      expected_revenue: Number(newLeadForm.deal_value) || 0,
       probability: Number(newLeadForm.probability) || 50,
       priority: newLeadForm.priority,
       status: newLeadForm.status,
@@ -492,6 +413,7 @@ const AdminCRM = () => {
       phone: editLeadForm.phone || null,
       company: editLeadForm.company || null, 
       deal_value: Number(editLeadForm.deal_value) || 0,
+      expected_revenue: Number(editLeadForm.deal_value) || 0,
       probability: Number(editLeadForm.probability) || 50,
       priority: editLeadForm.priority,
       status: editLeadForm.status,
@@ -618,47 +540,33 @@ const AdminCRM = () => {
           <p className="text-xs text-muted-foreground mt-0.5">{totalLeads} leads · R$ {totalValue.toLocaleString("pt-BR")}</p>
         </div>
         <div className="flex items-center gap-2">
-          {/* Filtros Inteligentes (Ações do Dia Integradas) */}
-          <div className="flex items-center bg-secondary/30 p-0.5 rounded-md border border-border/30 mr-2">
-            {[
-              { id: "all", label: "Todos", icon: List },
-              { id: "today", label: "Hoje", icon: Zap, color: "text-blue-500" },
-              { id: "hot", label: "Quentes", icon: Flame, color: "text-orange-500" },
-              { id: "forgotten", label: "Esquecidos", icon: Clock, color: "text-slate-400" }
-            ].map(f => (
-              <button
-                key={f.id}
-                onClick={() => setSmartFilter(f.id as any)}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-all ${smartFilter === f.id ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                <f.icon className={`w-3 h-3 ${smartFilter === f.id ? f.color : ""}`} />
-                <span className="hidden sm:inline">{f.label}</span>
-              </button>
-            ))}
-          </div>
-
-          <div className="h-6 w-[1px] bg-border/30 mx-1" />
-
-          {/* Ferramentas Avançadas (Sutis) */}
-          <div className="flex items-center gap-1">
+          {/* Botões de Expansão de Funcionalidade */}
+          <div className="flex items-center gap-1 bg-secondary/30 p-1 rounded-md border border-border/30">
+            <button
+              onClick={() => setShowDailyActions(!showDailyActions)}
+              className={`p-1.5 rounded transition-all ${showDailyActions ? "bg-blue-500/10 text-blue-500 shadow-sm" : "text-muted-foreground hover:text-blue-500"}`}
+              title="Ações do Dia"
+            >
+              <Zap className="w-3.5 h-3.5" />
+            </button>
             <button
               onClick={() => setShowRevenueEngine(!showRevenueEngine)}
-              className={`p-1.5 rounded transition-all ${showRevenueEngine ? "text-emerald-500 bg-emerald-500/10" : "text-muted-foreground hover:text-emerald-500"}`}
-              title="Previsão de Receita"
+              className={`p-1.5 rounded transition-all ${showRevenueEngine ? "bg-emerald-500/10 text-emerald-500 shadow-sm" : "text-muted-foreground hover:text-emerald-500"}`}
+              title="Motor de Receita"
             >
-              <TrendingUp className="w-3.5 h-3.5" />
+              <DollarSign className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => setShowIntelligence(!showIntelligence)}
-              className={`p-1.5 rounded transition-all ${showIntelligence ? "text-purple-500 bg-purple-500/10" : "text-muted-foreground hover:text-purple-500"}`}
-              title="Análise de Saúde"
+              className={`p-1.5 rounded transition-all ${showIntelligence ? "bg-purple-500/10 text-purple-500 shadow-sm" : "text-muted-foreground hover:text-purple-500"}`}
+              title="Inteligência de Pipeline"
             >
               <Brain className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => setShowExecutionMode(true)}
               className="p-1.5 rounded transition-all text-muted-foreground hover:text-orange-500 hover:bg-orange-500/10"
-              title="Focar em Vendas"
+              title="Modo Execução"
             >
               <Target className="w-3.5 h-3.5" />
             </button>
@@ -718,13 +626,26 @@ const AdminCRM = () => {
         </div>
       </div>
 
-      {/* Seções de Expansão (Condicionais - Refinadas) */}
-      {(showRevenueEngine || showIntelligence) && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 animate-in fade-in slide-in-from-top-4 duration-500">
-          {showRevenueEngine && <RevenueEngine />}
-          {showIntelligence && <IntelligencePanel />}
-        </div>
-      )}
+      {/* Seções de Expansão (Condicionais) */}
+      <div className="space-y-6 mb-5">
+        {showDailyActions && (
+          <div className="animate-in fade-in slide-in-from-top-4 duration-300">
+            <DailyActions onSelectLead={(l) => setSelectedLead(l)} />
+          </div>
+        )}
+        
+        {showRevenueEngine && (
+          <div className="animate-in fade-in slide-in-from-top-4 duration-300">
+            <RevenueEngine />
+          </div>
+        )}
+
+        {showIntelligence && (
+          <div className="animate-in fade-in slide-in-from-top-4 duration-300">
+            <IntelligencePanel />
+          </div>
+        )}
+      </div>
 
       {/* Funnel tabs */}
       <div className="flex items-center gap-1 mb-5 overflow-x-auto pb-1">
@@ -851,57 +772,68 @@ const AdminCRM = () => {
             <DialogTitle>Novo Lead</DialogTitle>
             <DialogDescription>Adicione um lead manualmente à pipeline.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-6 py-4">
-            <div className="space-y-3">
-              <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest border-b border-border/10 pb-1">Identificação</h4>
+          <div className="space-y-3 py-2">
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">Nome *</label>
+              <input value={newLeadForm.name} onChange={e => setNewLeadForm(p => ({ ...p, name: e.target.value }))} placeholder="Nome do lead" className={inputCls} />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-[11px] font-medium text-muted-foreground block mb-1.5">Nome Completo</label>
-                <input value={newLeadForm.name} onChange={e => setNewLeadForm(p => ({ ...p, name: e.target.value }))} placeholder="Ex: João Silva" className={inputCls} />
+                <label className="text-xs text-muted-foreground block mb-1">Email</label>
+                <input value={newLeadForm.email} onChange={e => setNewLeadForm(p => ({ ...p, email: e.target.value }))} placeholder="email@..." className={inputCls} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[11px] font-medium text-muted-foreground block mb-1.5">Email</label>
-                  <input value={newLeadForm.email} onChange={e => setNewLeadForm(p => ({ ...p, email: e.target.value }))} placeholder="email@exemplo.com" className={inputCls} />
-                </div>
-                <div>
-                  <label className="text-[11px] font-medium text-muted-foreground block mb-1.5">Telefone</label>
-                  <input value={newLeadForm.phone} onChange={e => setNewLeadForm(p => ({ ...p, phone: e.target.value }))} placeholder="(00) 00000-0000" className={inputCls} />
-                </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Telefone</label>
+                <input value={newLeadForm.phone} onChange={e => setNewLeadForm(p => ({ ...p, phone: e.target.value }))} placeholder="(11) 99999..." className={inputCls} />
               </div>
             </div>
-
-            <div className="space-y-3">
-              <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest border-b border-border/10 pb-1">Negócio & Prioridade</h4>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[11px] font-medium text-muted-foreground block mb-1.5">Valor do Deal (R$)</label>
-                  <input type="number" value={newLeadForm.deal_value} onChange={e => setNewLeadForm(p => ({ ...p, deal_value: e.target.value }))} className={inputCls} />
-                </div>
-                <div>
-                  <label className="text-[11px] font-medium text-muted-foreground block mb-1.5">Probabilidade (%)</label>
-                  <input type="number" value={newLeadForm.probability} onChange={e => setNewLeadForm(p => ({ ...p, probability: e.target.value }))} className={inputCls} />
-                </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Empresa</label>
+                <input value={newLeadForm.company} onChange={e => setNewLeadForm(p => ({ ...p, company: e.target.value }))} className={inputCls} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[11px] font-medium text-muted-foreground block mb-1.5">Prioridade</label>
-                  <select value={newLeadForm.priority} onChange={e => setNewLeadForm(p => ({ ...p, priority: e.target.value }))} className={inputCls}>
-                    <option value="low">Baixa</option>
-                    <option value="medium">Média</option>
-                    <option value="high">Alta</option>
-                    <option value="urgent">Urgente</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[11px] font-medium text-muted-foreground block mb-1.5">Etapa Inicial</label>
-                  <select value={newLeadStageId || ""} onChange={e => setNewLeadStageId(e.target.value)} className={inputCls}>
-                    {stages?.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
-                </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Valor (R$)</label>
+                <input type="number" value={newLeadForm.deal_value} onChange={e => setNewLeadForm(p => ({ ...p, deal_value: e.target.value }))} className={inputCls} />
               </div>
             </div>
-
-            <Button onClick={createLead} className="w-full h-10 font-bold uppercase tracking-tight">Criar Lead</Button>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Probabilidade (%)</label>
+                <input type="number" value={newLeadForm.probability} onChange={e => setNewLeadForm(p => ({ ...p, probability: e.target.value }))} className={inputCls} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Prioridade</label>
+                <select value={newLeadForm.priority} onChange={e => setNewLeadForm(p => ({ ...p, priority: e.target.value }))} className={inputCls}>
+                  <option value="low">Baixa</option>
+                  <option value="medium">Média</option>
+                  <option value="high">Alta</option>
+                  <option value="urgent">Urgente</option>
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Status</label>
+                <select value={newLeadForm.status} onChange={e => setNewLeadForm(p => ({ ...p, status: e.target.value }))} className={inputCls}>
+                  <option value="active">Ativo</option>
+                  <option value="won">Ganhos</option>
+                  <option value="lost">Perdido</option>
+                  <option value="archived">Arquivado</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Etapa</label>
+                <select value={newLeadStageId || ""} onChange={e => setNewLeadStageId(e.target.value)} className={inputCls}>
+                  {stages?.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">Tags (separadas por vírgula)</label>
+              <input value={newLeadForm.tags} onChange={e => setNewLeadForm(p => ({ ...p, tags: e.target.value }))} placeholder="vip, urgente, web" className={inputCls} />
+            </div>
+            <Button onClick={createLead} className="w-full">Criar Lead</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -913,62 +845,70 @@ const AdminCRM = () => {
             <DialogTitle>Editar Lead</DialogTitle>
             <DialogDescription>Atualize as informações do lead.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-6 py-4">
-            <div className="space-y-3">
-              <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest border-b border-border/10 pb-1">Identificação</h4>
+          <div className="space-y-3 py-2">
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">Nome *</label>
+              <input value={editLeadForm.name} onChange={e => setEditLeadForm(p => ({ ...p, name: e.target.value }))} className={inputCls} />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-[11px] font-medium text-muted-foreground block mb-1.5">Nome Completo</label>
-                <input value={editLeadForm.name} onChange={e => setEditLeadForm(p => ({ ...p, name: e.target.value }))} className={inputCls} />
+                <label className="text-xs text-muted-foreground block mb-1">Email</label>
+                <input value={editLeadForm.email} onChange={e => setEditLeadForm(p => ({ ...p, email: e.target.value }))} className={inputCls} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[11px] font-medium text-muted-foreground block mb-1.5">Email</label>
-                  <input value={editLeadForm.email} onChange={e => setEditLeadForm(p => ({ ...p, email: e.target.value }))} className={inputCls} />
-                </div>
-                <div>
-                  <label className="text-[11px] font-medium text-muted-foreground block mb-1.5">Telefone</label>
-                  <input value={editLeadForm.phone} onChange={e => setEditLeadForm(p => ({ ...p, phone: e.target.value }))} className={inputCls} />
-                </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Telefone</label>
+                <input value={editLeadForm.phone} onChange={e => setEditLeadForm(p => ({ ...p, phone: e.target.value }))} className={inputCls} />
               </div>
             </div>
-
-            <div className="space-y-3">
-              <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest border-b border-border/10 pb-1">Negócio & Status</h4>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[11px] font-medium text-muted-foreground block mb-1.5">Valor (R$)</label>
-                  <input type="number" value={editLeadForm.deal_value} onChange={e => setEditLeadForm(p => ({ ...p, deal_value: e.target.value }))} className={inputCls} />
-                </div>
-                <div>
-                  <label className="text-[11px] font-medium text-muted-foreground block mb-1.5">Probabilidade (%)</label>
-                  <input type="number" value={editLeadForm.probability} onChange={e => setEditLeadForm(p => ({ ...p, probability: e.target.value }))} className={inputCls} />
-                </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Empresa</label>
+                <input value={editLeadForm.company} onChange={e => setEditLeadForm(p => ({ ...p, company: e.target.value }))} className={inputCls} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[11px] font-medium text-muted-foreground block mb-1.5">Prioridade</label>
-                  <select value={editLeadForm.priority} onChange={e => setEditLeadForm(p => ({ ...p, priority: e.target.value }))} className={inputCls}>
-                    <option value="low">Baixa</option>
-                    <option value="medium">Média</option>
-                    <option value="high">Alta</option>
-                    <option value="urgent">Urgente</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[11px] font-medium text-muted-foreground block mb-1.5">Status</label>
-                  <select value={editLeadForm.status} onChange={e => setEditLeadForm(p => ({ ...p, status: e.target.value }))} className={inputCls}>
-                    <option value="active">Ativo</option>
-                    <option value="won">Ganhos</option>
-                    <option value="lost">Perdido</option>
-                    <option value="archived">Arquivado</option>
-                  </select>
-                </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Valor (R$)</label>
+                <input type="number" value={editLeadForm.deal_value} onChange={e => setEditLeadForm(p => ({ ...p, deal_value: e.target.value }))} className={inputCls} />
               </div>
             </div>
-
-            <div className="flex gap-3 pt-2">
-              <Button variant="outline" onClick={() => deleteLead(editLeadData.id)} className="flex-1 text-destructive hover:bg-destructive/5 hover:text-destructive border-destructive/20 h-10 font-bold uppercase tracking-tight">Excluir</Button>
-              <Button onClick={updateLead} className="flex-[2] h-10 font-bold uppercase tracking-tight">Salvar Alterações</Button>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Probabilidade (%)</label>
+                <input type="number" value={editLeadForm.probability} onChange={e => setEditLeadForm(p => ({ ...p, probability: e.target.value }))} className={inputCls} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Prioridade</label>
+                <select value={editLeadForm.priority} onChange={e => setEditLeadForm(p => ({ ...p, priority: e.target.value }))} className={inputCls}>
+                  <option value="low">Baixa</option>
+                  <option value="medium">Média</option>
+                  <option value="high">Alta</option>
+                  <option value="urgent">Urgente</option>
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Status</label>
+                <select value={editLeadForm.status} onChange={e => setEditLeadForm(p => ({ ...p, status: e.target.value }))} className={inputCls}>
+                  <option value="active">Ativo</option>
+                  <option value="won">Ganhos</option>
+                  <option value="lost">Perdido</option>
+                  <option value="archived">Arquivado</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Etapa</label>
+                <select value={editLeadForm.stage_id} onChange={e => setEditLeadForm(p => ({ ...p, stage_id: e.target.value }))} className={inputCls}>
+                  {stages?.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">Tags</label>
+              <input value={editLeadForm.tags} onChange={e => setEditLeadForm(p => ({ ...p, tags: e.target.value }))} placeholder="vip, urgente" className={inputCls} />
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button variant="destructive" onClick={() => deleteLead(editLeadData.id)} className="flex-1">Excluir</Button>
+              <Button onClick={updateLead} className="flex-[2]">Salvar Alterações</Button>
             </div>
           </div>
         </DialogContent>
