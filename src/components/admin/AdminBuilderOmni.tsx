@@ -440,61 +440,88 @@ const AdminBuilderOmni = ({ isLegacyLP = false }: AdminBuilderOmniProps) => {
     toast.success("Bloco de Checkout adicionado!");
   };
 
-  /* ───────── RENDER: EMPTY STATE ───────── */
+  /* ── Template usage ── */
+  const [templateFilter, setTemplateFilter] = useState("");
+  const [showTemplates, setShowTemplates] = useState(true);
+
+  const handleUseTemplate = async (template: typeof PAGE_TEMPLATES[0]) => {
+    const title = template.name;
+    const slug = title.toLowerCase().replace(/ /g, "-").replace(/[^\w-]/g, "") + "-" + Date.now();
+    setNewPageTitle(title);
+    setNewPageSlug(slug);
+    const html = injectScript(template.html);
+    setGeneratedHtml(html);
+    setHtmlHistory([html]);
+    setHistoryIdx(0);
+    setMode("edit-generated");
+    setChatMessages([{
+      id: "welcome", role: "assistant",
+      content: `Template "${template.name}" carregado! Edite visualmente ou peça alterações no chat.`,
+      timestamp: new Date()
+    }]);
+    toast.success(`Template "${template.name}" carregado!`);
+  };
+
+  const filteredTemplates = PAGE_TEMPLATES.filter(t =>
+    !templateFilter || t.name.toLowerCase().includes(templateFilter.toLowerCase()) || t.category.toLowerCase().includes(templateFilter.toLowerCase())
+  );
+
+  /* ───────── RENDER: EMPTY STATE / TEMPLATE GALLERY ───────── */
   if (mode === "generate" && !isGenerating && pages.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-[#050505] p-6 text-center">
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="max-w-md w-full space-y-8"
-        >
-          <div className="relative mx-auto w-24 h-24 bg-primary/10 rounded-3xl flex items-center justify-center border border-primary/20">
-            <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full animate-pulse" />
-            <Sparkle className="w-12 h-12 text-primary relative z-10" />
-          </div>
-          
-          <div className="space-y-2">
-            <h2 className="text-3xl font-bold text-white tracking-tight">Crie sua primeira página</h2>
-            <p className="text-muted-foreground">Sua agência inteira substituída por uma única Inteligência Artificial. Comece agora.</p>
+      <div className="flex-1 flex flex-col bg-[#050505] p-6 overflow-y-auto">
+        <div className="max-w-5xl mx-auto w-full space-y-8">
+          {/* Header */}
+          <div className="text-center space-y-2 pt-8">
+            <h2 className="text-3xl font-bold text-white tracking-tight">Crie sua página</h2>
+            <p className="text-muted-foreground">Escolha um template pronto ou crie do zero com IA</p>
           </div>
 
-          <div className="bg-white/5 border border-white/10 p-6 rounded-2xl backdrop-blur-xl space-y-4">
+          {/* AI Create Card */}
+          <div className="bg-white/5 border border-white/10 p-6 rounded-2xl backdrop-blur-xl space-y-4 max-w-md mx-auto">
             <div className="space-y-2 text-left">
               <label className="text-xs font-medium text-white/60 uppercase tracking-wider">Título do Projeto</label>
-              <input 
-                type="text" 
-                placeholder="Ex: Minha Nova Landing Page"
+              <input type="text" placeholder="Ex: Minha Nova Landing Page"
                 className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary/50 outline-none transition-all"
                 value={newPageTitle}
-                onChange={e => {
-                  setNewPageTitle(e.target.value);
-                  setNewPageSlug(e.target.value.toLowerCase().replace(/ /g, "-").replace(/[^\w-]/g, ""));
-                }}
+                onChange={e => { setNewPageTitle(e.target.value); setNewPageSlug(e.target.value.toLowerCase().replace(/ /g, "-").replace(/[^\w-]/g, "")); }}
               />
             </div>
-            <div className="space-y-2 text-left">
-              <label className="text-xs font-medium text-white/60 uppercase tracking-wider">Slug da URL</label>
-              <div className="flex items-center bg-black/40 border border-white/10 rounded-xl px-4 py-3">
-                <span className="text-white/40 text-sm">/p/</span>
-                <input 
-                  type="text" 
-                  className="bg-transparent border-none text-white focus:ring-0 outline-none text-sm w-full"
-                  value={newPageSlug}
-                  onChange={e => setNewPageSlug(e.target.value)}
-                />
-              </div>
-            </div>
-            <Button 
-              className="w-full py-6 rounded-xl text-lg font-bold gap-2 group"
-              onClick={handleGeneratePage}
-              disabled={!newPageTitle.trim()}
-            >
-              <PlusCircle className="w-5 h-5 group-hover:rotate-90 transition-transform" />
-              Avançar para IA Builder
+            <Button className="w-full py-5 rounded-xl text-base font-bold gap-2 group" onClick={handleGeneratePage} disabled={!newPageTitle.trim()}>
+              <Sparkle className="w-5 h-5 group-hover:rotate-90 transition-transform" /> Criar com IA
             </Button>
           </div>
-        </motion.div>
+
+          {/* Divider */}
+          <div className="flex items-center gap-4">
+            <div className="flex-1 h-px bg-white/10" />
+            <span className="text-xs text-white/40 uppercase tracking-widest font-bold">ou escolha um template</span>
+            <div className="flex-1 h-px bg-white/10" />
+          </div>
+
+          {/* Search */}
+          <div className="relative max-w-md mx-auto">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+            <input type="text" placeholder="Buscar templates..." value={templateFilter} onChange={e => setTemplateFilter(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-3 text-sm text-white outline-none focus:border-primary/30"
+            />
+          </div>
+
+          {/* Template Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-12">
+            {filteredTemplates.map(tmpl => (
+              <motion.div key={tmpl.id} whileHover={{ scale: 1.02 }}
+                className="bg-white/5 border border-white/10 rounded-2xl p-5 cursor-pointer hover:border-primary/40 transition-all group"
+                onClick={() => handleUseTemplate(tmpl)}
+              >
+                <div className="text-4xl mb-3">{tmpl.thumbnail}</div>
+                <h3 className="font-bold text-sm text-white mb-1">{tmpl.name}</h3>
+                <p className="text-[10px] text-primary/80 font-semibold uppercase tracking-wider mb-2">{tmpl.category}</p>
+                <p className="text-xs text-white/40 line-clamp-2">{tmpl.description}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
