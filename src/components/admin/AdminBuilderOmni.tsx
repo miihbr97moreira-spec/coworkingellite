@@ -604,93 +604,96 @@ const AdminBuilderOmni = ({ isLegacyLP = false }: AdminBuilderOmniProps) => {
     <div className="flex h-screen bg-[#0a0a0a] text-white overflow-hidden font-sans">
       {renderSidebar()}
 
-      {/* ── Main Canvas ── */}
-      <main className="flex-1 flex flex-col relative bg-[#0a0a0a]">
-        {/* Toolbar */}
-        <header className="h-16 border-b border-white/10 flex items-center justify-between px-6 bg-[#050505]/80 backdrop-blur-md z-20">
-          <div className="flex items-center gap-4">
-            <div className="flex bg-white/5 rounded-lg p-1 border border-white/10">
-              <button onClick={() => setViewport("desktop")} className={`p-2 rounded-md transition-all ${viewport === 'desktop' ? 'bg-primary text-black shadow-lg' : 'text-white/40 hover:text-white'}`}><Monitor className="h-4 w-4" /></button>
-              <button onClick={() => setViewport("tablet")} className={`p-2 rounded-md transition-all ${viewport === 'tablet' ? 'bg-primary text-black shadow-lg' : 'text-white/40 hover:text-white'}`}><Tablet className="h-4 w-4" /></button>
-              <button onClick={() => setViewport("mobile")} className={`p-2 rounded-md transition-all ${viewport === 'mobile' ? 'bg-primary text-black shadow-lg' : 'text-white/40 hover:text-white'}`}><Smartphone className="h-4 w-4" /></button>
+      {/* ── Main Layout Container ── */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* ── Main Canvas ── */}
+        <main className="flex-1 flex flex-col relative bg-[#0a0a0a] border-r border-white/10">
+          {/* Toolbar */}
+          <header className="h-16 border-b border-white/10 flex items-center justify-between px-6 bg-[#050505]/80 backdrop-blur-md z-20">
+            <div className="flex items-center gap-4">
+              <div className="flex bg-white/5 rounded-lg p-1 border border-white/10">
+                <button onClick={() => setViewport("desktop")} className={`p-2 rounded-md transition-all ${viewport === 'desktop' ? 'bg-primary text-black shadow-lg' : 'text-white/40 hover:text-white'}`}><Monitor className="h-4 w-4" /></button>
+                <button onClick={() => setViewport("tablet")} className={`p-2 rounded-md transition-all ${viewport === 'tablet' ? 'bg-primary text-black shadow-lg' : 'text-white/40 hover:text-white'}`}><Tablet className="h-4 w-4" /></button>
+                <button onClick={() => setViewport("mobile")} className={`p-2 rounded-md transition-all ${viewport === 'mobile' ? 'bg-primary text-black shadow-lg' : 'text-white/40 hover:text-white'}`}><Smartphone className="h-4 w-4" /></button>
+              </div>
+              <div className="h-6 w-px bg-white/10 mx-2" />
+              <div className="flex gap-1">
+                <Button variant="ghost" size="icon" onClick={handleUndo} disabled={historyIdx <= 0} className="h-9 w-9 text-white/60"><Undo2 className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="icon" onClick={handleRedo} disabled={historyIdx >= htmlHistory.length - 1} className="h-9 w-9 text-white/60"><Redo2 className="h-4 w-4" /></Button>
+              </div>
             </div>
-            <div className="h-6 w-px bg-white/10 mx-2" />
-            <div className="flex gap-1">
-              <Button variant="ghost" size="icon" onClick={handleUndo} disabled={historyIdx <= 0} className="h-9 w-9 text-white/60"><Undo2 className="h-4 w-4" /></Button>
-              <Button variant="ghost" size="icon" onClick={handleRedo} disabled={historyIdx >= htmlHistory.length - 1} className="h-9 w-9 text-white/60"><Redo2 className="h-4 w-4" /></Button>
+
+            <div className="flex items-center gap-3">
+              <Button variant="outline" className="gap-2 border-white/10 hover:bg-white/5" onClick={() => setPagePixelOpen(true)}>
+                <Code className="h-4 w-4" /> Pixels
+              </Button>
+              <Button variant="outline" className="gap-2 border-white/10 hover:bg-white/5" onClick={() => setCheckoutSidebarOpen(true)}>
+                <DollarSign className="h-4 w-4" /> Checkout
+              </Button>
+              <Button onClick={handleSavePage} disabled={isSaving || !generatedHtml} className="gap-2 px-6 shadow-lg shadow-primary/20">
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                {activePage ? 'Atualizar' : 'Publicar'}
+              </Button>
             </div>
+          </header>
+
+          {/* Iframe Container */}
+          <div className="flex-1 bg-[#0f0f0f] overflow-hidden flex items-center justify-center p-8 relative">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent opacity-30" />
+            <AnimatePresence mode="wait">
+              {isGenerating ? (
+                <motion.div
+                  key="gen"
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  className="flex flex-col items-center gap-6 z-10"
+                >
+                  <div className="relative">
+                    <div className="w-20 h-20 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                    <Sparkles className="absolute inset-0 m-auto w-8 h-8 text-primary animate-pulse" />
+                  </div>
+                  <div className="text-center space-y-2">
+                    <h3 className="text-2xl font-bold text-white tracking-tight">Arquitetando sua página...</h3>
+                    <p className="text-white/40 animate-pulse">A Inteligência Artificial está escrevendo o código agora.</p>
+                  </div>
+                </motion.div>
+              ) : !generatedHtml ? (
+                <motion.div
+                  key="empty"
+                  initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+                  className="max-w-3xl w-full z-10 space-y-6 overflow-y-auto max-h-full p-4"
+                >
+                  <div className="text-center space-y-2">
+                    <h1 className="text-3xl font-bold tracking-tight text-white">Descreva no chat ou <span className="text-primary">use um template</span></h1>
+                    <p className="text-white/60">Escolha um template pronto abaixo para começar instantaneamente</p>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {PAGE_TEMPLATES.slice(0, 6).map(tmpl => (
+                      <div key={tmpl.id} onClick={() => handleUseTemplate(tmpl)}
+                        className="bg-white/5 border border-white/10 rounded-xl p-4 cursor-pointer hover:border-primary/40 transition-all text-left">
+                        <span className="text-2xl">{tmpl.thumbnail}</span>
+                        <p className="font-bold text-xs text-white mt-2">{tmpl.name}</p>
+                        <p className="text-[10px] text-white/40">{tmpl.category}</p>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="canvas"
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                  style={{ width: viewport === 'desktop' ? '100%' : viewport === 'tablet' ? '768px' : '375px' }}
+                  className="h-full bg-white rounded-xl shadow-[0_0_100px_rgba(0,0,0,0.5)] transition-all duration-500 overflow-hidden relative"
+                >
+                  <iframe ref={iframeRef} srcDoc={generatedHtml} className="w-full h-full border-0" title="Canvas" />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
+        </main>
 
-          <div className="flex items-center gap-3">
-            <Button variant="outline" className="gap-2 border-white/10 hover:bg-white/5" onClick={() => setPagePixelOpen(true)}>
-              <Code className="h-4 w-4" /> Pixels
-            </Button>
-            <Button variant="outline" className="gap-2 border-white/10 hover:bg-white/5" onClick={() => setCheckoutSidebarOpen(true)}>
-              <DollarSign className="h-4 w-4" /> Checkout
-            </Button>
-            <Button onClick={handleSavePage} disabled={isSaving || !generatedHtml} className="gap-2 px-6 shadow-lg shadow-primary/20">
-              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              {activePage ? 'Atualizar' : 'Publicar'}
-            </Button>
-          </div>
-        </header>
-
-        {/* Iframe Container */}
-        <div className="flex-1 bg-[#0f0f0f] overflow-hidden flex items-center justify-center p-8 relative">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent opacity-30" />
-          <AnimatePresence mode="wait">
-            {isGenerating ? (
-              <motion.div
-                key="gen"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="flex flex-col items-center gap-6 z-10"
-              >
-                <div className="relative">
-                  <div className="w-20 h-20 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-                  <Sparkles className="absolute inset-0 m-auto w-8 h-8 text-primary animate-pulse" />
-                </div>
-                <div className="text-center space-y-2">
-                  <h3 className="text-2xl font-bold text-white tracking-tight">Arquitetando sua página...</h3>
-                  <p className="text-white/40 animate-pulse">A Inteligência Artificial está escrevendo o código agora.</p>
-                </div>
-              </motion.div>
-            ) : !generatedHtml ? (
-              <motion.div
-                key="empty"
-                initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                className="max-w-3xl w-full z-10 space-y-6 overflow-y-auto max-h-full p-4"
-              >
-                <div className="text-center space-y-2">
-                  <h1 className="text-3xl font-bold tracking-tight text-white">Descreva no chat ou <span className="text-primary">use um template</span></h1>
-                  <p className="text-white/60">Escolha um template pronto abaixo para começar instantaneamente</p>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {PAGE_TEMPLATES.slice(0, 6).map(tmpl => (
-                    <div key={tmpl.id} onClick={() => handleUseTemplate(tmpl)}
-                      className="bg-white/5 border border-white/10 rounded-xl p-4 cursor-pointer hover:border-primary/40 transition-all text-left">
-                      <span className="text-2xl">{tmpl.thumbnail}</span>
-                      <p className="font-bold text-xs text-white mt-2">{tmpl.name}</p>
-                      <p className="text-[10px] text-white/40">{tmpl.category}</p>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="canvas"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                style={{ width: viewport === 'desktop' ? '100%' : viewport === 'tablet' ? '768px' : '375px' }}
-                className="h-full bg-white rounded-xl shadow-[0_0_100px_rgba(0,0,0,0.5)] transition-all duration-500 overflow-hidden relative"
-              >
-                <iframe ref={iframeRef} srcDoc={generatedHtml} className="w-full h-full border-0" title="Canvas" />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* AI Chat Drawer */}
+        {/* AI Chat Sidebar (Right Side) */}
         {(mode === "edit-generated" || !generatedHtml) && (
-          <div className="absolute bottom-8 right-8 w-[400px] h-[500px] bg-[#050505]/95 backdrop-blur-2xl border border-white/10 rounded-3xl shadow-2xl flex flex-col z-30 overflow-hidden group">
+          <aside className="w-[400px] bg-[#050505] border-l border-white/10 flex flex-col z-30 overflow-hidden">
             <div className="p-4 border-b border-white/10 flex items-center gap-3 bg-white/5">
               <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center border border-primary/30">
                 <Bot className="h-4 w-4 text-primary" />
@@ -742,15 +745,15 @@ const AdminBuilderOmni = ({ isLegacyLP = false }: AdminBuilderOmniProps) => {
                 </button>
               </div>
             </form>
-          </div>
+          </aside>
         )}
 
-        {/* ── Right Sidebar: Element Editor ── */}
+        {/* ── Element Editor: Now as a floating or integrated panel ── */}
         <AnimatePresence>
           {selectedEl && (
             <motion.div 
               initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
-              className="w-80 border-l border-white/10 bg-[#050505] flex flex-col shrink-0 z-30"
+              className="absolute top-20 right-[420px] w-80 border border-white/10 bg-[#050505]/95 backdrop-blur-xl rounded-2xl flex flex-col shrink-0 z-40 shadow-2xl overflow-hidden"
             >
               <div className="p-4 border-b border-white/10 flex items-center justify-between bg-white/5">
                 <h3 className="font-bold text-xs uppercase tracking-widest text-white/60">Editor de Elemento</h3>
@@ -851,7 +854,7 @@ const AdminBuilderOmni = ({ isLegacyLP = false }: AdminBuilderOmniProps) => {
             </motion.div>
           )}
         </AnimatePresence>
-      </main>
+      </div>
 
       {/* ── Modals ── */}
       <Dialog open={byokOpen} onOpenChange={setBYOKOpen}>
