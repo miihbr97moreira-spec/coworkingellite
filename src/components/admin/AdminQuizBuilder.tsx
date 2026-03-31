@@ -365,115 +365,97 @@ Retorne APENAS o JSON puro, sem markdown.`;
     setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
   };
 
+  const [quizTemplateFilter, setQuizTemplateFilter] = useState("");
+
+  const handleUseQuizTemplate = (tmpl: typeof QUIZ_TEMPLATES[0]) => {
+    setActiveQuiz({} as any);
+    setTitle(tmpl.name);
+    setSlug(tmpl.id + "-" + Date.now());
+    setDescription(tmpl.description);
+    setTheme(tmpl.theme as any);
+    setQuestions(tmpl.questions.map(q => ({ ...q, logic: [] })) as any);
+    setTab("editor");
+    toast.success(`Template "${tmpl.name}" carregado!`);
+  };
+
+  const filteredQuizTemplates = QUIZ_TEMPLATES.filter(t =>
+    !quizTemplateFilter || t.name.toLowerCase().includes(quizTemplateFilter.toLowerCase()) || t.category.toLowerCase().includes(quizTemplateFilter.toLowerCase())
+  );
+
   if (!activeQuiz) {
     return (
       <div className="h-[calc(100vh-120px)] flex flex-col -m-6 bg-background">
         <div className="flex-1 overflow-y-auto p-8">
-          <div className="max-w-4xl mx-auto">
-            <div className="flex items-center justify-between mb-8">
+          <div className="max-w-5xl mx-auto space-y-8">
+            <div className="flex items-center justify-between">
               <h2 className="text-2xl font-black">Meus Quizzes</h2>
               <Button onClick={() => { setActiveQuiz({} as any); setTitle("Novo Quiz"); setQuestions([]); }} className="gap-2">
-                <Plus className="w-4 h-4" /> Novo Quiz
+                <Plus className="w-4 h-4" /> Novo Quiz (Em Branco)
               </Button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {quizzes.map(q => (
-                <div key={q.id} className="p-6 rounded-2xl border border-border/40 hover:border-border transition-all space-y-4 group" onClick={() => openQuiz(q)}>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h3 className="font-bold text-lg mb-1">{q.title}</h3>
-                      <p className="text-xs text-muted-foreground">{q.questions?.length || 0} perguntas</p>
+            {/* Existing quizzes */}
+            {quizzes.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {quizzes.map(q => (
+                  <div key={q.id} className="p-6 rounded-2xl border border-border/40 hover:border-border transition-all space-y-4 group cursor-pointer" onClick={() => openQuiz(q)}>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h3 className="font-bold text-lg mb-1">{q.title}</h3>
+                        <p className="text-xs text-muted-foreground">{q.questions?.length || 0} perguntas</p>
+                      </div>
+                      <span className={`px-2 py-1 rounded text-[10px] font-bold ${q.status === "published" ? "bg-emerald-500/10 text-emerald-500" : "bg-muted text-muted-foreground"}`}>
+                        {q.status === "published" ? "LIVE" : "DRAFT"}
+                      </span>
                     </div>
-                    <span className={`px-2 py-1 rounded text-[10px] font-bold ${q.status === "published" ? "bg-emerald-500/10 text-emerald-500" : "bg-muted text-muted-foreground"}`}>
-                      {q.status === "published" ? "LIVE" : "DRAFT"}
-                    </span>
-                  </div>
-                  <p className="text-sm opacity-70 line-clamp-2">{q.description}</p>
-                  <div className="flex items-center gap-2 pt-2 border-t border-border/20 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {/* Visualizar no link público */}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); window.open(`/quiz/${q.slug}`, "_blank"); }}
-                      className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
-                      title="Visualizar quiz público"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
-
-                    {/* Copiar Link — ícone de corrente/link */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigator.clipboard.writeText(window.location.origin + `/quiz/${q.slug}`);
-                        toast.success("Link copiado!", { description: window.location.origin + `/quiz/${q.slug}` });
-                      }}
-                      className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
-                      title="Copiar link público"
-                    >
-                      <Link2 className="w-4 h-4" />
-                    </button>
-
-                    {/* Duplicar — ícone de múltiplos arquivos */}
-                    <button
-                      onClick={async (e) => {
+                    <p className="text-sm opacity-70 line-clamp-2">{q.description}</p>
+                    <div className="flex items-center gap-2 pt-2 border-t border-border/20 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={(e) => { e.stopPropagation(); window.open(`/quiz/${q.slug}`, "_blank"); }} className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors" title="Visualizar"><Eye className="w-4 h-4" /></button>
+                      <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(window.location.origin + `/quiz/${q.slug}`); toast.success("Link copiado!"); }} className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors" title="Copiar link"><Link2 className="w-4 h-4" /></button>
+                      <button onClick={async (e) => {
                         e.stopPropagation();
                         const { data } = await supabase.from("quizzes").insert({
-                          title: q.title + " (Cópia)",
-                          slug: q.slug + "-copia-" + Date.now(),
-                          description: q.description,
-                          logo_url: q.logo_url,
-                          logo_position: q.logo_position,
-                          theme: q.theme as any,
-                          questions: q.questions,
-                          status: "draft",
-                          crm_funnel_id: q.crm_funnel_id,
-                          crm_stage_id: q.crm_stage_id,
-                          meta_pixel_id: q.meta_pixel_id,
-                          ga_id: q.ga_id,
+                          title: q.title + " (Cópia)", slug: q.slug + "-copia-" + Date.now(), description: q.description,
+                          logo_url: q.logo_url, logo_position: q.logo_position, theme: q.theme as any, questions: q.questions,
+                          status: "draft", crm_funnel_id: q.crm_funnel_id, crm_stage_id: q.crm_stage_id, meta_pixel_id: q.meta_pixel_id, ga_id: q.ga_id,
                         } as any).select().single();
-                        if (data) {
-                          loadQuizzes();
-                          toast.success("Quiz duplicado!", { description: `"${data.title}" criado como rascunho.` });
-                        }
-                      }}
-                      className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
-                      title="Duplicar quiz"
-                    >
-                      <Files className="w-4 h-4" />
-                    </button>
-
-                    {/* Analytics — atalho direto para aba analytics */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openQuiz(q);
-                        setTab("analytics");
-                      }}
-                      className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
-                      title="Ver Analytics"
-                    >
-                      <TrendingUp className="w-4 h-4" />
-                    </button>
-
-                    {/* Excluir */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (confirm(`Excluir "${q.title}"? Esta ação não pode ser desfeita.`)) {
-                          supabase.from("quizzes").delete().eq("id", q.id).then(() => {
-                            loadQuizzes();
-                            toast.success("Quiz excluído.");
-                          });
-                        }
-                      }}
-                      className="p-2 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive ml-auto transition-colors"
-                      title="Excluir quiz"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                        if (data) { loadQuizzes(); toast.success("Quiz duplicado!"); }
+                      }} className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors" title="Duplicar"><Files className="w-4 h-4" /></button>
+                      <button onClick={(e) => { e.stopPropagation(); openQuiz(q); setTab("analytics"); }} className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors" title="Analytics"><TrendingUp className="w-4 h-4" /></button>
+                      <button onClick={(e) => { e.stopPropagation(); if (confirm(`Excluir "${q.title}"?`)) { supabase.from("quizzes").delete().eq("id", q.id).then(() => { loadQuizzes(); toast.success("Quiz excluído."); }); } }} className="p-2 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive ml-auto transition-colors" title="Excluir"><Trash2 className="w-4 h-4" /></button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            )}
+
+            {/* Templates Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="flex-1 h-px bg-border/40" />
+                <span className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Templates Prontos</span>
+                <div className="flex-1 h-px bg-border/40" />
+              </div>
+
+              <div className="relative max-w-md mx-auto">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <input type="text" placeholder="Buscar templates de quiz..." value={quizTemplateFilter} onChange={e => setQuizTemplateFilter(e.target.value)}
+                  className="w-full bg-secondary/50 border border-border/40 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:border-primary/30"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {filteredQuizTemplates.map(tmpl => (
+                  <div key={tmpl.id} onClick={() => handleUseQuizTemplate(tmpl)}
+                    className="p-5 rounded-2xl border border-border/40 hover:border-primary/40 cursor-pointer transition-all group bg-secondary/10 hover:bg-secondary/20">
+                    <div className="text-3xl mb-3">{tmpl.thumbnail}</div>
+                    <h3 className="font-bold text-sm mb-1">{tmpl.name}</h3>
+                    <p className="text-[10px] text-primary font-semibold uppercase tracking-wider mb-1">{tmpl.category}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{tmpl.description}</p>
+                    <p className="text-[10px] text-muted-foreground mt-2">{tmpl.questions.length} perguntas</p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
