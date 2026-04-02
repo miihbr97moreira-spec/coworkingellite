@@ -411,7 +411,7 @@ export class FlowService {
       .limit(limit);
 
     if (error) throw error;
-    return data || [];
+    return (data || []) as any;
   }
 
   /**

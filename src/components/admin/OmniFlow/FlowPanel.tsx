@@ -177,7 +177,7 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({ onAddNode }) => {
   );
 
   return (
-    <Panel position="left" className="!p-0 !bg-transparent !border-0">
+    <Panel position="top-left" className="!p-0 !bg-transparent !border-0">
       <motion.div
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
