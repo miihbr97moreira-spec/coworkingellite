@@ -220,6 +220,30 @@ const AdminBuilderOmni = ({ isLegacyLP = false }: AdminBuilderOmniProps) => {
   useEffect(() => { 
     loadPages();
     loadDomains();
+    if (isLegacyLP) {
+      // Load the root LP by fetching its HTML from the current origin
+      setMode("edit-generated");
+      fetch("/")
+        .then(res => res.text())
+        .then(html => {
+          if (html) {
+            const injected = injectScript(html);
+            setGeneratedHtml(injected);
+            setHtmlHistory([injected]);
+            setHistoryIdx(0);
+            setChatMessages([{
+              id: "legacy-welcome",
+              role: "assistant",
+              content: "Landing Page raiz carregada! Clique nos elementos para editar ou peça alterações no chat.",
+              timestamp: new Date()
+            }]);
+          }
+        })
+        .catch(err => {
+          console.error("Erro ao carregar LP raiz:", err);
+          toast.error("Erro ao carregar a Landing Page");
+        });
+    }
   }, []);
 
   const loadDomains = async () => {
