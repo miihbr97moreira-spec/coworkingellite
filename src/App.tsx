@@ -12,7 +12,6 @@ import Home from "./pages/Home";
 import AdminLogin from "./pages/AdminLogin";
 import GeneratedPage from "./pages/GeneratedPage";
 import QuizPage from "./pages/QuizPage";
-import PublicSchedulePage from "./pages/PublicSchedulePage";
 import NotFound from "./pages/NotFound";
 
 // Páginas Privadas (Admin/Tenant)
@@ -66,7 +65,6 @@ const App = () => (
                 <Route path="/admin/login" element={<AdminLogin />} />
                 <Route path="/p/:slug" element={<GeneratedPage />} />
                 <Route path="/quiz/:slug" element={<QuizPage />} />
-                <Route path="/agenda/:slug" element={<PublicSchedulePage />} />
 
                 {/* Rotas Privadas (Tenant) */}
                 <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
