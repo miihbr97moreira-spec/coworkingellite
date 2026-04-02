@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   BarChart3, Type, ListChecks, LogOut, Menu, X,
-  Settings, Kanban, Zap, PanelLeftClose, PanelLeft, ShieldAlert, Globe,
+  Settings, Kanban, Zap, PanelLeftClose, PanelLeft, ShieldAlert, Globe, Calendar,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -11,6 +11,7 @@ import AdminDashboardExpanded from "@/components/admin/AdminDashboardExpanded";
 import AdminBuilderOmni from "@/components/admin/AdminBuilderOmni";
 import AdminCRM from "@/components/admin/AdminCRM";
 import AdminQuizBuilder from "@/components/admin/AdminQuizBuilder";
+import AdminSchedules from "@/components/admin/AdminSchedules";
 import OmniFlow from "@/components/admin/OmniFlow";
 import TenantSettings from "@/components/admin/TenantSettings";
 import SuperAdminPanel from "@/pages/SuperAdmin";
@@ -19,6 +20,7 @@ import SuperAdminPanel from "@/pages/SuperAdmin";
 const mainTabs = [
   { id: "dashboard", label: "Dashboard", icon: BarChart3, module: "dashboard" },
   { id: "crm", label: "CRM", icon: Kanban, module: "crm" },
+  { id: "schedules", label: "Agendas", icon: Calendar, module: "schedules" },
   { id: "content", label: "Builder Pages", icon: Type, module: "builder" },
   { id: "quiz", label: "Quizzes", icon: ListChecks, module: "quiz_builder" },
   { id: "omni_flow", label: "Omni Flow", icon: Zap, module: "omni_flow", badge: "BETA" },
@@ -293,6 +295,7 @@ const Admin = () => {
         >
           {activeTab === "dashboard" && <AdminDashboardExpanded />}
           {activeTab === "crm" && <AdminCRM />}
+          {activeTab === "schedules" && <AdminSchedules />}
           {activeTab === "content" && <AdminBuilderOmni />}
           {activeTab === "quiz" && <AdminQuizBuilder />}
           {activeTab === "omni_flow" && <OmniFlow />}
