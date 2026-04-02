@@ -38,7 +38,7 @@ export class FlowService {
       .single();
 
     if (error) throw error;
-    return data;
+    return data as any;
   }
 
   /**
