@@ -5,6 +5,7 @@ import { Loader2, ArrowRight, CheckCircle2, AlertCircle, Timer } from "lucide-re
 import { motion, AnimatePresence } from "framer-motion";
 import PremiumQuizOption from "@/components/quiz/PremiumQuizOption";
 import WhiteLabelHelmet from "@/components/WhiteLabelHelmet";
+import PixelInjector from "@/components/PixelInjector";
 import { useQuizCheckoutFlow } from "@/hooks/useQuizCheckoutFlow";
 import { calculateLeadScore } from "@/utils/leadScoring";
 
