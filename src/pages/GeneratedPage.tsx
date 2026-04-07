@@ -2,18 +2,13 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import WhiteLabelHelmet from "@/components/WhiteLabelHelmet";
+import PixelInjector from "@/components/PixelInjector";
 
 interface PageData {
   html_content: string;
   status: string;
   meta_pixel_id?: string;
   ga_id?: string;
-  seo_title?: string;
-  seo_description?: string;
-  favicon_url?: string;
-  logo_url?: string;
-  brand_color?: string;
-  custom_domain?: string;
   title?: string;
 }
 
@@ -39,42 +34,8 @@ const GeneratedPage = ({ overrideSlug }: { overrideSlug?: string }) => {
         setError(true);
       } else {
         setPageData(data);
-        let finalHtml = data.html_content;
-
-        // Inject pixels into <head>
-        const pixelScripts: string[] = [];
-
-        if (data.meta_pixel_id) {
-          pixelScripts.push(`
-            <script>
-            !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-            n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
-            n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
-            t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}
-            (window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
-            fbq('init','${data.meta_pixel_id}');fbq('track','PageView');
-            <\/script>
-            <noscript><img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=${data.meta_pixel_id}&ev=PageView&noscript=1"/></noscript>`);
-        }
-
-        if (data.ga_id) {
-          pixelScripts.push(`
-            <script async src="https://www.googletagmanager.com/gtag/js?id=${data.ga_id}"><\/script>
-            <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${data.ga_id}');<\/script>`);
-        }
-
-        if (pixelScripts.length > 0) {
-          const injection = pixelScripts.join("\n");
-          if (finalHtml.includes("</head>")) {
-            finalHtml = finalHtml.replace("</head>", injection + "</head>");
-          } else if (finalHtml.includes("<body")) {
-            finalHtml = finalHtml.replace("<body", injection + "<body");
-          } else {
-            finalHtml = injection + finalHtml;
-          }
-        }
-
-        setHtml(finalHtml);
+        // Don't inject pixels into iframe HTML - use PixelInjector in DOM instead
+        setHtml(data.html_content);
       }
       setLoading(false);
     };
@@ -99,13 +60,9 @@ const GeneratedPage = ({ overrideSlug }: { overrideSlug?: string }) => {
 
   return (
     <>
+      <PixelInjector metaPixelId={pageData?.meta_pixel_id} gaId={pageData?.ga_id} />
       <WhiteLabelHelmet
-        title={pageData?.seo_title || pageData?.title}
-        description={pageData?.seo_description}
-        faviconUrl={pageData?.favicon_url}
-        logoUrl={pageData?.logo_url}
-        brandColor={pageData?.brand_color}
-        customDomain={pageData?.custom_domain}
+        title={pageData?.title}
       />
       <iframe srcDoc={html} className="w-full h-screen border-0" title="Generated Page" />
     </>
