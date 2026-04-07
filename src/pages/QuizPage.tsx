@@ -291,6 +291,7 @@ const QuizPage = ({ overrideSlug }: { overrideSlug?: string }) => {
 
   return (
     <>
+      <PixelInjector metaPixelId={quiz?.meta_pixel_id} gaId={quiz?.ga_id} />
       <WhiteLabelHelmet
         title={quiz?.seo_title || quiz?.title}
         description={quiz?.seo_description}
