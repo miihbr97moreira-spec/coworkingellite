@@ -217,7 +217,7 @@ const AdminDomains = React.forwardRef<HTMLDivElement>((_, ref) => {
                   </div>
                   <div className="flex items-center justify-between p-2 bg-secondary/30 rounded">
                     <span className="text-muted-foreground">Valor (IP):</span>
-                    <span className="font-bold text-primary">76.76.21.21</span>
+                    <span className="font-bold text-primary">185.158.133.1</span>
                   </div>
                   <div className="flex items-center justify-between p-2 bg-secondary/30 rounded">
                     <span className="text-muted-foreground">TTL:</span>
