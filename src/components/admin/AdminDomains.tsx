@@ -217,7 +217,7 @@ const AdminDomains = React.forwardRef<HTMLDivElement>((_, ref) => {
                   </div>
                   <div className="flex items-center justify-between p-2 bg-secondary/30 rounded">
                     <span className="text-muted-foreground">Valor (IP):</span>
-                    <span className="font-bold text-primary">76.76.21.21</span>
+                    <span className="font-bold text-primary">185.158.133.1</span>
                   </div>
                   <div className="flex items-center justify-between p-2 bg-secondary/30 rounded">
                     <span className="text-muted-foreground">TTL:</span>
@@ -232,7 +232,7 @@ const AdminDomains = React.forwardRef<HTMLDivElement>((_, ref) => {
                 <ul className="text-[10px] text-muted-foreground space-y-1">
                   <li><strong>Tipo:</strong> A (IPv4 - Endereço de Internet Protocol versão 4)</li>
                   <li><strong>Nome:</strong> @ para domínio raiz (exemplo.com)</li>
-                  <li><strong>Valor:</strong> IP do servidor (76.76.21.21)</li>
+                  <li><strong>Valor:</strong> IP do servidor (185.158.133.1)</li>
                   <li><strong>TTL:</strong> Tempo de cache em segundos (3600 = 1 hora, 86400 = 1 dia)</li>
                 </ul>
               </div>

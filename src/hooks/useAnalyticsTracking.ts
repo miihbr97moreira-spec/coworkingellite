@@ -1,18 +1,6 @@
 import { useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-interface TrackingEvent {
-  event_type: "page_view" | "button_click" | "form_submit" | "scroll" | "video_play";
-  cta_type?: "whatsapp" | "url" | "email" | "phone" | "anchor";
-  cta_label?: string;
-  cta_id?: string;
-  session_id: string;
-  user_agent: string;
-  referrer: string;
-  path: string;
-  metadata?: Record<string, any>;
-}
-
 const getSessionId = () => {
   let sessionId = sessionStorage.getItem("analytics_session_id");
   if (!sessionId) {
@@ -23,64 +11,74 @@ const getSessionId = () => {
 };
 
 export const useAnalyticsTracking = () => {
-  const trackEvent = useCallback(async (event: Omit<TrackingEvent, "session_id" | "user_agent" | "referrer">) => {
+  const trackEvent = useCallback(async (event: {
+    event_type: string;
+    path?: string;
+    cta_type?: string;
+    cta_label?: string;
+    cta_id?: string;
+    metadata?: Record<string, any>;
+  }) => {
     try {
-      const trackingData: TrackingEvent = {
-        ...event,
-        session_id: getSessionId(),
-        user_agent: navigator.userAgent,
-        referrer: document.referrer || "direct",
-      };
-
-      const { error } = await supabase.from("lp_events").insert([trackingData]);
+      const { error } = await supabase.from("lp_events").insert([{
+        event_type: event.event_type,
+        metadata: {
+          session_id: getSessionId(),
+          user_agent: navigator.userAgent,
+          referrer: document.referrer || "direct",
+          path: event.path || window.location.pathname,
+          cta_type: event.cta_type,
+          cta_label: event.cta_label,
+          cta_id: event.cta_id,
+          ...event.metadata,
+        },
+      }]);
       if (error) console.error("Erro ao rastrear evento:", error);
     } catch (err) {
       console.error("Erro ao rastrear evento:", err);
     }
   }, []);
 
-  // Rastrear cliques em botões
+  // Track button clicks
   useEffect(() => {
     const handleButtonClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       const button = target.closest("[data-cta-id]");
-      
       if (button) {
-        const ctaId = button.getAttribute("data-cta-id");
-        const ctaLabel = button.getAttribute("data-cta-label");
-        const ctaType = button.getAttribute("data-cta-type") as any;
-
         trackEvent({
-          event_type: "button_click",
-          cta_id: ctaId || undefined,
-          cta_label: ctaLabel || undefined,
-          cta_type: ctaType || undefined,
+          event_type: "cta_click",
+          cta_id: button.getAttribute("data-cta-id") || undefined,
+          cta_label: button.getAttribute("data-cta-label") || undefined,
+          cta_type: button.getAttribute("data-cta-type") || undefined,
           path: window.location.pathname,
         });
       }
     };
-
     document.addEventListener("click", handleButtonClick);
     return () => document.removeEventListener("click", handleButtonClick);
   }, [trackEvent]);
 
-  // Rastrear scroll
+  // Track scroll depth
   useEffect(() => {
-    let scrollTimeout: NodeJS.Timeout;
+    let scrollTimeout: ReturnType<typeof setTimeout>;
+    const tracked = new Set<number>();
     const handleScroll = () => {
       clearTimeout(scrollTimeout);
       scrollTimeout = setTimeout(() => {
-        const scrollPercentage = (window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
-        if (scrollPercentage > 25 && scrollPercentage < 30) {
+        const pct = Math.round(
+          (window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100
+        );
+        const milestone = [25, 50, 75, 100].find(m => pct >= m && !tracked.has(m));
+        if (milestone) {
+          tracked.add(milestone);
           trackEvent({
-            event_type: "scroll",
+            event_type: "scroll_depth",
             path: window.location.pathname,
-            metadata: { scrollPercentage: Math.round(scrollPercentage) },
+            metadata: { scrollPercentage: milestone },
           });
         }
-      }, 1000);
+      }, 500);
     };
-
     window.addEventListener("scroll", handleScroll);
     return () => {
       window.removeEventListener("scroll", handleScroll);

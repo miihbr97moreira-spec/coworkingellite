@@ -5,6 +5,7 @@ import { Loader2, ArrowRight, CheckCircle2, AlertCircle, Timer } from "lucide-re
 import { motion, AnimatePresence } from "framer-motion";
 import PremiumQuizOption from "@/components/quiz/PremiumQuizOption";
 import WhiteLabelHelmet from "@/components/WhiteLabelHelmet";
+import PixelInjector from "@/components/PixelInjector";
 import { useQuizCheckoutFlow } from "@/hooks/useQuizCheckoutFlow";
 import { calculateLeadScore } from "@/utils/leadScoring";
 
@@ -290,6 +291,7 @@ const QuizPage = ({ overrideSlug }: { overrideSlug?: string }) => {
 
   return (
     <>
+      <PixelInjector metaPixelId={quiz?.meta_pixel_id} gaId={quiz?.ga_id} />
       <WhiteLabelHelmet
         title={quiz?.seo_title || quiz?.title}
         description={quiz?.seo_description}
