@@ -491,7 +491,7 @@ const AdminBuilderOmni = ({ isLegacyLP = false }: AdminBuilderOmniProps) => {
   );
 
   /* ───────── RENDER: EMPTY STATE / TEMPLATE GALLERY ───────── */
-  if (!isLegacyLP && mode === "generate" && !isGenerating && pages.length === 0) {
+  if (!isLegacyLP && mode === "generate" && !isGenerating && !activePage && !generatedHtml) {
     return (
       <div className="flex-1 flex flex-col bg-[#050505] p-6 overflow-y-auto">
         <div className="max-w-5xl mx-auto w-full space-y-8">
