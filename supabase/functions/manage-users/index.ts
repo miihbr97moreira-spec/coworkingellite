@@ -7,82 +7,146 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Responder a preflight CORS
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-    
-    // Cliente Admin para operações que o usuário comum não pode fazer
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+
+    // Validate caller is super_admin
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) throw new Error("Não autorizado");
+
+    const callerClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
       auth: { autoRefreshToken: false, persistSession: false },
     });
+    const { data: { user: caller } } = await callerClient.auth.getUser();
+    if (!caller) throw new Error("Não autorizado");
 
-    // 1. Buscar itens pendentes na fila 'user_creation_queue'
-    const { data: queueItems, error: queueError } = await supabaseAdmin
-      .from('user_creation_queue')
-      .select('*')
-      .eq('status', 'pending')
-      .limit(10);
+    // Check super_admin role
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const { data: roleData } = await adminClient
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", caller.id)
+      .eq("role", "super_admin")
+      .maybeSingle();
 
-    if (queueError) {
-      console.error("Erro ao ler fila:", queueError);
-      return new Response(JSON.stringify({ error: "Tabela de fila não encontrada. Execute o SQL de migration." }), {
-        status: 404,
+    if (!roleData) throw new Error("Acesso negado: apenas Super Admin");
+
+    const body = await req.json();
+    const { action } = body;
+
+    if (action === "list_users") {
+      const { data: { users }, error } = await adminClient.auth.admin.listUsers();
+      if (error) throw error;
+
+      // Enrich with user_management data
+      const { data: mgmtData } = await adminClient.from("user_management").select("*");
+      const mgmtMap = new Map((mgmtData || []).map(m => [m.user_id, m]));
+
+      const enrichedUsers = (users || []).map(u => ({
+        id: u.id,
+        email: u.email || "",
+        full_name: mgmtMap.get(u.id)?.full_name || u.user_metadata?.full_name || "",
+        role: mgmtMap.get(u.id)?.role || "editor",
+        max_domains: mgmtMap.get(u.id)?.max_domains || 1,
+        max_quizzes: mgmtMap.get(u.id)?.max_quizzes || 5,
+        max_pages: mgmtMap.get(u.id)?.max_pages || 10,
+        allowed_modules: mgmtMap.get(u.id)?.allowed_modules || [],
+        is_active: mgmtMap.get(u.id)?.is_active ?? true,
+        created_at: u.created_at,
+      }));
+
+      return new Response(JSON.stringify({ users: enrichedUsers }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const results = [];
+    if (action === "create_user") {
+      const { email, password, full_name, role, max_domains, max_quizzes, max_pages, allowed_modules } = body;
+      if (!email || !password || !full_name) throw new Error("Campos obrigatórios: email, password, full_name");
 
-    for (const item of (queueItems || [])) {
-      try {
-        // Marcar como processando
-        await supabaseAdmin.from('user_creation_queue').update({ status: 'processing' }).eq('id', item.id);
+      // Create auth user
+      const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { full_name },
+      });
+      if (authError) throw authError;
+      const userId = authData.user.id;
 
-        // Criar usuário no Auth do Supabase
-        const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
-          email: item.email,
-          password: item.password,
-          email_confirm: true,
-          user_metadata: { full_name: item.full_name }
-        });
+      // Insert into user_roles
+      const appRole = role === "super_admin" ? "super_admin" : "editor";
+      await adminClient.from("user_roles").insert({ user_id: userId, role: appRole });
 
-        if (authError) throw authError;
+      // Insert into user_management
+      await adminClient.from("user_management").insert({
+        user_id: userId,
+        email,
+        full_name,
+        role: appRole,
+        max_domains: max_domains || 1,
+        max_quizzes: max_quizzes || 5,
+        max_pages: max_pages || 10,
+        allowed_modules: allowed_modules || ["builder", "quiz_builder", "pixels", "crm"],
+        is_active: true,
+      });
 
-        // Atribuir Role na tabela user_roles
-        const { error: roleError } = await supabaseAdmin.from('user_roles').insert({
-          user_id: authUser.user.id,
-          role: item.role
-        });
-
-        if (roleError) throw roleError;
-
-        // Marcar como concluído
-        await supabaseAdmin.from('user_creation_queue').update({ 
-          status: 'completed', 
-          processed_at: new Date().toISOString() 
-        }).eq('id', item.id);
-
-        results.push({ email: item.email, status: 'success' });
-      } catch (e: any) {
-        console.error(`Erro no item ${item.id}:`, e);
-        await supabaseAdmin.from('user_creation_queue').update({ 
-          status: 'error', 
-          error_message: e.message 
-        }).eq('id', item.id);
-        results.push({ email: item.email, status: 'error', message: e.message });
-      }
+      return new Response(JSON.stringify({ success: true, user_id: userId }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    return new Response(JSON.stringify({ processed: results.length, results }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    if (action === "delete_user") {
+      const { user_id } = body;
+      if (!user_id) throw new Error("user_id obrigatório");
+
+      // Prevent deleting self
+      if (user_id === caller.id) throw new Error("Não é possível deletar a si mesmo");
+
+      await adminClient.from("user_management").delete().eq("user_id", user_id);
+      await adminClient.from("user_roles").delete().eq("user_id", user_id);
+      const { error } = await adminClient.auth.admin.deleteUser(user_id);
+      if (error) throw error;
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "get_metrics") {
+      const [
+        { count: totalUsers },
+        { count: totalDomains },
+        { count: totalPages },
+        { count: totalQuizzes },
+      ] = await Promise.all([
+        adminClient.from("user_management").select("*", { count: "exact", head: true }),
+        adminClient.from("custom_domains").select("*", { count: "exact", head: true }),
+        adminClient.from("generated_pages").select("*", { count: "exact", head: true }),
+        adminClient.from("quizzes").select("*", { count: "exact", head: true }),
+      ]);
+
+      return new Response(JSON.stringify({
+        total_users: totalUsers || 0,
+        total_domains: totalDomains || 0,
+        total_pages: totalPages || 0,
+        total_quizzes: totalQuizzes || 0,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    throw new Error(`Ação desconhecida: ${action}`);
   } catch (e: any) {
-    console.error("Erro crítico na função:", e);
     return new Response(JSON.stringify({ error: e.message }), {
-      status: 500,
+      status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
