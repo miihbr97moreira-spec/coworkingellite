@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   BarChart3, Type, ListChecks, LogOut, Menu, X,
-  Settings, Kanban, Zap, PanelLeftClose, PanelLeft, ShieldAlert, Globe,
+  Settings, Kanban, Zap, PanelLeftClose, PanelLeft, ShieldAlert, Globe, FileText,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -14,6 +14,7 @@ import AdminQuizBuilder from "@/components/admin/AdminQuizBuilder";
 import OmniFlow from "@/components/admin/OmniFlow";
 import TenantSettings from "@/components/admin/TenantSettings";
 import SuperAdminPanel from "@/pages/SuperAdmin";
+import AdminFormBuilder from "@/components/admin/AdminFormBuilder";
 
 // Main navigation tabs (top-down order)
 const mainTabs = [
@@ -22,6 +23,7 @@ const mainTabs = [
   { id: "content", label: "Builder Pages", icon: Type, module: "builder" },
   { id: "quiz", label: "Quizzes", icon: ListChecks, module: "quiz_builder" },
   { id: "omni_flow", label: "Omni Flow", icon: Zap, module: "omni_flow", badge: "BETA" },
+  { id: "forms", label: "Forms", icon: FileText, module: "forms" },
 ];
 
 const SIDEBAR_KEY = "omni_sidebar_collapsed";
@@ -296,6 +298,7 @@ const Admin = () => {
           {activeTab === "content" && <AdminBuilderOmni />}
           {activeTab === "quiz" && <AdminQuizBuilder />}
           {activeTab === "omni_flow" && <OmniFlow />}
+          {activeTab === "forms" && <AdminFormBuilder />}
           {activeTab === "settings" && <TenantSettings />}
           {activeTab === "super_admin" && isSuperAdmin && <SuperAdminPanel />}
           {activeTab === "legacy_lp" && isSuperAdmin && <AdminBuilderOmni isLegacyLP={true} />}

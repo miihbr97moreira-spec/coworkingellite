@@ -131,6 +131,138 @@ export type Database = {
         }
         Relationships: []
       }
+      form_submissions: {
+        Row: {
+          answers: Json | null
+          created_at: string
+          email: string | null
+          form_id: string
+          id: string
+          lead_id: string | null
+          metadata: Json | null
+          name: string | null
+          phone: string | null
+        }
+        Insert: {
+          answers?: Json | null
+          created_at?: string
+          email?: string | null
+          form_id: string
+          id?: string
+          lead_id?: string | null
+          metadata?: Json | null
+          name?: string | null
+          phone?: string | null
+        }
+        Update: {
+          answers?: Json | null
+          created_at?: string
+          email?: string | null
+          form_id?: string
+          id?: string
+          lead_id?: string | null
+          metadata?: Json | null
+          name?: string | null
+          phone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "form_submissions_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "form_submissions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      forms: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          crm_funnel_id: string | null
+          crm_stage_id: string | null
+          description: string | null
+          ga_id: string | null
+          id: string
+          logic_rules: Json | null
+          logo_position: string | null
+          logo_url: string | null
+          meta_pixel_id: string | null
+          questions: Json | null
+          settings: Json | null
+          slug: string
+          source_tag: string | null
+          status: string
+          theme: Json | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          crm_funnel_id?: string | null
+          crm_stage_id?: string | null
+          description?: string | null
+          ga_id?: string | null
+          id?: string
+          logic_rules?: Json | null
+          logo_position?: string | null
+          logo_url?: string | null
+          meta_pixel_id?: string | null
+          questions?: Json | null
+          settings?: Json | null
+          slug: string
+          source_tag?: string | null
+          status?: string
+          theme?: Json | null
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          crm_funnel_id?: string | null
+          crm_stage_id?: string | null
+          description?: string | null
+          ga_id?: string | null
+          id?: string
+          logic_rules?: Json | null
+          logo_position?: string | null
+          logo_url?: string | null
+          meta_pixel_id?: string | null
+          questions?: Json | null
+          settings?: Json | null
+          slug?: string
+          source_tag?: string | null
+          status?: string
+          theme?: Json | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forms_crm_funnel_id_fkey"
+            columns: ["crm_funnel_id"]
+            isOneToOne: false
+            referencedRelation: "funnels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "forms_crm_stage_id_fkey"
+            columns: ["crm_stage_id"]
+            isOneToOne: false
+            referencedRelation: "stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       funnels: {
         Row: {
           created_at: string
